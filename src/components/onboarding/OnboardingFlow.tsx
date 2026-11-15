@@ -27,6 +27,16 @@ import {
   PRELOADED_ASTRONAUTS,
 } from '@/data/astronautsData';
 import { useMission } from '@/context/MissionContext';
+import {
+  ASTRONAUT_LIMITS,
+  AstronautFieldKey,
+  AstronautFormDraft,
+  VALID_BLOOD_TYPES,
+  preventNonIntegerKey,
+  sanitizeAstronautProfile,
+  sanitizeIntegerInput,
+  validateAstronautForm,
+} from '@/utils/astronautValidation';
 
 const MISSION_ICONS: Record<MissionId, React.ReactNode> = {
   'deep-space-transit': <Rocket className="h-6 w-6 text-primary" />,
@@ -41,8 +51,6 @@ const RISK_BADGE_STYLES: Record<string, string> = {
   Alto: 'bg-warning-container text-on-warning-container border-warning/30',
   Extremo: 'bg-danger-container text-on-danger-container border-danger/30',
 };
-
-const BLOOD_TYPES: BloodType[] = ['O-', 'O+', 'A+', 'A-', 'B+', 'AB+'];
 
 export function OnboardingFlow() {
   const {
@@ -162,10 +170,11 @@ export function OnboardingFlow() {
   }, [step]);
   const [selectedMissionId, setSelectedMissionId] = useState<MissionId>(currentMission.id);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>(currentAstronaut.id);
+  const formRef = useRef<HTMLFormElement>(null);
 
   const [name, setName] = useState<string>(currentAstronaut.name);
   const [role, setRole] = useState<string>(currentAstronaut.role);
-  const [age, setAge] = useState<number>(currentAstronaut.age);
+  const [age, setAge] = useState<string>(String(currentAstronaut.age));
   const [bloodType, setBloodType] = useState<BloodType>(currentAstronaut.bloodType);
   const [immuneStatus, setImmuneStatus] = useState<ImmuneStatus>(
     currentAstronaut.clinicalHistory.immuneStatus
@@ -176,21 +185,64 @@ export function OnboardingFlow() {
   const [allergiesInput, setAllergiesInput] = useState<string>(
     currentAstronaut.clinicalHistory.allergies.join(', ')
   );
-  const [baselineGlucose, setBaselineGlucose] = useState<number>(
-    currentAstronaut.clinicalHistory.baselineGlucose
+  const [baselineGlucose, setBaselineGlucose] = useState<string>(
+    String(currentAstronaut.clinicalHistory.baselineGlucose)
   );
-  const [baselineSystolic, setBaselineSystolic] = useState<number>(
-    currentAstronaut.clinicalHistory.baselineSystolic
+  const [baselineSystolic, setBaselineSystolic] = useState<string>(
+    String(currentAstronaut.clinicalHistory.baselineSystolic)
   );
-  const [baselineDiastolic, setBaselineDiastolic] = useState<number>(
-    currentAstronaut.clinicalHistory.baselineDiastolic
+  const [baselineDiastolic, setBaselineDiastolic] = useState<string>(
+    String(currentAstronaut.clinicalHistory.baselineDiastolic)
   );
-  const [baselineHR, setBaselineHR] = useState<number>(
-    currentAstronaut.clinicalHistory.baselineHR
+  const [baselineHR, setBaselineHR] = useState<string>(
+    String(currentAstronaut.clinicalHistory.baselineHR)
   );
   const [clinicalNotes, setClinicalNotes] = useState<string>(
     currentAstronaut.clinicalHistory.notes
   );
+  const [touched, setTouched] = useState<Partial<Record<AstronautFieldKey, boolean>>>({});
+  const [hasAttemptedSubmit, setHasAttemptedSubmit] = useState<boolean>(false);
+
+  const draft: AstronautFormDraft = {
+    name,
+    role,
+    age,
+    bloodType,
+    immuneStatus,
+    surgeryInput,
+    allergiesInput,
+    baselineGlucose,
+    baselineSystolic,
+    baselineDiastolic,
+    baselineHR,
+    clinicalNotes,
+  };
+  const validation = validateAstronautForm(draft);
+  const errorCount = Object.keys(validation.errors).length;
+
+  const markTouched = (field: AstronautFieldKey) => {
+    setTouched((prev) => (prev[field] ? prev : { ...prev, [field]: true }));
+  };
+
+  const getFieldError = (
+    field: AstronautFieldKey,
+    rawValue: string
+  ): string | undefined => {
+    const err = validation.errors[field];
+    if (!err) return undefined;
+    // Show non-empty out-of-range/invalid format errors immediately; wait for blur/submit if empty.
+    if (hasAttemptedSubmit || touched[field] || rawValue.trim().length > 0) {
+      return err;
+    }
+    return undefined;
+  };
+
+  const fieldInputClass = (hasError: boolean, extra = '') =>
+    `w-full rounded-xl border px-3.5 py-2.5 text-sm text-on-surface outline-none dt-transition focus:ring-2 ${
+      hasError
+        ? 'border-danger bg-danger-container/25 focus:border-danger focus:ring-danger/20'
+        : 'border-outline bg-surface focus:border-primary focus:ring-primary/15'
+    } ${extra}`.trim();
 
   const selectedMission =
     MISSIONS_DATA.find((m) => m.id === selectedMissionId) ?? MISSIONS_DATA[0];
@@ -199,55 +251,66 @@ export function OnboardingFlow() {
     setSelectedTemplateId(preset.id);
     setName(preset.name);
     setRole(preset.role);
-    setAge(preset.age);
+    setAge(String(preset.age));
     setBloodType(preset.bloodType);
     setImmuneStatus(preset.clinicalHistory.immuneStatus);
     setSurgeryInput(preset.clinicalHistory.priorSurgeries.join(', '));
     setAllergiesInput(preset.clinicalHistory.allergies.join(', '));
-    setBaselineGlucose(preset.clinicalHistory.baselineGlucose);
-    setBaselineSystolic(preset.clinicalHistory.baselineSystolic);
-    setBaselineDiastolic(preset.clinicalHistory.baselineDiastolic);
-    setBaselineHR(preset.clinicalHistory.baselineHR);
+    setBaselineGlucose(String(preset.clinicalHistory.baselineGlucose));
+    setBaselineSystolic(String(preset.clinicalHistory.baselineSystolic));
+    setBaselineDiastolic(String(preset.clinicalHistory.baselineDiastolic));
+    setBaselineHR(String(preset.clinicalHistory.baselineHR));
     setClinicalNotes(preset.clinicalHistory.notes);
+    setTouched({});
+    setHasAttemptedSubmit(false);
   };
 
   const handleLaunchMission = (e: React.FormEvent) => {
     e.preventDefault();
-    const cleanedName = name.trim() || 'Astronauta en Misión';
+    setHasAttemptedSubmit(true);
+
+    if (!validation.isValid) {
+      requestAnimationFrame(() => {
+        formRef.current?.querySelector<HTMLElement>('[aria-invalid="true"]')?.focus();
+      });
+      return;
+    }
+
+    const cleanedName = name.trim();
     const parts = cleanedName.split(/\s+/);
     const initials =
       parts.length >= 2
         ? `${parts[0][0] ?? 'A'}${parts[1][0] ?? 'S'}`.toUpperCase()
         : cleanedName.slice(0, 2).toUpperCase();
 
-    const surgeries = surgeryInput
-      .split(',')
-      .map((s) => s.trim())
-      .filter(Boolean);
-    const allergies = allergiesInput
-      .split(',')
-      .map((s) => s.trim())
-      .filter(Boolean);
-
-    const finalProfile: AstronautProfile = {
+    const finalProfile = sanitizeAstronautProfile({
       id: selectedTemplateId || 'custom-astronaut',
       name: cleanedName,
-      role: role.trim() || 'Especialista de Misión',
-      age: Number(age) || 36,
+      role: role.trim(),
+      age: validation.parsed.age ?? ASTRONAUT_LIMITS.age.fallback,
       bloodType,
       avatarBadge: initials,
       clinicalHistory: {
         immuneStatus,
-        priorSurgeries: surgeries.length > 0 ? surgeries : ['Sin cirugías previas'],
-        allergies: allergies.length > 0 ? allergies : ['Ninguna conocida'],
-        baselineGlucose: Number(baselineGlucose) || 90,
-        baselineBP: `${baselineSystolic}/${baselineDiastolic} mmHg`,
-        baselineSystolic: Number(baselineSystolic) || 118,
-        baselineDiastolic: Number(baselineDiastolic) || 76,
-        baselineHR: Number(baselineHR) || 60,
+        priorSurgeries:
+          validation.parsed.surgeries.length > 0
+            ? validation.parsed.surgeries
+            : ['Sin cirugías previas'],
+        allergies:
+          validation.parsed.allergies.length > 0
+            ? validation.parsed.allergies
+            : ['Ninguna conocida'],
+        baselineGlucose:
+          validation.parsed.baselineGlucose ?? ASTRONAUT_LIMITS.baselineGlucose.fallback,
+        baselineBP: `${validation.parsed.baselineSystolic}/${validation.parsed.baselineDiastolic} mmHg`,
+        baselineSystolic:
+          validation.parsed.baselineSystolic ?? ASTRONAUT_LIMITS.baselineSystolic.fallback,
+        baselineDiastolic:
+          validation.parsed.baselineDiastolic ?? ASTRONAUT_LIMITS.baselineDiastolic.fallback,
+        baselineHR: validation.parsed.baselineHR ?? ASTRONAUT_LIMITS.baselineHR.fallback,
         notes: clinicalNotes.trim() || 'Expediente clínico validado previo al despegue.',
       },
-    };
+    });
 
     completeOnboarding(selectedMission.id, finalProfile);
   };
@@ -532,68 +595,157 @@ export function OnboardingFlow() {
 
             {/* Clinical Form */}
             <form
+              ref={formRef}
+              noValidate
               onSubmit={handleLaunchMission}
               className="grid gap-6 rounded-2xl border border-outline bg-surface-container p-6 lg:grid-cols-3"
             >
               <div data-choreo="astro-form" className="space-y-4 lg:col-span-2">
-                <div className="flex items-center gap-2 border-b border-outline-variant pb-3">
-                  <UserCheck className="h-5 w-5 text-primary" />
-                  <h3 className="text-base font-semibold text-on-surface font-display">
-                    Datos del Astronauta e Historial Médico Pre-Vuelo
-                  </h3>
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-outline-variant pb-3">
+                  <div className="flex items-center gap-2">
+                    <UserCheck className="h-5 w-5 text-primary" />
+                    <h3 className="text-base font-semibold text-on-surface font-display">
+                      Datos del Astronauta e Historial Médico Pre-Vuelo
+                    </h3>
+                  </div>
+                  <span className="rounded-full border border-outline bg-surface-container-low px-2.5 py-0.5 text-[11px] font-medium text-on-surface-variant font-mono">
+                    Validación fisiológica activa
+                  </span>
                 </div>
 
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <div>
-                    <label className="mb-1.5 block text-xs font-semibold text-on-surface-variant">
-                      Nombre completo del astronauta
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      value={name}
-                      onChange={(e) => setName(e.target.value)}
-                      placeholder="Ej. Cmdr. Elena Vance"
-                      className="w-full rounded-xl border border-outline bg-surface px-3.5 py-2.5 text-sm text-on-surface outline-none dt-transition focus:border-primary focus:ring-2 focus:ring-primary/15"
-                    />
-                  </div>
-                  <div>
-                    <label className="mb-1.5 block text-xs font-semibold text-on-surface-variant">
-                      Rol en la misión
-                    </label>
-                    <input
-                      type="text"
-                      value={role}
-                      onChange={(e) => setRole(e.target.value)}
-                      className="w-full rounded-xl border border-outline bg-surface px-3.5 py-2.5 text-sm text-on-surface outline-none dt-transition focus:border-primary focus:ring-2 focus:ring-primary/15"
-                    />
-                  </div>
-                </div>
+                {(() => {
+                  const nameError = getFieldError('name', name);
+                  const roleError = getFieldError('role', role);
+                  return (
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <div>
+                        <label
+                          htmlFor="astro-name"
+                          className="mb-1.5 flex items-center justify-between text-xs font-semibold text-on-surface-variant"
+                        >
+                          <span>Nombre completo del astronauta</span>
+                          <span className="font-mono text-[10px] font-normal">Solo letras</span>
+                        </label>
+                        <input
+                          id="astro-name"
+                          type="text"
+                          required
+                          maxLength={ASTRONAUT_LIMITS.name.maxLength}
+                          value={name}
+                          onChange={(e) => setName(e.target.value)}
+                          onBlur={() => markTouched('name')}
+                          aria-invalid={Boolean(nameError)}
+                          aria-describedby={nameError ? 'astro-name-error' : undefined}
+                          placeholder="Ej. Cmdr. Elena Vance"
+                          className={fieldInputClass(Boolean(nameError))}
+                        />
+                        {nameError && (
+                          <p
+                            id="astro-name-error"
+                            role="alert"
+                            className="mt-1 text-[11px] font-medium text-danger"
+                          >
+                            {nameError}
+                          </p>
+                        )}
+                      </div>
+                      <div>
+                        <label
+                          htmlFor="astro-role"
+                          className="mb-1.5 flex items-center justify-between text-xs font-semibold text-on-surface-variant"
+                        >
+                          <span>Rol en la misión</span>
+                          <span className="font-mono text-[10px] font-normal">
+                            {ASTRONAUT_LIMITS.role.minLength}–{ASTRONAUT_LIMITS.role.maxLength} car.
+                          </span>
+                        </label>
+                        <input
+                          id="astro-role"
+                          type="text"
+                          required
+                          maxLength={ASTRONAUT_LIMITS.role.maxLength}
+                          value={role}
+                          onChange={(e) => setRole(e.target.value)}
+                          onBlur={() => markTouched('role')}
+                          aria-invalid={Boolean(roleError)}
+                          aria-describedby={roleError ? 'astro-role-error' : undefined}
+                          placeholder="Ej. Comandante de Misión"
+                          className={fieldInputClass(Boolean(roleError))}
+                        />
+                        {roleError && (
+                          <p
+                            id="astro-role-error"
+                            role="alert"
+                            className="mt-1 text-[11px] font-medium text-danger"
+                          >
+                            {roleError}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })()}
 
                 <div className="grid gap-4 sm:grid-cols-3">
+                  {(() => {
+                    const ageError = getFieldError('age', age);
+                    return (
+                      <div>
+                        <label
+                          htmlFor="astro-age"
+                          className="mb-1.5 flex items-center justify-between text-xs font-semibold text-on-surface-variant"
+                        >
+                          <span>Edad</span>
+                          <span className="font-mono text-[10px] font-normal">
+                            {ASTRONAUT_LIMITS.age.min}–{ASTRONAUT_LIMITS.age.max}{' '}
+                            {ASTRONAUT_LIMITS.age.unit}
+                          </span>
+                        </label>
+                        <input
+                          id="astro-age"
+                          type="text"
+                          inputMode="numeric"
+                          pattern="[0-9]*"
+                          maxLength={ASTRONAUT_LIMITS.age.maxDigits}
+                          value={age}
+                          onKeyDown={preventNonIntegerKey}
+                          onChange={(e) =>
+                            setAge(
+                              sanitizeIntegerInput(e.target.value, ASTRONAUT_LIMITS.age.maxDigits)
+                            )
+                          }
+                          onBlur={() => markTouched('age')}
+                          aria-invalid={Boolean(ageError)}
+                          aria-describedby={ageError ? 'astro-age-error' : undefined}
+                          placeholder="36"
+                          className={fieldInputClass(Boolean(ageError), 'font-mono')}
+                        />
+                        {ageError && (
+                          <p
+                            id="astro-age-error"
+                            role="alert"
+                            className="mt-1 text-[11px] font-medium text-danger"
+                          >
+                            {ageError}
+                          </p>
+                        )}
+                      </div>
+                    );
+                  })()}
                   <div>
-                    <label className="mb-1.5 block text-xs font-semibold text-on-surface-variant">
-                      Edad
-                    </label>
-                    <input
-                      type="number"
-                      min={22}
-                      max={65}
-                      value={age}
-                      onChange={(e) => setAge(Number(e.target.value))}
-                      className="w-full rounded-xl border border-outline bg-surface px-3.5 py-2.5 text-sm text-on-surface outline-none dt-transition focus:border-primary focus:ring-2 focus:ring-primary/15 font-mono"
-                    />
-                  </div>
-                  <div>
-                    <label className="mb-1.5 block text-xs font-semibold text-on-surface-variant">
+                    <label
+                      htmlFor="astro-blood"
+                      className="mb-1.5 block text-xs font-semibold text-on-surface-variant"
+                    >
                       Tipo de Sangre
                     </label>
                     <select
+                      id="astro-blood"
                       value={bloodType}
                       onChange={(e) => setBloodType(e.target.value as BloodType)}
                       className="w-full cursor-pointer rounded-xl border border-outline bg-surface px-3.5 py-2.5 text-sm text-on-surface outline-none dt-transition hover:border-primary/50 focus:border-primary focus:ring-2 focus:ring-primary/15 font-mono"
                     >
-                      {BLOOD_TYPES.map((bt) => (
+                      {VALID_BLOOD_TYPES.map((bt) => (
                         <option key={bt} value={bt}>
                           {bt}
                         </option>
@@ -601,10 +753,14 @@ export function OnboardingFlow() {
                     </select>
                   </div>
                   <div>
-                    <label className="mb-1.5 block text-xs font-semibold text-on-surface-variant">
+                    <label
+                      htmlFor="astro-immune"
+                      className="mb-1.5 block text-xs font-semibold text-on-surface-variant"
+                    >
                       Estado Inmunológico Base
                     </label>
                     <select
+                      id="astro-immune"
                       value={immuneStatus}
                       onChange={(e) => setImmuneStatus(e.target.value as ImmuneStatus)}
                       className="w-full cursor-pointer rounded-xl border border-outline bg-surface px-3.5 py-2.5 text-sm text-on-surface outline-none dt-transition hover:border-primary/50 focus:border-primary focus:ring-2 focus:ring-primary/15"
@@ -617,100 +773,199 @@ export function OnboardingFlow() {
                   </div>
                 </div>
 
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <div>
-                    <label className="mb-1.5 block text-xs font-semibold text-on-surface-variant">
-                      Cirugías o lesiones previas (separadas por coma)
-                    </label>
-                    <input
-                      type="text"
-                      value={surgeryInput}
-                      onChange={(e) => setSurgeryInput(e.target.value)}
-                      placeholder="Ej. Cirugía de menisco en rodilla derecha"
-                      className="w-full rounded-xl border border-outline bg-surface px-3.5 py-2.5 text-sm text-on-surface outline-none dt-transition focus:border-primary focus:ring-2 focus:ring-primary/15"
-                    />
-                  </div>
-                  <div>
-                    <label className="mb-1.5 block text-xs font-semibold text-on-surface-variant">
-                      Alergias registradas
-                    </label>
-                    <input
-                      type="text"
-                      value={allergiesInput}
-                      onChange={(e) => setAllergiesInput(e.target.value)}
-                      placeholder="Ej. Penicilina"
-                      className="w-full rounded-xl border border-outline bg-surface px-3.5 py-2.5 text-sm text-on-surface outline-none dt-transition focus:border-primary focus:ring-2 focus:ring-primary/15"
-                    />
-                  </div>
-                </div>
+                {(() => {
+                  const surgeryError = getFieldError('surgeryInput', surgeryInput);
+                  const allergyError = getFieldError('allergiesInput', allergiesInput);
+                  return (
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <div>
+                        <label
+                          htmlFor="astro-surgeries"
+                          className="mb-1.5 flex items-center justify-between text-xs font-semibold text-on-surface-variant"
+                        >
+                          <span>Cirugías o lesiones previas (por coma)</span>
+                          <span className="font-mono text-[10px] font-normal">
+                            Máx. {ASTRONAUT_LIMITS.listField.maxItems}
+                          </span>
+                        </label>
+                        <input
+                          id="astro-surgeries"
+                          type="text"
+                          maxLength={ASTRONAUT_LIMITS.listField.maxLength}
+                          value={surgeryInput}
+                          onChange={(e) => setSurgeryInput(e.target.value)}
+                          onBlur={() => markTouched('surgeryInput')}
+                          aria-invalid={Boolean(surgeryError)}
+                          aria-describedby={surgeryError ? 'astro-surgeries-error' : undefined}
+                          placeholder="Ej. Cirugía de menisco en rodilla derecha"
+                          className={fieldInputClass(Boolean(surgeryError))}
+                        />
+                        {surgeryError && (
+                          <p
+                            id="astro-surgeries-error"
+                            role="alert"
+                            className="mt-1 text-[11px] font-medium text-danger"
+                          >
+                            {surgeryError}
+                          </p>
+                        )}
+                      </div>
+                      <div>
+                        <label
+                          htmlFor="astro-allergies"
+                          className="mb-1.5 flex items-center justify-between text-xs font-semibold text-on-surface-variant"
+                        >
+                          <span>Alergias registradas</span>
+                          <span className="font-mono text-[10px] font-normal">
+                            Máx. {ASTRONAUT_LIMITS.listField.maxItems}
+                          </span>
+                        </label>
+                        <input
+                          id="astro-allergies"
+                          type="text"
+                          maxLength={ASTRONAUT_LIMITS.listField.maxLength}
+                          value={allergiesInput}
+                          onChange={(e) => setAllergiesInput(e.target.value)}
+                          onBlur={() => markTouched('allergiesInput')}
+                          aria-invalid={Boolean(allergyError)}
+                          aria-describedby={allergyError ? 'astro-allergies-error' : undefined}
+                          placeholder="Ej. Penicilina"
+                          className={fieldInputClass(Boolean(allergyError))}
+                        />
+                        {allergyError && (
+                          <p
+                            id="astro-allergies-error"
+                            role="alert"
+                            className="mt-1 text-[11px] font-medium text-danger"
+                          >
+                            {allergyError}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })()}
 
                 {/* Baseline Vitals */}
                 <div className="grid gap-4 sm:grid-cols-4">
-                  <div>
-                    <label className="mb-1.5 block text-xs font-semibold text-on-surface-variant">
-                      Glucosa Basal (mg/dL)
-                    </label>
-                    <input
-                      type="number"
-                      min={65}
-                      max={140}
-                      value={baselineGlucose}
-                      onChange={(e) => setBaselineGlucose(Number(e.target.value))}
-                      className="w-full rounded-xl border border-outline bg-surface px-3 py-2 text-sm text-on-surface outline-none dt-transition focus:border-primary focus:ring-2 focus:ring-primary/15 font-mono"
-                    />
-                  </div>
-                  <div>
-                    <label className="mb-1.5 block text-xs font-semibold text-on-surface-variant">
-                      Sistólica Base (mmHg)
-                    </label>
-                    <input
-                      type="number"
-                      min={90}
-                      max={150}
-                      value={baselineSystolic}
-                      onChange={(e) => setBaselineSystolic(Number(e.target.value))}
-                      className="w-full rounded-xl border border-outline bg-surface px-3 py-2 text-sm text-on-surface outline-none dt-transition focus:border-primary focus:ring-2 focus:ring-primary/15 font-mono"
-                    />
-                  </div>
-                  <div>
-                    <label className="mb-1.5 block text-xs font-semibold text-on-surface-variant">
-                      Diastólica Base (mmHg)
-                    </label>
-                    <input
-                      type="number"
-                      min={55}
-                      max={100}
-                      value={baselineDiastolic}
-                      onChange={(e) => setBaselineDiastolic(Number(e.target.value))}
-                      className="w-full rounded-xl border border-outline bg-surface px-3 py-2 text-sm text-on-surface outline-none dt-transition focus:border-primary focus:ring-2 focus:ring-primary/15 font-mono"
-                    />
-                  </div>
-                  <div>
-                    <label className="mb-1.5 block text-xs font-semibold text-on-surface-variant">
-                      FC Reposo (bpm)
-                    </label>
-                    <input
-                      type="number"
-                      min={42}
-                      max={95}
-                      value={baselineHR}
-                      onChange={(e) => setBaselineHR(Number(e.target.value))}
-                      className="w-full rounded-xl border border-outline bg-surface px-3 py-2 text-sm text-on-surface outline-none dt-transition focus:border-primary focus:ring-2 focus:ring-primary/15 font-mono"
-                    />
-                  </div>
+                  {(
+                    [
+                      {
+                        key: 'baselineGlucose',
+                        id: 'astro-glucose',
+                        label: 'Glucosa Basal (mg/dL)',
+                        value: baselineGlucose,
+                        setter: setBaselineGlucose,
+                        spec: ASTRONAUT_LIMITS.baselineGlucose,
+                      },
+                      {
+                        key: 'baselineSystolic',
+                        id: 'astro-systolic',
+                        label: 'Sistólica Base (mmHg)',
+                        value: baselineSystolic,
+                        setter: setBaselineSystolic,
+                        spec: ASTRONAUT_LIMITS.baselineSystolic,
+                      },
+                      {
+                        key: 'baselineDiastolic',
+                        id: 'astro-diastolic',
+                        label: 'Diastólica Base (mmHg)',
+                        value: baselineDiastolic,
+                        setter: setBaselineDiastolic,
+                        spec: ASTRONAUT_LIMITS.baselineDiastolic,
+                      },
+                      {
+                        key: 'baselineHR',
+                        id: 'astro-hr',
+                        label: 'FC Reposo (bpm)',
+                        value: baselineHR,
+                        setter: setBaselineHR,
+                        spec: ASTRONAUT_LIMITS.baselineHR,
+                      },
+                    ] as const
+                  ).map((vital) => {
+                    const vitalError = getFieldError(vital.key, vital.value);
+                    return (
+                      <div key={vital.key}>
+                        <label
+                          htmlFor={vital.id}
+                          className="mb-1.5 block text-xs font-semibold text-on-surface-variant"
+                        >
+                          <span>{vital.label}</span>
+                          <span className="mt-0.5 block font-mono text-[10px] font-normal text-on-surface-variant/85">
+                            Rango: {vital.spec.min}–{vital.spec.max}
+                          </span>
+                        </label>
+                        <input
+                          id={vital.id}
+                          type="text"
+                          inputMode="numeric"
+                          pattern="[0-9]*"
+                          maxLength={vital.spec.maxDigits}
+                          value={vital.value}
+                          onKeyDown={preventNonIntegerKey}
+                          onChange={(e) =>
+                            vital.setter(
+                              sanitizeIntegerInput(e.target.value, vital.spec.maxDigits)
+                            )
+                          }
+                          onBlur={() => markTouched(vital.key)}
+                          aria-invalid={Boolean(vitalError)}
+                          aria-describedby={vitalError ? `${vital.id}-error` : undefined}
+                          placeholder={String(vital.spec.fallback)}
+                          className={fieldInputClass(Boolean(vitalError), 'px-3 py-2 font-mono')}
+                        />
+                        {vitalError && (
+                          <p
+                            id={`${vital.id}-error`}
+                            role="alert"
+                            className="mt-1 text-[11px] font-medium leading-snug text-danger"
+                          >
+                            {vitalError}
+                          </p>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
 
-                <div>
-                  <label className="mb-1.5 block text-xs font-semibold text-on-surface-variant">
-                    Notas médicas previas al lanzamiento
-                  </label>
-                  <textarea
-                    rows={2}
-                    value={clinicalNotes}
-                    onChange={(e) => setClinicalNotes(e.target.value)}
-                    className="w-full rounded-xl border border-outline bg-surface px-3.5 py-2 text-sm text-on-surface outline-none dt-transition focus:border-primary focus:ring-2 focus:ring-primary/15"
-                  />
-                </div>
+                {(() => {
+                  const notesError = getFieldError('clinicalNotes', clinicalNotes);
+                  return (
+                    <div>
+                      <label
+                        htmlFor="astro-notes"
+                        className="mb-1.5 flex items-center justify-between text-xs font-semibold text-on-surface-variant"
+                      >
+                        <span>Notas médicas previas al lanzamiento</span>
+                        <span className="font-mono text-[10px] font-normal">
+                          {clinicalNotes.length}/{ASTRONAUT_LIMITS.notes.maxLength}
+                        </span>
+                      </label>
+                      <textarea
+                        id="astro-notes"
+                        rows={2}
+                        maxLength={ASTRONAUT_LIMITS.notes.maxLength}
+                        value={clinicalNotes}
+                        onChange={(e) => setClinicalNotes(e.target.value)}
+                        onBlur={() => markTouched('clinicalNotes')}
+                        aria-invalid={Boolean(notesError)}
+                        aria-describedby={notesError ? 'astro-notes-error' : undefined}
+                        placeholder="Observaciones médicas previas al despegue (opcional)"
+                        className={fieldInputClass(Boolean(notesError), 'py-2')}
+                      />
+                      {notesError && (
+                        <p
+                          id="astro-notes-error"
+                          role="alert"
+                          className="mt-1 text-[11px] font-medium text-danger"
+                        >
+                          {notesError}
+                        </p>
+                      )}
+                    </div>
+                  );
+                })()}
               </div>
 
               {/* Right Panel: Live Cross-Reference Preview */}
@@ -761,19 +1016,50 @@ export function OnboardingFlow() {
                     </div>
 
                     <div className="rounded-xl border border-outline bg-surface-container p-3">
-                      <div className="flex items-center gap-2 font-semibold text-telemetry font-display">
-                        <Activity className="h-4 w-4" />
-                        Línea Base Metabólica y Vital
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 font-semibold text-telemetry font-display">
+                          <Activity className="h-4 w-4" />
+                          Línea Base Metabólica y Vital
+                        </div>
+                        <span
+                          className={`rounded-full px-2 py-0.5 text-[10px] font-semibold font-mono ${
+                            validation.errors.baselineGlucose ||
+                            validation.errors.baselineSystolic ||
+                            validation.errors.baselineDiastolic ||
+                            validation.errors.baselineHR
+                              ? 'bg-danger-container text-on-danger-container'
+                              : 'bg-primary-container text-on-primary-container'
+                          }`}
+                        >
+                          {validation.errors.baselineGlucose ||
+                          validation.errors.baselineSystolic ||
+                          validation.errors.baselineDiastolic ||
+                          validation.errors.baselineHR
+                            ? 'Fuera de rango'
+                            : 'Válido'}
+                        </span>
                       </div>
                       <p className="mt-1 text-on-surface-variant font-mono text-[11px]">
-                        Glucosa: {baselineGlucose} mg/dL · PA: {baselineSystolic}/{baselineDiastolic}{' '}
-                        mmHg · FC: {baselineHR} bpm
+                        Glucosa: {baselineGlucose || '—'} mg/dL · PA:{' '}
+                        {baselineSystolic || '—'}/{baselineDiastolic || '—'} mmHg · FC:{' '}
+                        {baselineHR || '—'} bpm
                       </p>
                     </div>
                   </div>
                 </div>
 
                 <div className="mt-6 space-y-3">
+                  {hasAttemptedSubmit && !validation.isValid && (
+                    <div
+                      role="alert"
+                      className="dt-animate-panel flex items-start gap-2 rounded-xl border border-danger/35 bg-danger-container px-3 py-2.5 text-[11px] font-medium text-on-danger-container"
+                    >
+                      <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-danger" />
+                      <span>
+                        Corrige {errorCount === 1 ? 'el campo marcado' : `los ${errorCount} campos marcados`} con datos humanamente posibles para iniciar la monitorización.
+                      </span>
+                    </div>
+                  )}
                   {immuneStatus !== 'Normal' && (
                     <div className="flex items-center gap-2 rounded-xl border border-warning/30 bg-warning-container px-3 py-2 text-[11px] font-medium text-on-warning-container">
                       <ShieldAlert className="h-4 w-4 shrink-0 text-warning" />

@@ -1,4 +1,4 @@
-export type BloodType = 'O-' | 'O+' | 'A+' | 'A-' | 'B+' | 'AB+';
+export type BloodType = 'O-' | 'O+' | 'A+' | 'A-' | 'B+' | 'B-' | 'AB+' | 'AB-';
 
 export type ImmuneStatus =
   | 'Normal'

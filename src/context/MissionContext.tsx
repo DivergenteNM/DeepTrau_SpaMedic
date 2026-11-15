@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { MISSIONS_DATA, MissionExercisePreset, MissionId, MissionType } from '@/data/missionsData';
 import { AstronautProfile, PRELOADED_ASTRONAUTS } from '@/data/astronautsData';
+import { sanitizeAstronautProfile } from '@/utils/astronautValidation';
 import {
   BodySystemId,
   DEFAULT_INSPIRATION_ITEMS,
@@ -501,6 +502,7 @@ export function MissionProvider({ children }: { children: React.ReactNode }) {
         if (parsed && parsed.missionId && parsed.astronaut) {
           setState({
             ...parsed,
+            astronaut: sanitizeAstronautProfile(parsed.astronaut),
             hasCompletedWelcome: Boolean(parsed.hasCompletedWelcome),
           });
         }
@@ -646,12 +648,13 @@ export function MissionProvider({ children }: { children: React.ReactNode }) {
 
   const completeOnboarding = (missionId: MissionId, astronautProfile: AstronautProfile) => {
     const selectedMission = MISSIONS_DATA.find((m) => m.id === missionId) ?? MISSIONS_DATA[0];
-    const newBiomarkers = createInitialBiomarkers(selectedMission, astronautProfile);
+    const safeProfile = sanitizeAstronautProfile(astronautProfile);
+    const newBiomarkers = createInitialBiomarkers(selectedMission, safeProfile);
     setState({
-      ...buildDefaultState(selectedMission.id, astronautProfile, true, true),
+      ...buildDefaultState(selectedMission.id, safeProfile, true, true),
       biomarkers: newBiomarkers,
       devices: createInitialDevices(newBiomarkers),
-      history: generateInitialHistory(selectedMission, astronautProfile),
+      history: generateInitialHistory(selectedMission, safeProfile),
       videoLogs: createInitialVideoLogs(selectedMission),
     });
   };
