@@ -1,13 +1,13 @@
 'use client';
 
 import React from 'react';
+import Image from 'next/image';
 import {
   Activity,
   Brain,
   Cpu,
   Dumbbell,
   Flame,
-  HeartPulse,
   LayoutDashboard,
   Radiation,
   Trophy,
@@ -81,8 +81,15 @@ export function SidebarNav() {
       <div className="flex flex-col gap-5 p-4 lg:sticky lg:top-24">
         {/* Brand Badge */}
         <div className="flex items-center gap-3 px-1">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-primary/25 bg-primary-container">
-            <HeartPulse className="h-6 w-6 text-primary" />
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-outline bg-surface-container p-1">
+            <Image
+              src="/DeepTrau_logo.webp"
+              alt="Logo de DeepTrau"
+              width={48}
+              height={48}
+              className="h-full w-full object-contain"
+              priority
+            />
           </div>
           <div>
             <p className="text-base font-bold tracking-tight text-on-surface font-display">

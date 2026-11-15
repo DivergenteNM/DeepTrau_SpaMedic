@@ -8,6 +8,7 @@ Este documento cumple estrictamente con los lineamientos de transparencia del ha
 
 ### 1.1 Herramientas y Asistencia de IA en el Desarrollo
 - **Entorno de desarrollo asistido:** Asistente agéntico de programación (Google Antigravity) utilizado para estructurar la arquitectura de **DeepTrau** en Next.js App Router, aplicar el sistema de diseño `deeptrau_design_system.md`, redactar la capa de datos clínicos simulados en español, implementar componentes interactivos en SVG nativo y validar la compilación TypeScript.
+- **Generación de identidad visual (Logo e Ícono):** El logotipo oficial de la aplicación (`public/DeepTrau_logo.webp`) y el ícono/favicon del proyecto (`src/app/favicon.ico`, archivo original `DeepTrau_icono.ico`) fueron generados mediante **GPT (OpenAI)** bajo dirección creativa del equipo.
 - **Supervisión humana:** El equipo del hackatón definió los requisitos del reto de la NASA, el nombre **DeepTrau**, el sistema de diseño base (`deeptrau_design_system.md`), la experiencia de usuario, los 4 escenarios operativos de misión y la lógica de cruce con historial clínico pre-misión.
 
 ### 1.2 Mapa de Uso de IA por Módulo y Comportamiento Simulado en el MVP
