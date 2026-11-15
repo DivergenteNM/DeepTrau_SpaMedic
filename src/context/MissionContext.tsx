@@ -108,6 +108,7 @@ export type DemoScenario =
   | 'isolation_fatigue';
 
 interface StoredState {
+  hasCompletedWelcome: boolean;
   isOnboarded: boolean;
   missionId: MissionId;
   astronaut: AstronautProfile;
@@ -128,6 +129,7 @@ interface StoredState {
 
 interface MissionContextValue {
   isHydrated: boolean;
+  hasCompletedWelcome: boolean;
   isOnboarded: boolean;
   mission: MissionType;
   astronaut: AstronautProfile;
@@ -152,6 +154,8 @@ interface MissionContextValue {
   globalTriage: TriageLevel;
   videoLogs: VideoDiaryEntry[];
   inspirationItems: InspirationItem[];
+  completeWelcome: () => void;
+  reopenWelcome: () => void;
   completeOnboarding: (missionId: MissionId, astronautProfile: AstronautProfile) => void;
   reopenOnboarding: () => void;
   toggleDevice: (deviceId: DeviceId) => void;
@@ -177,8 +181,7 @@ interface MissionContextValue {
   resetDemoData: () => void;
 }
 
-const STORAGE_KEY = 'deeptrau_mvp_state_v1';
-const LEGACY_STORAGE_KEY = 'astrohealth_mvp_state_v1';
+const STORAGE_KEY = 'deeptrau_mvp_state_v2';
 
 const MissionContext = createContext<MissionContextValue | null>(null);
 
@@ -335,11 +338,13 @@ function createInitialVideoLogs(mission: MissionType): VideoDiaryEntry[] {
 function buildDefaultState(
   missionId: MissionId = 'deep-space-transit',
   astronaut: AstronautProfile = PRELOADED_ASTRONAUTS[0],
-  isOnboarded = false
+  isOnboarded = false,
+  hasCompletedWelcome = false
 ): StoredState {
   const mission = MISSIONS_DATA.find((m) => m.id === missionId) ?? MISSIONS_DATA[0];
   const biomarkers = createInitialBiomarkers(mission, astronaut);
   return {
+    hasCompletedWelcome,
     isOnboarded,
     missionId: mission.id,
     astronaut,
@@ -490,13 +495,14 @@ export function MissionProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     try {
-      const raw =
-        window.localStorage.getItem(STORAGE_KEY) ??
-        window.localStorage.getItem(LEGACY_STORAGE_KEY);
+      const raw = window.localStorage.getItem(STORAGE_KEY);
       if (raw) {
         const parsed = JSON.parse(raw) as StoredState;
         if (parsed && parsed.missionId && parsed.astronaut) {
-          setState(parsed);
+          setState({
+            ...parsed,
+            hasCompletedWelcome: Boolean(parsed.hasCompletedWelcome),
+          });
         }
       }
     } catch {
@@ -622,11 +628,27 @@ export function MissionProvider({ children }: { children: React.ReactNode }) {
     return Math.max(18, Math.min(100, Math.round(routinePct + bioScore)));
   }, [routines, systemStatuses]);
 
+  const completeWelcome = () => {
+    setState((prev) => ({
+      ...prev,
+      hasCompletedWelcome: true,
+      isOnboarded: false,
+    }));
+  };
+
+  const reopenWelcome = () => {
+    setState((prev) => ({
+      ...prev,
+      hasCompletedWelcome: false,
+      isOnboarded: false,
+    }));
+  };
+
   const completeOnboarding = (missionId: MissionId, astronautProfile: AstronautProfile) => {
     const selectedMission = MISSIONS_DATA.find((m) => m.id === missionId) ?? MISSIONS_DATA[0];
     const newBiomarkers = createInitialBiomarkers(selectedMission, astronautProfile);
     setState({
-      ...buildDefaultState(selectedMission.id, astronautProfile, true),
+      ...buildDefaultState(selectedMission.id, astronautProfile, true, true),
       biomarkers: newBiomarkers,
       devices: createInitialDevices(newBiomarkers),
       history: generateInitialHistory(selectedMission, astronautProfile),
@@ -635,7 +657,7 @@ export function MissionProvider({ children }: { children: React.ReactNode }) {
   };
 
   const reopenOnboarding = () => {
-    setState((prev) => ({ ...prev, isOnboarded: false }));
+    setState((prev) => ({ ...prev, hasCompletedWelcome: true, isOnboarded: false }));
   };
 
   const setActiveTab = (tab: AppTabId) => {
@@ -889,12 +911,13 @@ export function MissionProvider({ children }: { children: React.ReactNode }) {
   };
 
   const resetDemoData = () => {
-    const fresh = buildDefaultState(state.missionId, state.astronaut, true);
+    const fresh = buildDefaultState(state.missionId, state.astronaut, true, true);
     setState(fresh);
   };
 
   const value: MissionContextValue = {
     isHydrated,
+    hasCompletedWelcome: state.hasCompletedWelcome,
     isOnboarded: state.isOnboarded,
     mission,
     astronaut: state.astronaut,
@@ -915,6 +938,8 @@ export function MissionProvider({ children }: { children: React.ReactNode }) {
     globalTriage,
     videoLogs: state.videoLogs,
     inspirationItems: state.inspirationItems,
+    completeWelcome,
+    reopenWelcome,
     completeOnboarding,
     reopenOnboarding,
     toggleDevice,

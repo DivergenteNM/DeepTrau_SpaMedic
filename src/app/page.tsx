@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { PanelLeftOpen } from 'lucide-react';
 import { useMission } from '@/context/MissionContext';
+import { WelcomeHome } from '@/components/home/WelcomeHome';
 import { OnboardingFlow } from '@/components/onboarding/OnboardingFlow';
 import { TopTelemetryBar } from '@/components/layout/TopTelemetryBar';
 import { SidebarNav } from '@/components/layout/SidebarNav';
@@ -13,7 +14,8 @@ import { BoneMuscleTab } from '@/components/musculoskeletal/BoneMuscleTab';
 import { MissionMonitorTab } from '@/components/survival/MissionMonitorTab';
 
 export default function HomePage() {
-  const { isHydrated, isOnboarded, activeTab } = useMission();
+  const { isHydrated, hasCompletedWelcome, isOnboarded, activeTab, completeWelcome } =
+    useMission();
   const [isDesktopSidebarOpen, setIsDesktopSidebarOpen] = useState(true);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
 
@@ -31,7 +33,12 @@ export default function HomePage() {
   }
 
   if (!isOnboarded) {
-    return <OnboardingFlow />;
+    return (
+      <div className="relative min-h-screen bg-surface text-on-surface">
+        <OnboardingFlow />
+        {!hasCompletedWelcome && <WelcomeHome onStart={completeWelcome} />}
+      </div>
+    );
   }
 
   return (

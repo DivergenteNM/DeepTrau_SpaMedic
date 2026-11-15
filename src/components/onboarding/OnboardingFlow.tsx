@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import Image from 'next/image';
 import {
   Activity,
@@ -45,9 +45,77 @@ const RISK_BADGE_STYLES: Record<string, string> = {
 const BLOOD_TYPES: BloodType[] = ['O-', 'O+', 'A+', 'A-', 'B+', 'AB+'];
 
 export function OnboardingFlow() {
-  const { mission: currentMission, astronaut: currentAstronaut, completeOnboarding } = useMission();
+  const {
+    mission: currentMission,
+    astronaut: currentAstronaut,
+    completeOnboarding,
+    reopenWelcome,
+  } = useMission();
 
   const [step, setStep] = useState<1 | 2>(1);
+  const stepContainerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (prefersReducedMotion || !stepContainerRef.current) return;
+
+    const easeExpo = 'cubic-bezier(0.16, 1, 0.3, 1)';
+
+    if (step === 2) {
+      const heading = stepContainerRef.current.querySelector<HTMLElement>(
+        '[data-choreo="astro-heading"]'
+      );
+      const cards = stepContainerRef.current.querySelectorAll<HTMLElement>(
+        '[data-choreo="astro-card"]'
+      );
+      const formPanel = stepContainerRef.current.querySelector<HTMLElement>(
+        '[data-choreo="astro-form"]'
+      );
+      const previewPanel = stepContainerRef.current.querySelector<HTMLElement>(
+        '[data-choreo="astro-preview"]'
+      );
+
+      heading?.animate(
+        [
+          { transform: 'translate3d(28px, 0, 0)', opacity: 0 },
+          { transform: 'translate3d(0, 0, 0)', opacity: 1 },
+        ],
+        { duration: 620, easing: easeExpo, fill: 'both' }
+      );
+
+      cards.forEach((card, idx) => {
+        card.animate(
+          [
+            {
+              transform: 'perspective(900px) translate3d(0, 44px, -20px) rotateX(8deg) scale(0.92)',
+              opacity: 0,
+            },
+            {
+              transform: 'perspective(900px) translate3d(0, 0, 0) rotateX(0deg) scale(1)',
+              opacity: 1,
+            },
+          ],
+          { duration: 680, delay: 70 + idx * 80, easing: easeExpo, fill: 'both' }
+        );
+      });
+
+      formPanel?.animate(
+        [
+          { transform: 'translate3d(0, 40px, 0)', opacity: 0 },
+          { transform: 'translate3d(0, 0, 0)', opacity: 1 },
+        ],
+        { duration: 720, delay: 240, easing: easeExpo, fill: 'both' }
+      );
+
+      previewPanel?.animate(
+        [
+          { transform: 'translate3d(32px, 0, 0) scale(0.97)', opacity: 0 },
+          { transform: 'translate3d(0, 0, 0) scale(1)', opacity: 1 },
+        ],
+        { duration: 760, delay: 320, easing: easeExpo, fill: 'both' }
+      );
+    }
+  }, [step]);
   const [selectedMissionId, setSelectedMissionId] = useState<MissionId>(currentMission.id);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>(currentAstronaut.id);
 
@@ -144,18 +212,27 @@ export function OnboardingFlow() {
     <div className="min-h-screen bg-surface text-on-surface relative">
       <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
         {/* Top Brand Header */}
-        <header className="mb-8 flex flex-col gap-4 border-b border-outline pb-6 sm:flex-row sm:items-center sm:justify-between">
+        <header
+          data-choreo="onboard-header"
+          className="mb-8 flex flex-col gap-4 border-b border-outline pb-6 sm:flex-row sm:items-center sm:justify-between"
+        >
           <div className="flex items-center gap-3.5">
-            <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-outline bg-surface-container p-1">
+            <button
+              type="button"
+              onClick={reopenWelcome}
+              title="Ver portada de bienvenida DeepTrau"
+              data-choreo="onboard-logo-target"
+              className="flex h-14 w-14 shrink-0 cursor-pointer items-center justify-center overflow-hidden rounded-xl border border-outline bg-surface-container-low/70 p-1 dt-transition hover:border-primary/40"
+            >
               <Image
                 src="/DeepTrau_logo.webp"
                 alt="Logo de DeepTrau"
                 width={56}
                 height={56}
-                className="h-full w-full object-contain"
+                className="h-full w-full scale-[1.35] object-contain mix-blend-multiply"
                 priority
               />
-            </div>
+            </button>
             <div>
               <div className="flex items-center gap-2.5">
                 <h1 className="text-[28px] leading-[36px] font-bold tracking-[-0.02em] text-on-surface font-display">
@@ -216,9 +293,10 @@ export function OnboardingFlow() {
           </div>
         </header>
 
+        <div ref={stepContainerRef}>
         {step === 1 ? (
           <section className="space-y-6">
-            <div>
+            <div data-choreo="onboard-heading">
               <p className="text-xs font-semibold uppercase tracking-[0.06em] text-primary font-display">
                 Paso 1 de 2 · Configuración Operativa
               </p>
@@ -239,6 +317,7 @@ export function OnboardingFlow() {
                   <button
                     key={m.id}
                     type="button"
+                    data-choreo="mission-card"
                     onClick={() => setSelectedMissionId(m.id)}
                     className={`group text-left rounded-2xl border p-5 dt-transition ${
                       isSelected
@@ -303,7 +382,10 @@ export function OnboardingFlow() {
             </div>
 
             {/* Selected Mission Summary + Continue CTA */}
-            <div className="flex flex-col gap-4 rounded-2xl border border-primary/30 bg-primary-container p-5 sm:flex-row sm:items-center sm:justify-between">
+            <div
+              data-choreo="mission-summary-bar"
+              className="flex flex-col gap-4 rounded-2xl border border-primary/30 bg-primary-container p-5 sm:flex-row sm:items-center sm:justify-between"
+            >
               <div className="space-y-1">
                 <div className="flex items-center gap-2 text-sm font-semibold text-on-primary-container font-display">
                   <Radio className="h-4 w-4 text-primary" />
@@ -325,7 +407,10 @@ export function OnboardingFlow() {
           </section>
         ) : (
           <section className="space-y-6">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div
+              data-choreo="astro-heading"
+              className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
+            >
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.06em] text-primary font-display">
                   Paso 2 de 2 · Historia Clínica Pre-Misión (EHR)
@@ -358,6 +443,7 @@ export function OnboardingFlow() {
                   <button
                     key={astro.id}
                     type="button"
+                    data-choreo="astro-card"
                     onClick={() => applyPresetAstronaut(astro)}
                     className={`rounded-2xl border p-4 text-left dt-transition ${
                       isActive
@@ -405,7 +491,7 @@ export function OnboardingFlow() {
               onSubmit={handleLaunchMission}
               className="grid gap-6 rounded-2xl border border-outline bg-surface-container p-6 lg:grid-cols-3"
             >
-              <div className="space-y-4 lg:col-span-2">
+              <div data-choreo="astro-form" className="space-y-4 lg:col-span-2">
                 <div className="flex items-center gap-2 border-b border-outline-variant pb-3">
                   <UserCheck className="h-5 w-5 text-primary" />
                   <h3 className="text-base font-semibold text-on-surface font-display">
@@ -584,7 +670,10 @@ export function OnboardingFlow() {
               </div>
 
               {/* Right Panel: Live Cross-Reference Preview */}
-              <div className="flex flex-col justify-between rounded-2xl border border-outline bg-surface-container-low p-5">
+              <div
+                data-choreo="astro-preview"
+                className="flex flex-col justify-between rounded-2xl border border-outline bg-surface-container-low p-5"
+              >
                 <div className="space-y-4">
                   <div className="flex items-center gap-2 text-sm font-semibold text-primary font-display">
                     <Sparkles className="h-4 w-4" />
@@ -659,6 +748,7 @@ export function OnboardingFlow() {
             </form>
           </section>
         )}
+        </div>
       </div>
     </div>
   );
