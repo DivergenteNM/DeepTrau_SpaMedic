@@ -1,6 +1,7 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
+import { PanelLeftOpen } from 'lucide-react';
 import { useMission } from '@/context/MissionContext';
 import { OnboardingFlow } from '@/components/onboarding/OnboardingFlow';
 import { TopTelemetryBar } from '@/components/layout/TopTelemetryBar';
@@ -13,6 +14,8 @@ import { MissionMonitorTab } from '@/components/survival/MissionMonitorTab';
 
 export default function HomePage() {
   const { isHydrated, isOnboarded, activeTab } = useMission();
+  const [isDesktopSidebarOpen, setIsDesktopSidebarOpen] = useState(true);
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
 
   if (!isHydrated) {
     return (
@@ -35,15 +38,38 @@ export default function HomePage() {
     <div className="min-h-screen bg-surface text-on-surface flex flex-col">
       <TopTelemetryBar />
 
-      <div className="flex flex-1 flex-col lg:flex-row">
-        <SidebarNav />
+      <div className="flex flex-1 min-w-0">
+        <SidebarNav
+          isDesktopOpen={isDesktopSidebarOpen}
+          onToggleDesktop={() => setIsDesktopSidebarOpen((prev) => !prev)}
+          isMobileOpen={isMobileSidebarOpen}
+          onCloseMobile={() => setIsMobileSidebarOpen(false)}
+        />
 
-        <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto">
-          {activeTab === 'dashboard' && <CommandDashboard />}
-          {activeTab === 'sensors' && <SensorHubTab />}
-          {activeTab === 'psychology' && <MentalHealthTab />}
-          {activeTab === 'musculoskeletal' && <BoneMuscleTab />}
-          {activeTab === 'survival' && <MissionMonitorTab />}
+        <main className="flex-1 min-w-0 p-4 sm:p-6 lg:p-8 dt-transition">
+          <div
+            className={`mx-auto w-full dt-transition ${
+              isDesktopSidebarOpen ? 'max-w-7xl' : 'max-w-[1440px]'
+            }`}
+          >
+            <div className="mb-4 lg:hidden">
+              <button
+                type="button"
+                onClick={() => setIsMobileSidebarOpen(true)}
+                aria-label="Abrir menú lateral"
+                className="inline-flex items-center gap-2 rounded-xl border border-outline bg-surface-container px-3 py-2 text-xs font-semibold text-on-surface font-display dt-transition hover:bg-surface-container-low"
+              >
+                <PanelLeftOpen className="h-4 w-4 text-primary" />
+                <span>Menú DeepTrau</span>
+              </button>
+            </div>
+
+            {activeTab === 'dashboard' && <CommandDashboard />}
+            {activeTab === 'sensors' && <SensorHubTab />}
+            {activeTab === 'psychology' && <MentalHealthTab />}
+            {activeTab === 'musculoskeletal' && <BoneMuscleTab />}
+            {activeTab === 'survival' && <MissionMonitorTab />}
+          </div>
         </main>
       </div>
     </div>
