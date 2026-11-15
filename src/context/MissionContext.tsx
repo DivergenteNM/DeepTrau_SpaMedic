@@ -9,6 +9,7 @@ import {
   DEFAULT_INSPIRATION_ITEMS,
   TriageLevel,
 } from '@/data/medicalKnowledge';
+import { EmergencyProtocolId } from '@/data/emergencyProtocolsData';
 
 export type AppTabId = 'dashboard' | 'sensors' | 'psychology' | 'musculoskeletal' | 'survival';
 
@@ -38,6 +39,7 @@ export interface TelemetryBiomarkers {
   systolicBP: number;
   diastolicBP: number;
   heartRateBpm: number;
+  bodyTempC: number;
   dailyRadiationMsv: number;
   cumulativeRadiationMsv: number;
   boneDensityRetentionPercent: number;
@@ -107,6 +109,14 @@ export type DemoScenario =
   | 'solar_storm'
   | 'hypoglycemia_immune'
   | 'isolation_fatigue';
+
+export type EmergencyCrisisScenario = 'syncope_hypoglycemic' | 'microgravity_seizure';
+
+export interface CrisisAlertBanner {
+  scenario: EmergencyCrisisScenario;
+  title: string;
+  description: string;
+}
 
 interface StoredState {
   hasCompletedWelcome: boolean;
@@ -180,6 +190,17 @@ interface MissionContextValue {
   }) => void;
   addInspirationItem: (item: Omit<InspirationItem, 'id'>) => void;
   resetDemoData: () => void;
+  isSosOpen: boolean;
+  activeEmergencyProtocolId: EmergencyProtocolId;
+  activeCrisisScenario: EmergencyCrisisScenario | null;
+  crisisAlertBanner: CrisisAlertBanner | null;
+  shouldAutoStartTimer: boolean;
+  openSosOverlay: (protocolId?: EmergencyProtocolId) => void;
+  closeSosOverlay: () => void;
+  setActiveEmergencyProtocolId: (id: EmergencyProtocolId) => void;
+  simulateLiveCrisis: (scenario: EmergencyCrisisScenario) => void;
+  restoreNominalVitals: () => void;
+  clearAutoStartTimerFlag: () => void;
 }
 
 const STORAGE_KEY = 'deeptrau_mvp_state_v2';
@@ -286,6 +307,7 @@ function createInitialBiomarkers(mission: MissionType, astronaut: AstronautProfi
     systolicBP: astronaut.clinicalHistory.baselineSystolic,
     diastolicBP: astronaut.clinicalHistory.baselineDiastolic,
     heartRateBpm: astronaut.clinicalHistory.baselineHR + 4,
+    bodyTempC: 36.7,
     dailyRadiationMsv: mission.dailyRadiationRateMsv,
     cumulativeRadiationMsv: cumulativeRad,
     boneDensityRetentionPercent: mission.gravityG === 0 ? 98.6 : 99.2,
@@ -297,6 +319,49 @@ function createInitialBiomarkers(mission: MissionType, astronaut: AstronautProfi
     ultrasoundStatus: 'Normal',
     ultrasoundNotes: 'Sin edema del nervio óptico ni estasis venosa yugular detectada.',
   };
+}
+
+function playCabinAlertTone(scenario: EmergencyCrisisScenario) {
+  if (typeof window === 'undefined') return;
+  try {
+    const AudioCtx =
+      window.AudioContext ||
+      (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    if (!AudioCtx) return;
+    const ctx = new AudioCtx();
+    const now = ctx.currentTime;
+    const pattern =
+      scenario === 'microgravity_seizure'
+        ? [
+            { freq: 880, start: 0, dur: 0.14 },
+            { freq: 660, start: 0.18, dur: 0.14 },
+            { freq: 880, start: 0.36, dur: 0.18 },
+          ]
+        : [
+            { freq: 740, start: 0, dur: 0.16 },
+            { freq: 554, start: 0.2, dur: 0.22 },
+          ];
+
+    pattern.forEach((beep) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(beep.freq, now + beep.start);
+      gain.gain.setValueAtTime(0.001, now + beep.start);
+      gain.gain.exponentialRampToValueAtTime(0.09, now + beep.start + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + beep.start + beep.dur);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(now + beep.start);
+      osc.stop(now + beep.start + beep.dur + 0.02);
+    });
+
+    setTimeout(() => {
+      ctx.close().catch(() => {});
+    }, 850);
+  } catch {
+    // Ignore autoplay or AudioContext restrictions cleanly
+  }
 }
 
 function createInitialVideoLogs(mission: MissionType): VideoDiaryEntry[] {
@@ -368,13 +433,15 @@ function buildDefaultState(
 function evaluateSystemStatuses(
   biomarkers: TelemetryBiomarkers,
   mission: MissionType,
-  astronaut: AstronautProfile
+  astronaut: AstronautProfile,
+  activeCrisisScenario: EmergencyCrisisScenario | null = null
 ): Record<BodySystemId, TriageLevel> {
   const isLowImmune = astronaut.clinicalHistory.immuneStatus !== 'Normal';
 
   // 1. Brain & Mental Health
   let brain: TriageLevel = 'nominal';
   if (
+    activeCrisisScenario === 'microgravity_seizure' ||
     biomarkers.moodScore <= 4 ||
     biomarkers.sleepHours < 5.5 ||
     biomarkers.stressLevel >= 8 ||
@@ -388,11 +455,20 @@ function evaluateSystemStatuses(
   // 2. Cardiovascular & Oxygen
   let cardiovascular: TriageLevel = 'nominal';
   const bpDelta = Math.abs(biomarkers.systolicBP - astronaut.clinicalHistory.baselineSystolic);
-  if (biomarkers.spo2Percent < 92 || biomarkers.systolicBP >= 150 || biomarkers.heartRateBpm >= 115) {
+  if (
+    biomarkers.spo2Percent < 92 ||
+    biomarkers.systolicBP >= 150 ||
+    biomarkers.systolicBP <= 90 ||
+    biomarkers.diastolicBP <= 55 ||
+    biomarkers.heartRateBpm >= 115 ||
+    biomarkers.heartRateBpm <= 45
+  ) {
     cardiovascular = 'critical';
   } else if (
     biomarkers.spo2Percent < 95 ||
     bpDelta >= 18 ||
+    biomarkers.systolicBP <= 100 ||
+    biomarkers.diastolicBP <= 60 ||
     biomarkers.heartRateBpm >= 95
   ) {
     cardiovascular = 'warning';
@@ -417,11 +493,21 @@ function evaluateSystemStatuses(
     immune = 'warning';
   }
 
-  // 4. Metabolic & Glucose (crossed with personal baseline)
+  // 4. Metabolic & Glucose / Thermoregulation (crossed with personal baseline)
   let metabolic: TriageLevel = 'nominal';
-  if (biomarkers.glucoseMgDl < 65 || biomarkers.glucoseMgDl >= 175) {
+  if (
+    biomarkers.glucoseMgDl < 65 ||
+    biomarkers.glucoseMgDl >= 175 ||
+    biomarkers.bodyTempC <= 35.2 ||
+    biomarkers.bodyTempC >= 38.5
+  ) {
     metabolic = 'critical';
-  } else if (biomarkers.glucoseMgDl < 75 || biomarkers.glucoseMgDl >= 135) {
+  } else if (
+    biomarkers.glucoseMgDl < 75 ||
+    biomarkers.glucoseMgDl >= 135 ||
+    biomarkers.bodyTempC <= 35.8 ||
+    biomarkers.bodyTempC >= 37.8
+  ) {
     metabolic = 'warning';
   }
 
@@ -493,6 +579,13 @@ function syncDeviceStatuses(
 export function MissionProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<StoredState>(() => buildDefaultState());
   const [isHydrated, setIsHydrated] = useState(false);
+  const [isSosOpen, setIsSosOpen] = useState(false);
+  const [activeEmergencyProtocolId, setActiveEmergencyProtocolId] =
+    useState<EmergencyProtocolId>('syncope');
+  const [activeCrisisScenario, setActiveCrisisScenario] =
+    useState<EmergencyCrisisScenario | null>(null);
+  const [crisisAlertBanner, setCrisisAlertBanner] = useState<CrisisAlertBanner | null>(null);
+  const [shouldAutoStartTimer, setShouldAutoStartTimer] = useState(false);
 
   useEffect(() => {
     try {
@@ -503,6 +596,10 @@ export function MissionProvider({ children }: { children: React.ReactNode }) {
           setState({
             ...parsed,
             astronaut: sanitizeAstronautProfile(parsed.astronaut),
+            biomarkers: {
+              ...parsed.biomarkers,
+              bodyTempC: parsed.biomarkers?.bodyTempC ?? 36.7,
+            },
             hasCompletedWelcome: Boolean(parsed.hasCompletedWelcome),
           });
         }
@@ -529,8 +626,8 @@ export function MissionProvider({ children }: { children: React.ReactNode }) {
   );
 
   const systemStatuses = useMemo(
-    () => evaluateSystemStatuses(state.biomarkers, mission, state.astronaut),
-    [state.biomarkers, mission, state.astronaut]
+    () => evaluateSystemStatuses(state.biomarkers, mission, state.astronaut, activeCrisisScenario),
+    [state.biomarkers, mission, state.astronaut, activeCrisisScenario]
   );
 
   const globalTriage: TriageLevel = useMemo(() => {
@@ -706,6 +803,11 @@ export function MissionProvider({ children }: { children: React.ReactNode }) {
   };
 
   const triggerDemoAnomaly = (scenario: DemoScenario) => {
+    if (scenario === 'nominal') {
+      setActiveCrisisScenario(null);
+      setCrisisAlertBanner(null);
+      setShouldAutoStartTimer(false);
+    }
     setState((prev) => {
       const activeMission = MISSIONS_DATA.find((m) => m.id === prev.missionId) ?? MISSIONS_DATA[0];
       const nextDay = prev.missionDay + 1;
@@ -916,6 +1018,132 @@ export function MissionProvider({ children }: { children: React.ReactNode }) {
   const resetDemoData = () => {
     const fresh = buildDefaultState(state.missionId, state.astronaut, true, true);
     setState(fresh);
+    setActiveCrisisScenario(null);
+    setCrisisAlertBanner(null);
+    setShouldAutoStartTimer(false);
+    setIsSosOpen(false);
+  };
+
+  const openSosOverlay = (protocolId?: EmergencyProtocolId) => {
+    if (protocolId) {
+      setActiveEmergencyProtocolId(protocolId);
+    } else if (systemStatuses.brain === 'critical' && activeCrisisScenario === 'microgravity_seizure') {
+      setActiveEmergencyProtocolId('seizure');
+    } else if (systemStatuses.metabolic === 'critical' && state.biomarkers.glucoseMgDl < 65) {
+      setActiveEmergencyProtocolId('syncope');
+    } else if (systemStatuses.cardiovascular === 'critical' && state.biomarkers.spo2Percent < 92) {
+      setActiveEmergencyProtocolId('hypoxia');
+    } else if (systemStatuses.cardiovascular === 'critical') {
+      setActiveEmergencyProtocolId('cardiovascular_cpr');
+    }
+    setIsSosOpen(true);
+  };
+
+  const closeSosOverlay = () => {
+    setIsSosOpen(false);
+  };
+
+  const clearAutoStartTimerFlag = () => {
+    setShouldAutoStartTimer(false);
+  };
+
+  const simulateLiveCrisis = (scenario: EmergencyCrisisScenario) => {
+    setState((prev) => {
+      const nextDay = prev.missionDay + 1;
+      const nextBio: TelemetryBiomarkers =
+        scenario === 'syncope_hypoglycemic'
+          ? {
+              ...prev.biomarkers,
+              glucoseMgDl: 52,
+              systolicBP: 82,
+              diastolicBP: 50,
+              heartRateBpm: 118,
+              spo2Percent: 95,
+              bodyTempC: 36.0,
+            }
+          : {
+              ...prev.biomarkers,
+              heartRateBpm: 126,
+              systolicBP: 148,
+              diastolicBP: 92,
+              spo2Percent: 91,
+              stressLevel: 9,
+              moodScore: 3,
+              bodyTempC: 37.9,
+            };
+
+      const nextPoint: HistoryPoint = {
+        day: nextDay,
+        radiationMsv: nextBio.cumulativeRadiationMsv,
+        glucoseMgDl: nextBio.glucoseMgDl,
+        wbcCount: nextBio.wbcCount,
+        moodScore: nextBio.moodScore,
+        sleepHours: nextBio.sleepHours,
+        stressLevel: nextBio.stressLevel,
+        boneRetention: nextBio.boneDensityRetentionPercent,
+        muscleRetention: nextBio.muscleMassRetentionPercent,
+      };
+
+      return {
+        ...prev,
+        missionDay: nextDay,
+        biomarkers: nextBio,
+        history: [...prev.history.slice(-14), nextPoint],
+      };
+    });
+
+    playCabinAlertTone(scenario);
+    setActiveCrisisScenario(scenario);
+
+    if (scenario === 'syncope_hypoglycemic') {
+      setCrisisAlertBanner({
+        scenario,
+        title: 'ALERTA DE CABINA · Síncope / Shock Hipoglucémico',
+        description:
+          'Glucosa en 52 mg/dL y presión arterial en 82/50 mmHg. Sistemas Cardiovascular y Metabólico en código Rojo.',
+      });
+      setActiveEmergencyProtocolId('syncope');
+      setShouldAutoStartTimer(false);
+    } else {
+      setCrisisAlertBanner({
+        scenario,
+        title: 'ALERTA DE CABINA · Crisis Convulsiva en Microgravedad',
+        description:
+          'Sensor de cabina detectó movimiento convulsivo anómalo. Sistema Neurológico en Rojo y cronómetro de episodio iniciado.',
+      });
+      setActiveEmergencyProtocolId('seizure');
+      setShouldAutoStartTimer(true);
+    }
+
+    setIsSosOpen(true);
+  };
+
+  const restoreNominalVitals = () => {
+    setState((prev) => {
+      const activeMission = MISSIONS_DATA.find((m) => m.id === prev.missionId) ?? MISSIONS_DATA[0];
+      const nominalBio = createInitialBiomarkers(activeMission, prev.astronaut);
+      const nextDay = prev.missionDay + 1;
+      const nextPoint: HistoryPoint = {
+        day: nextDay,
+        radiationMsv: nominalBio.cumulativeRadiationMsv,
+        glucoseMgDl: nominalBio.glucoseMgDl,
+        wbcCount: nominalBio.wbcCount,
+        moodScore: nominalBio.moodScore,
+        sleepHours: nominalBio.sleepHours,
+        stressLevel: nominalBio.stressLevel,
+        boneRetention: nominalBio.boneDensityRetentionPercent,
+        muscleRetention: nominalBio.muscleMassRetentionPercent,
+      };
+      return {
+        ...prev,
+        missionDay: nextDay,
+        biomarkers: nominalBio,
+        history: [...prev.history.slice(-14), nextPoint],
+      };
+    });
+    setActiveCrisisScenario(null);
+    setCrisisAlertBanner(null);
+    setShouldAutoStartTimer(false);
   };
 
   const value: MissionContextValue = {
@@ -956,6 +1184,17 @@ export function MissionProvider({ children }: { children: React.ReactNode }) {
     addVideoDiaryEntry,
     addInspirationItem,
     resetDemoData,
+    isSosOpen,
+    activeEmergencyProtocolId,
+    activeCrisisScenario,
+    crisisAlertBanner,
+    shouldAutoStartTimer,
+    openSosOverlay,
+    closeSosOverlay,
+    setActiveEmergencyProtocolId,
+    simulateLiveCrisis,
+    restoreNominalVitals,
+    clearAutoStartTimerFlag,
   };
 
   return <MissionContext.Provider value={value}>{children}</MissionContext.Provider>;

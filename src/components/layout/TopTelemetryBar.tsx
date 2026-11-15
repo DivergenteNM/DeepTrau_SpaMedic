@@ -2,6 +2,7 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import {
+  AlertOctagon,
   AlertTriangle,
   ChevronLeft,
   Clock,
@@ -14,6 +15,7 @@ import {
   ShieldCheck,
   SlidersHorizontal,
   Sparkles,
+  Zap,
 } from 'lucide-react';
 import { DemoScenario, useMission } from '@/context/MissionContext';
 import { TriageLevel } from '@/data/medicalKnowledge';
@@ -48,17 +50,23 @@ export function TopTelemetryBar() {
     reopenOnboarding,
     triggerDemoAnomaly,
     resetDemoData,
+    openSosOverlay,
+    simulateLiveCrisis,
+    restoreNominalVitals,
+    activeCrisisScenario,
   } = useMission();
 
   const [isTestDrawerOpen, setIsTestDrawerOpen] = useState(false);
+  const [isCrisisMenuOpen, setIsCrisisMenuOpen] = useState(false);
   const drawerContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!isTestDrawerOpen) return;
+    if (!isTestDrawerOpen && !isCrisisMenuOpen) return;
 
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         setIsTestDrawerOpen(false);
+        setIsCrisisMenuOpen(false);
       }
     };
 
@@ -68,6 +76,7 @@ export function TopTelemetryBar() {
         !drawerContainerRef.current.contains(event.target as Node)
       ) {
         setIsTestDrawerOpen(false);
+        setIsCrisisMenuOpen(false);
       }
     };
 
@@ -77,7 +86,7 @@ export function TopTelemetryBar() {
       document.removeEventListener('keydown', handleKeyDown);
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [isTestDrawerOpen]);
+  }, [isTestDrawerOpen, isCrisisMenuOpen]);
 
   const badge = TRIAGE_BADGE[globalTriage];
   const hasLowImmune = astronaut.clinicalHistory.immuneStatus !== 'Normal';
@@ -157,18 +166,115 @@ export function TopTelemetryBar() {
           </div>
         </div>
 
-        {/* Right: Global Triage + Slide-Out Test Navbar Toggle */}
-        <div ref={drawerContainerRef} className="flex shrink-0 items-center gap-2">
+        {/* Right: Global Triage + Simular Crisis + SOS Emergencia + Slide-Out Test Navbar Toggle */}
+        <div ref={drawerContainerRef} className="relative flex shrink-0 items-center gap-2">
           <div
-            className={`inline-flex items-center gap-1.5 rounded-xl border px-2.5 py-1.5 text-[11px] font-bold font-display sm:px-3 sm:text-xs ${badge.classes}`}
+            className={`hidden md:inline-flex items-center gap-1.5 rounded-xl border px-2.5 py-1.5 text-[11px] font-bold font-display sm:px-3 sm:text-xs ${badge.classes}`}
           >
             {badge.icon}
-            <span className="hidden sm:inline">{badge.label}</span>
+            <span className="hidden lg:inline">{badge.label}</span>
           </div>
+
+          {/* Discrete Live Crisis Demo Selector */}
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => {
+                setIsCrisisMenuOpen((prev) => !prev);
+                setIsTestDrawerOpen(false);
+              }}
+              aria-expanded={isCrisisMenuOpen}
+              title="Simular Crisis en Vivo para demostración"
+              className={`inline-flex cursor-pointer items-center gap-1.5 rounded-xl border px-2.5 py-1.5 text-xs font-semibold font-display dt-transition active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-warning/40 ${
+                activeCrisisScenario
+                  ? 'border-warning bg-warning-container text-on-warning-container'
+                  : 'border-outline bg-surface-container-low text-on-surface-variant hover:-translate-y-px hover:border-warning/50 hover:bg-warning-container/45 hover:text-on-surface'
+              }`}
+            >
+              <Zap className="h-3.5 w-3.5 text-warning" />
+              <span className="hidden sm:inline">Simular Crisis</span>
+            </button>
+
+            {isCrisisMenuOpen && (
+              <div className="dt-animate-panel absolute right-0 top-[calc(100%+8px)] z-40 w-80 rounded-2xl border border-outline bg-surface-container p-3 shadow-[0_14px_32px_-12px_rgba(26,36,30,0.20)] space-y-2">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[11px] font-bold uppercase tracking-[0.06em] text-on-surface-variant font-display">
+                    Simular Crisis en Vivo
+                  </span>
+                  <span className="font-mono text-[10px] text-warning font-semibold">DEMO</span>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsCrisisMenuOpen(false);
+                    simulateLiveCrisis('syncope_hypoglycemic');
+                  }}
+                  className="w-full cursor-pointer rounded-xl border border-danger/35 bg-danger-container/60 p-2.5 text-left dt-transition hover:-translate-y-px hover:border-danger hover:bg-danger-container active:scale-[0.985] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger/40"
+                >
+                  <p className="text-xs font-bold text-on-danger-container font-display">
+                    1. Síncope / Shock Hipoglucémico
+                  </p>
+                  <p className="mt-0.5 text-[11px] text-on-danger-container/90">
+                    Glucosa a 52 mg/dL, PA 82/50 mmHg, alerta de cabina y SOS automático.
+                  </p>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsCrisisMenuOpen(false);
+                    simulateLiveCrisis('microgravity_seizure');
+                  }}
+                  className="w-full cursor-pointer rounded-xl border border-warning/40 bg-warning-container/65 p-2.5 text-left dt-transition hover:-translate-y-px hover:border-warning hover:bg-warning-container active:scale-[0.985] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-warning/40"
+                >
+                  <p className="text-xs font-bold text-on-warning-container font-display">
+                    2. Crisis Convulsiva en Microgravedad
+                  </p>
+                  <p className="mt-0.5 text-[11px] text-on-warning-container/90">
+                    Alerta neurológica en Rojo, guía de contención 0g y cronómetro activo.
+                  </p>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsCrisisMenuOpen(false);
+                    restoreNominalVitals();
+                  }}
+                  className="flex w-full cursor-pointer items-center justify-center gap-1.5 rounded-xl border border-primary/35 bg-primary-container px-3 py-2 text-xs font-bold text-on-primary-container font-display dt-transition hover:-translate-y-px hover:bg-primary hover:text-on-primary active:scale-[0.985] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35"
+                >
+                  <RotateCcw className="h-3.5 w-3.5" />
+                  <span>Restablecer Signos Nominales</span>
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Always-Visible Global SOS Emergency Button */}
+          <button
+            type="button"
+            onClick={() => {
+              setIsTestDrawerOpen(false);
+              setIsCrisisMenuOpen(false);
+              openSosOverlay();
+            }}
+            className="group relative inline-flex cursor-pointer items-center gap-1.5 rounded-xl border border-danger bg-danger px-3 py-1.5 text-xs font-bold tracking-wide text-on-primary font-display shadow-[0_6px_16px_-6px_rgba(180,35,24,0.55)] dt-transition hover:-translate-y-px hover:bg-danger-hover hover:shadow-[0_10px_20px_-6px_rgba(180,35,24,0.65)] active:translate-y-0 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger/45"
+          >
+            <span className="relative flex h-2.5 w-2.5 shrink-0">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-on-primary opacity-75" />
+              <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-on-primary" />
+            </span>
+            <AlertOctagon className="h-3.5 w-3.5 shrink-0 dt-transition group-hover:scale-110" />
+            <span>SOS EMERGENCIA</span>
+          </button>
 
           <button
             type="button"
-            onClick={() => setIsTestDrawerOpen((prev) => !prev)}
+            onClick={() => {
+              setIsTestDrawerOpen((prev) => !prev);
+              setIsCrisisMenuOpen(false);
+            }}
             aria-expanded={isTestDrawerOpen}
             aria-controls="deeptrau-test-drawer"
             title="Desplegar controles de pruebas y cambio de misión"
