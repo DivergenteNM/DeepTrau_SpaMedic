@@ -83,7 +83,30 @@
   --dt-telemetry-fill: rgba(43, 91, 108, 0.14);
   --dt-focus-ring: rgba(47, 93, 70, 0.18);
   --dt-duration: 180ms;
+  --dt-duration-smooth: 260ms;
   --dt-ease: cubic-bezier(0.2, 0, 0, 1);
+  --dt-ease-enter: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@layer base {
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]),
+  a[href],
+  select:not(:disabled),
+  input[type="checkbox"]:not(:disabled),
+  input[type="radio"]:not(:disabled),
+  input[type="range"]:not(:disabled),
+  input[type="file"]:not(:disabled),
+  summary {
+    cursor: pointer;
+  }
+
+  button:disabled,
+  [role="button"][aria-disabled="true"],
+  select:disabled,
+  input:disabled {
+    cursor: not-allowed;
+  }
 }
 
 body {
@@ -97,12 +120,83 @@ h1, h2, h3, h4, .font-display {
 }
 
 .dt-transition {
+  transition-property: color, background-color, border-color, text-decoration-color, fill, stroke, opacity, box-shadow, transform, filter;
   transition-duration: var(--dt-duration);
   transition-timing-function: var(--dt-ease);
 }
 
 .dt-selected-ring {
   box-shadow: 0 0 0 3px var(--dt-focus-ring);
+}
+
+@keyframes dtFadeSlideUp {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 10px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes dtFadeInScale {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 4px, 0) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+.dt-animate-enter {
+  animation: dtFadeSlideUp var(--dt-duration-smooth) var(--dt-ease-enter) both;
+}
+
+.dt-animate-panel {
+  animation: dtFadeInScale 220ms var(--dt-ease-enter) both;
+}
+
+.dt-body-zone {
+  cursor: pointer;
+  transform-box: fill-box;
+  transform-origin: center;
+  transition:
+    transform var(--dt-duration) var(--dt-ease),
+    filter var(--dt-duration) var(--dt-ease),
+    opacity var(--dt-duration) var(--dt-ease);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .dt-body-zone:hover {
+    transform: scale(1.03);
+  }
+  .dt-body-zone[data-selected="false"]:hover {
+    filter: drop-shadow(0 0 6px rgba(47, 93, 70, 0.28));
+  }
+}
+
+.dt-body-zone:active {
+  transform: scale(0.98);
+}
+
+.dt-body-zone:focus-visible {
+  outline: none;
+  filter: drop-shadow(0 0 7px rgba(47, 93, 70, 0.45));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dt-animate-enter,
+  .dt-animate-panel {
+    animation: none;
+  }
+
+  .dt-transition,
+  .dt-body-zone {
+    transition-duration: 0.01ms !important;
+  }
 }
 
 /* Custom DeepTrau Mineral Scrollbar */

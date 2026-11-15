@@ -128,7 +128,7 @@ export function SensorHubTab() {
           <button
             type="button"
             onClick={() => triggerDemoAnomaly('solar_storm')}
-            className="inline-flex items-center gap-1.5 rounded-xl border border-danger/35 bg-danger-container px-3.5 py-2 text-xs font-semibold text-on-danger-container dt-transition hover:opacity-90"
+            className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl border border-danger/35 bg-danger-container px-3.5 py-2 text-xs font-semibold text-on-danger-container dt-transition hover:-translate-y-0.5 hover:border-danger hover:shadow-[0_6px_14px_-8px_rgba(180,35,24,0.35)] active:translate-y-0 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger/35"
           >
             <ShieldAlert className="h-4 w-4 text-danger" />
             Inyectar Tormenta Solar
@@ -136,7 +136,7 @@ export function SensorHubTab() {
           <button
             type="button"
             onClick={() => triggerDemoAnomaly('hypoglycemia_immune')}
-            className="inline-flex items-center gap-1.5 rounded-xl border border-warning/35 bg-warning-container px-3.5 py-2 text-xs font-semibold text-on-warning-container dt-transition hover:opacity-90"
+            className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl border border-warning/35 bg-warning-container px-3.5 py-2 text-xs font-semibold text-on-warning-container dt-transition hover:-translate-y-0.5 hover:border-warning hover:shadow-[0_6px_14px_-8px_rgba(181,71,8,0.35)] active:translate-y-0 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-warning/35"
           >
             <AlertTriangle className="h-4 w-4 text-warning" />
             Simular Hipoglucemia + Baja Inmune
@@ -171,10 +171,10 @@ export function SensorHubTab() {
               <button
                 type="button"
                 onClick={() => toggleDevice(dev.id)}
-                className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold dt-transition ${
+                className={`inline-flex cursor-pointer items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold dt-transition hover:-translate-y-px active:translate-y-0 active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35 ${
                   dev.connected
                     ? 'border-primary/30 bg-primary-container text-on-primary-container hover:bg-primary hover:text-on-primary'
-                    : 'border-outline bg-surface-container text-on-surface-variant hover:bg-surface-container-high'
+                    : 'border-outline bg-surface-container text-on-surface-variant hover:border-primary/40 hover:bg-surface-container-high hover:text-on-surface'
                 }`}
               >
                 <Power className="h-3.5 w-3.5" />
@@ -231,14 +231,14 @@ export function SensorHubTab() {
           <button
             type="button"
             onClick={() => setActiveTab('dashboard')}
-            className="text-xs font-semibold text-primary hover:text-primary-hover"
+            className="inline-flex cursor-pointer items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-primary dt-transition hover:-translate-y-px hover:bg-primary-container/60 hover:text-primary-hover active:translate-y-0 active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35"
           >
             Ver impacto en Mapa Corporal →
           </button>
         </div>
 
         {savedBanner && (
-          <div className="flex items-center gap-2 rounded-xl border border-primary/30 bg-primary-container px-4 py-3 text-xs font-medium text-on-primary-container">
+          <div className="dt-animate-panel flex items-center gap-2 rounded-xl border border-primary/30 bg-primary-container px-4 py-3 text-xs font-medium text-on-primary-container">
             <CheckCircle2 className="h-4 w-4 shrink-0 text-primary" />
             {savedBanner}
           </div>
@@ -259,7 +259,7 @@ export function SensorHubTab() {
               max={210}
               value={glucoseInput}
               onChange={(e) => setGlucoseInput(Number(e.target.value))}
-              className="w-full accent-telemetry"
+              className="w-full cursor-pointer accent-telemetry"
             />
             <p className="text-[11px] text-on-surface-variant">
               Rango seguro espacial: 75 – 125 mg/dL
@@ -283,7 +283,7 @@ export function SensorHubTab() {
               step={50}
               value={wbcInput}
               onChange={(e) => setWbcInput(Number(e.target.value))}
-              className="w-full accent-danger"
+              className="w-full cursor-pointer accent-danger"
             />
             <p className="text-[11px] text-on-surface-variant">
               Alerta temprana si el expediente marca Defensas Bajas (&lt;4,500 cél/µL)
@@ -305,7 +305,7 @@ export function SensorHubTab() {
               step={0.1}
               value={dailyRadInput}
               onChange={(e) => setDailyRadInput(Number(e.target.value))}
-              className="w-full accent-warning"
+              className="w-full cursor-pointer accent-warning"
             />
             <p className="text-[11px] text-on-surface-variant">
               &gt; 2.8 mSv/día activa alerta solar (Dosimetría CSA)
@@ -326,7 +326,7 @@ export function SensorHubTab() {
               max={100}
               value={spo2Input}
               onChange={(e) => setSpo2Input(Number(e.target.value))}
-              className="w-full accent-primary"
+              className="w-full cursor-pointer accent-primary"
             />
             <p className="text-[11px] text-on-surface-variant">Óptimo en cabina: 95% – 100%</p>
           </div>
@@ -345,7 +345,7 @@ export function SensorHubTab() {
                   max={190}
                   value={systolicInput}
                   onChange={(e) => setSystolicInput(Number(e.target.value))}
-                  className="mt-0.5 w-full rounded-lg border border-outline bg-surface-container px-2 py-1.5 text-xs text-on-surface font-mono"
+                  className="mt-0.5 w-full rounded-lg border border-outline bg-surface-container px-2 py-1.5 text-xs text-on-surface font-mono outline-none dt-transition focus:border-primary focus:ring-2 focus:ring-primary/15"
                 />
               </div>
               <div>
@@ -356,7 +356,7 @@ export function SensorHubTab() {
                   max={120}
                   value={diastolicInput}
                   onChange={(e) => setDiastolicInput(Number(e.target.value))}
-                  className="mt-0.5 w-full rounded-lg border border-outline bg-surface-container px-2 py-1.5 text-xs text-on-surface font-mono"
+                  className="mt-0.5 w-full rounded-lg border border-outline bg-surface-container px-2 py-1.5 text-xs text-on-surface font-mono outline-none dt-transition focus:border-primary focus:ring-2 focus:ring-primary/15"
                 />
               </div>
               <div>
@@ -367,7 +367,7 @@ export function SensorHubTab() {
                   max={160}
                   value={hrInput}
                   onChange={(e) => setHrInput(Number(e.target.value))}
-                  className="mt-0.5 w-full rounded-lg border border-outline bg-surface-container px-2 py-1.5 text-xs text-on-surface font-mono"
+                  className="mt-0.5 w-full rounded-lg border border-outline bg-surface-container px-2 py-1.5 text-xs text-on-surface font-mono outline-none dt-transition focus:border-primary focus:ring-2 focus:ring-primary/15"
                 />
               </div>
             </div>
@@ -385,14 +385,14 @@ export function SensorHubTab() {
                   e.target.value as 'Normal' | 'Edema Neuro-Ocular Leve' | 'Atrofia Muscular Leve'
                 )
               }
-              className="w-full rounded-lg border border-outline bg-surface-container px-2.5 py-1.5 text-xs text-on-surface"
+              className="w-full cursor-pointer rounded-lg border border-outline bg-surface-container px-2.5 py-1.5 text-xs text-on-surface outline-none dt-transition hover:border-primary/50 focus:border-primary focus:ring-2 focus:ring-primary/15"
             >
               <option value="Normal">Normal (Sin hallazgos)</option>
               <option value="Edema Neuro-Ocular Leve">Edema Neuro-Ocular Leve (SANS)</option>
               <option value="Atrofia Muscular Leve">Atrofia Muscular Leve en Cuádriceps</option>
             </select>
 
-            <label className="mt-1 inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-outline bg-surface-container px-2.5 py-1.5 text-[11px] font-medium text-primary dt-transition hover:border-primary">
+            <label className="mt-1 inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-outline bg-surface-container px-2.5 py-1.5 text-[11px] font-medium text-primary dt-transition hover:-translate-y-px hover:border-primary hover:bg-primary-container/35 active:translate-y-0 active:scale-[0.98]">
               <ImagePlus className="h-3.5 w-3.5" />
               Cargar imagen simulada de ultrasonido
               <input
@@ -403,7 +403,7 @@ export function SensorHubTab() {
               />
             </label>
             {ultrasoundPreview && (
-              <div className="mt-2 overflow-hidden rounded-lg border border-outline">
+              <div className="dt-animate-panel mt-2 overflow-hidden rounded-lg border border-outline">
                 <img
                   src={ultrasoundPreview}
                   alt="Vista previa de ultrasonido simulado"
@@ -417,9 +417,9 @@ export function SensorHubTab() {
         <div className="flex justify-end">
           <button
             type="submit"
-            className="inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-bold text-on-primary dt-transition hover:bg-primary-hover font-display"
+            className="group inline-flex cursor-pointer items-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-bold text-on-primary dt-transition hover:-translate-y-0.5 hover:bg-primary-hover hover:shadow-[0_8px_18px_-8px_rgba(47,93,70,0.45)] active:translate-y-0 active:scale-[0.985] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35 font-display"
           >
-            <Send className="h-4 w-4" />
+            <Send className="h-4 w-4 dt-transition group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
             Registrar Nueva Lectura en Telemetría (+25 pts)
           </button>
         </div>

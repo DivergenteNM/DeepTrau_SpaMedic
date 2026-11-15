@@ -162,7 +162,17 @@ motion:
     duration: "180ms"
     delay: "0ms"
     timingFunction: "cubic-bezier(0.2, 0, 0, 1)"
+  entrance:
+    duration: "260ms"
+    delay: "0ms"
+    timingFunction: "cubic-bezier(0.16, 1, 0.3, 1)"
+  press:
+    duration: "120ms"
+    scale: "0.985"
 ```
+
+- **Cursor y Micro-interacciones:** Todo botón, tarjeta clicable, selector, tab y zona SVG interactiva usa `cursor-pointer` (`disabled:cursor-not-allowed`), elevación sutil en hover (`-1px` / `-2px` según jerarquía), respuesta táctil al clic (`active:scale-[0.985]`) y anillo `focus-visible` basado en `focus-ring`.
+- **Transiciones Suaves:** Cambios de pestaña (`.dt-animate-enter`), paneles/banners dinámicos (`.dt-animate-panel`) y barras de progreso (`transition-[width]`) respetan `@media (prefers-reduced-motion: reduce)`.
 
 ---
 

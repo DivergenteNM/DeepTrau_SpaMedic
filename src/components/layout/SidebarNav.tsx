@@ -134,7 +134,7 @@ export function SidebarNav({
           onClick={isMobileDrawer ? onCloseMobile : onToggleDesktop}
           aria-label={isMobileDrawer ? 'Cerrar menú lateral' : 'Ocultar barra lateral'}
           title={isMobileDrawer ? 'Cerrar menú lateral' : 'Ocultar barra lateral'}
-          className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-outline bg-surface-container-low text-on-surface-variant dt-transition hover:bg-surface-container-high hover:text-on-surface"
+          className="inline-flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-xl border border-outline bg-surface-container-low text-on-surface-variant dt-transition hover:border-primary/35 hover:bg-surface-container-high hover:text-on-surface active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35"
         >
           {isMobileDrawer ? (
             <X className="h-4 w-4" />
@@ -158,14 +158,20 @@ export function SidebarNav({
                   onCloseMobile();
                 }
               }}
-              className={`flex items-center justify-between gap-3 rounded-xl border px-3.5 py-3 text-left dt-transition ${
+              className={`group flex cursor-pointer items-center justify-between gap-3 rounded-xl border px-3.5 py-3 text-left dt-transition active:scale-[0.985] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35 ${
                 isActive
                   ? 'border-primary/35 bg-primary-container text-on-primary-container'
-                  : 'border-transparent bg-surface-container text-on-surface hover:border-outline hover:bg-surface-container-low'
+                  : 'border-transparent bg-surface-container text-on-surface hover:translate-x-0.5 hover:border-outline hover:bg-surface-container-low'
               }`}
             >
               <div className="flex min-w-0 items-center gap-3">
-                <span className={isActive ? 'text-primary' : 'text-on-surface-variant'}>
+                <span
+                  className={`dt-transition group-hover:scale-105 ${
+                    isActive
+                      ? 'text-primary'
+                      : 'text-on-surface-variant group-hover:text-primary'
+                  }`}
+                >
                   {item.icon}
                 </span>
                 <div className="min-w-0">
@@ -180,10 +186,12 @@ export function SidebarNav({
                 </div>
               </div>
               <div className="flex shrink-0 items-center gap-1.5">
-                {item.alert && <span className="h-2.5 w-2.5 rounded-full bg-warning" />}
+                {item.alert && (
+                  <span className="h-2.5 w-2.5 rounded-full bg-warning animate-pulse" />
+                )}
                 {item.badge && (
                   <span
-                    className={`rounded-lg border px-1.5 py-0.5 font-mono text-[10px] font-semibold ${
+                    className={`rounded-lg border px-1.5 py-0.5 font-mono text-[10px] font-semibold dt-transition ${
                       isActive
                         ? 'border-primary/30 bg-surface-container text-on-primary-container'
                         : 'border-outline bg-surface-container-low text-on-surface-variant'
@@ -215,7 +223,7 @@ export function SidebarNav({
           </div>
           <div className="h-2 w-full overflow-hidden rounded-full bg-surface-container-high">
             <div
-              className="h-full rounded-full bg-primary dt-transition"
+              className="h-full rounded-full bg-primary transition-[width] duration-300 ease-[cubic-bezier(0.2,0,0,1)]"
               style={{ width: `${routinePct}%` }}
             />
           </div>
@@ -251,7 +259,7 @@ export function SidebarNav({
       <aside
         aria-hidden={!isDesktopOpen}
         inert={!isDesktopOpen}
-        className={`hidden shrink-0 overflow-clip border-outline bg-surface-container dt-transition transition-[width,opacity] lg:block ${
+        className={`hidden shrink-0 overflow-clip border-outline bg-surface-container transition-[width,opacity] duration-250 ease-[cubic-bezier(0.16,1,0.3,1)] lg:block ${
           isDesktopOpen
             ? 'w-72 border-r opacity-100'
             : 'pointer-events-none w-0 border-r-0 opacity-0'
@@ -264,13 +272,13 @@ export function SidebarNav({
 
       {/* Desktop Reopen Handle (outside navbar, shown only when sidebar is collapsed) */}
       {!isDesktopOpen && (
-        <div className="hidden shrink-0 pl-3 pt-4 lg:block">
+        <div className="hidden shrink-0 pl-3 pt-4 dt-animate-panel lg:block">
           <button
             type="button"
             onClick={onToggleDesktop}
             aria-label="Mostrar barra lateral"
             title="Mostrar barra lateral"
-            className="sticky top-[70px] inline-flex h-9 w-9 items-center justify-center rounded-xl border border-outline bg-surface-container text-on-surface-variant dt-transition hover:bg-surface-container-low hover:text-on-surface"
+            className="sticky top-[70px] inline-flex h-9 w-9 cursor-pointer items-center justify-center rounded-xl border border-outline bg-surface-container text-on-surface-variant dt-transition hover:scale-105 hover:border-primary/45 hover:bg-surface-container-low hover:text-on-surface active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35"
           >
             <PanelLeftOpen className="h-4 w-4" />
           </button>
@@ -281,16 +289,16 @@ export function SidebarNav({
       <div
         aria-hidden={!isMobileOpen}
         inert={!isMobileOpen}
-        className={`fixed inset-0 z-50 lg:hidden dt-transition transition-opacity ${
+        className={`fixed inset-0 z-50 lg:hidden transition-opacity duration-250 ease-[cubic-bezier(0.16,1,0.3,1)] ${
           isMobileOpen ? 'pointer-events-auto opacity-100' : 'pointer-events-none opacity-0'
         }`}
       >
         <div
           onClick={onCloseMobile}
-          className="fixed inset-0 bg-on-surface/25 backdrop-blur-[1px]"
+          className="fixed inset-0 cursor-pointer bg-on-surface/25 backdrop-blur-[1px]"
         />
         <aside
-          className={`fixed inset-y-0 left-0 z-50 w-72 max-w-[85vw] overflow-y-auto border-r border-outline bg-surface-container dt-transition transition-transform ${
+          className={`fixed inset-y-0 left-0 z-50 w-72 max-w-[85vw] overflow-y-auto border-r border-outline bg-surface-container transition-transform duration-250 ease-[cubic-bezier(0.16,1,0.3,1)] ${
             isMobileOpen ? 'translate-x-0' : '-translate-x-full'
           }`}
         >

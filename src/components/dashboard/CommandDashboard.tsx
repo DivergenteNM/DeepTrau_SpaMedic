@@ -93,7 +93,7 @@ export function CommandDashboard() {
             key={idx}
             type="button"
             onClick={() => setActiveTab(card.tab)}
-            className={`group text-left rounded-2xl border p-4 dt-transition hover:border-primary ${statusBorder(
+            className={`group cursor-pointer text-left rounded-2xl border p-4 dt-transition hover:-translate-y-0.5 hover:border-primary hover:shadow-[0_10px_24px_-14px_rgba(47,93,70,0.24)] active:translate-y-0 active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35 ${statusBorder(
               card.status
             )}`}
           >
@@ -101,7 +101,7 @@ export function CommandDashboard() {
               <span className="text-xs font-semibold text-on-surface-variant font-display">
                 {card.label}
               </span>
-              {card.icon}
+              <span className="dt-transition group-hover:scale-110">{card.icon}</span>
             </div>
             <p className="mt-2 text-[22px] leading-[28px] font-bold tracking-tight text-on-surface font-mono">
               {card.value}
@@ -209,13 +209,13 @@ export function CommandDashboard() {
                   key={task.id}
                   type="button"
                   onClick={() => toggleRoutineTask(task.id)}
-                  className={`flex w-full items-start gap-3 rounded-xl border p-3.5 text-left dt-transition ${
+                  className={`group flex w-full cursor-pointer items-start gap-3 rounded-xl border p-3.5 text-left dt-transition hover:-translate-y-px active:translate-y-0 active:scale-[0.992] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35 ${
                     task.completed
-                      ? 'border-primary/30 bg-primary-container/55'
-                      : 'border-outline bg-surface-container-low hover:border-primary'
+                      ? 'border-primary/30 bg-primary-container/55 hover:bg-primary-container/75'
+                      : 'border-outline bg-surface-container-low hover:border-primary hover:bg-surface-container'
                   }`}
                 >
-                  <span className="mt-0.5 shrink-0">
+                  <span className="mt-0.5 shrink-0 dt-transition group-hover:scale-110">
                     {task.completed ? (
                       <CheckCircle2 className="h-5 w-5 text-primary" />
                     ) : (
@@ -260,9 +260,9 @@ export function CommandDashboard() {
               <button
                 type="button"
                 onClick={() => setActiveTab('sensors')}
-                className="inline-flex items-center gap-1 font-semibold text-primary hover:text-primary-hover"
+                className="group inline-flex cursor-pointer items-center gap-1 rounded-lg px-2 py-1 font-semibold text-primary dt-transition hover:-translate-y-px hover:bg-primary-container/60 hover:text-primary-hover active:translate-y-0 active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35"
               >
-                <Cpu className="h-3.5 w-3.5" />
+                <Cpu className="h-3.5 w-3.5 dt-transition group-hover:rotate-12" />
                 Gestionar sensores
               </button>
             </div>

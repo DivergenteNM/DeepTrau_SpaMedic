@@ -519,7 +519,7 @@ export function WelcomeHome({ onStart }: WelcomeHomeProps) {
             ) : (
               <>
                 <span>Comenzar</span>
-                <ArrowRight className="h-4 w-4 dt-transition group-hover:translate-x-0.5" />
+                <ArrowRight className="h-4 w-4 dt-transition group-hover:translate-x-1" />
               </>
             )}
           </button>

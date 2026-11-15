@@ -1,6 +1,6 @@
 # Auditoría de Inteligencia Artificial, Fuentes Científicas y Créditos de Terceros (`CREDITS_AND_AI_AUDIT.md`)
 
-Este documento cumple estrictamente con los lineamientos de transparencia del hackatón **NASA Space Apps Challenge** y con las reglas de `skill.md`, `.agents/skills/free-open-source-minimal-deps` y `.agents/skills/design-system-governance`: toda la auditoría de IA, las citas científicas de agencias espaciales y el inventario de dependencias de código abierto para **DeepTrau** (*DeepTrau SpaMedic*) se mantienen documentados aquí, sin sobrecargar la interfaz operativa del astronauta.
+Este documento cumple estrictamente con los lineamientos de transparencia del hackatón **NASA Space Apps Challenge** y con las reglas de `skill.md`, `.agents/skills/free-open-source-minimal-deps`, `.agents/skills/design-system-governance` y `.agents/skills/ui-cursor-hover-motion`: toda la auditoría de IA, las citas científicas de agencias espaciales y el inventario de dependencias de código abierto para **DeepTrau** (*DeepTrau SpaMedic*) se mantienen documentados aquí, sin sobrecargar la interfaz operativa del astronauta.
 
 ---
 

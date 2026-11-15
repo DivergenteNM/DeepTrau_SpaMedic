@@ -172,10 +172,10 @@ export function TopTelemetryBar() {
             aria-expanded={isTestDrawerOpen}
             aria-controls="deeptrau-test-drawer"
             title="Desplegar controles de pruebas y cambio de misión"
-            className={`inline-flex items-center gap-1.5 rounded-xl border px-2.5 py-1.5 text-xs font-semibold font-display dt-transition sm:px-3 ${
+            className={`inline-flex cursor-pointer items-center gap-1.5 rounded-xl border px-2.5 py-1.5 text-xs font-semibold font-display dt-transition active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35 sm:px-3 ${
               isTestDrawerOpen
                 ? 'border-primary/40 bg-primary-container text-on-primary-container'
-                : 'border-outline bg-surface-container-low text-on-surface hover:bg-surface-container-high'
+                : 'border-outline bg-surface-container-low text-on-surface hover:-translate-y-px hover:border-primary/45 hover:bg-surface-container-high'
             }`}
           >
             <ChevronLeft
@@ -192,10 +192,10 @@ export function TopTelemetryBar() {
             id="deeptrau-test-drawer"
             aria-hidden={!isTestDrawerOpen}
             inert={!isTestDrawerOpen}
-            className={`absolute right-4 top-[calc(100%+8px)] z-40 w-[calc(100vw-2rem)] origin-right rounded-2xl border border-outline bg-surface-container p-3.5 dt-transition transition-all sm:w-auto sm:min-w-[440px] sm:max-w-[580px] lg:right-6 ${
+            className={`absolute right-4 top-[calc(100%+8px)] z-40 w-[calc(100vw-2rem)] origin-top-right rounded-2xl border border-outline bg-surface-container p-3.5 shadow-[0_14px_32px_-12px_rgba(26,36,30,0.18)] transition-all duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] sm:w-auto sm:min-w-[440px] sm:max-w-[580px] lg:right-6 ${
               isTestDrawerOpen
-                ? 'translate-x-0 opacity-100 scale-100 pointer-events-auto'
-                : 'translate-x-6 opacity-0 scale-[0.98] pointer-events-none'
+                ? 'translate-y-0 translate-x-0 opacity-100 scale-100 pointer-events-auto'
+                : '-translate-y-1 translate-x-4 opacity-0 scale-[0.97] pointer-events-none'
             }`}
           >
             <div className="flex flex-col gap-3">
@@ -211,9 +211,9 @@ export function TopTelemetryBar() {
                     type="button"
                     onClick={resetDemoData}
                     title="Reiniciar métricas de demostración"
-                    className="inline-flex items-center gap-1 rounded-xl border border-outline bg-surface-container-low px-2.5 py-1.5 text-xs font-medium text-on-surface-variant dt-transition hover:bg-surface-container-high hover:text-on-surface"
+                    className="group inline-flex cursor-pointer items-center gap-1 rounded-xl border border-outline bg-surface-container-low px-2.5 py-1.5 text-xs font-medium text-on-surface-variant dt-transition hover:-translate-y-px hover:border-primary/40 hover:bg-surface-container-high hover:text-on-surface active:translate-y-0 active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35"
                   >
-                    <RotateCcw className="h-3.5 w-3.5" />
+                    <RotateCcw className="h-3.5 w-3.5 dt-transition group-hover:-rotate-45" />
                     <span>Reiniciar</span>
                   </button>
 
@@ -223,9 +223,9 @@ export function TopTelemetryBar() {
                       setIsTestDrawerOpen(false);
                       reopenOnboarding();
                     }}
-                    className="inline-flex items-center gap-1.5 rounded-xl bg-primary px-3 py-1.5 text-xs font-semibold text-on-primary dt-transition hover:bg-primary-hover"
+                    className="group inline-flex cursor-pointer items-center gap-1.5 rounded-xl bg-primary px-3 py-1.5 text-xs font-semibold text-on-primary dt-transition hover:-translate-y-px hover:bg-primary-hover hover:shadow-[0_6px_14px_-6px_rgba(47,93,70,0.45)] active:translate-y-0 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35"
                   >
-                    <RefreshCw className="h-3.5 w-3.5" />
+                    <RefreshCw className="h-3.5 w-3.5 dt-transition group-hover:rotate-90" />
                     <span>Cambiar Misión / Astronauta</span>
                   </button>
                 </div>
@@ -241,7 +241,7 @@ export function TopTelemetryBar() {
                     key={sc.id}
                     type="button"
                     onClick={() => triggerDemoAnomaly(sc.id)}
-                    className={`rounded-lg border px-2.5 py-1 text-xs font-semibold dt-transition ${sc.style}`}
+                    className={`cursor-pointer rounded-lg border px-2.5 py-1 text-xs font-semibold dt-transition hover:-translate-y-px active:translate-y-0 active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35 ${sc.style}`}
                   >
                     {sc.label}
                   </button>

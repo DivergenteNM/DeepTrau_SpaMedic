@@ -296,7 +296,7 @@ export function MentalHealthTab() {
     <div className="space-y-6">
       {/* Low Mood Countermeasure Alert */}
       {(biomarkers.moodScore <= 6 || biomarkers.sleepHours < 6.5) && (
-        <div className="rounded-2xl border border-warning/35 bg-warning-container p-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div className="dt-animate-panel rounded-2xl border border-warning/35 bg-warning-container p-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-start gap-3">
             <Heart className="mt-0.5 h-5 w-5 shrink-0 text-warning" />
             <div className="text-xs text-on-warning-container">
@@ -312,7 +312,7 @@ export function MentalHealthTab() {
           </div>
           <a
             href="#muro-inspiracion"
-            className="shrink-0 rounded-xl bg-warning px-3.5 py-2 text-xs font-bold text-surface dt-transition hover:bg-warning-hover"
+            className="shrink-0 cursor-pointer rounded-xl bg-warning px-3.5 py-2 text-center text-xs font-bold text-surface dt-transition hover:-translate-y-0.5 hover:bg-warning-hover hover:shadow-sm active:translate-y-0 active:scale-[0.985] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-warning/40"
           >
             Ir a Mi Ancla en la Tierra
           </a>
@@ -336,7 +336,7 @@ export function MentalHealthTab() {
               </p>
             </div>
             {checkInSaved && (
-              <span className="rounded-full border border-primary/30 bg-primary-container px-2.5 py-1 text-[11px] font-semibold text-on-primary-container">
+              <span className="dt-animate-panel rounded-full border border-primary/30 bg-primary-container px-2.5 py-1 text-[11px] font-semibold text-on-primary-container">
                 ¡Guardado!
               </span>
             )}
@@ -354,7 +354,7 @@ export function MentalHealthTab() {
                 max={10}
                 value={moodScore}
                 onChange={(e) => setMoodScore(Number(e.target.value))}
-                className="w-full accent-primary"
+                className="w-full cursor-pointer accent-primary"
               />
             </div>
 
@@ -370,7 +370,7 @@ export function MentalHealthTab() {
                 step={0.5}
                 value={sleepHours}
                 onChange={(e) => setSleepHours(Number(e.target.value))}
-                className="w-full accent-telemetry"
+                className="w-full cursor-pointer accent-telemetry"
               />
             </div>
 
@@ -385,7 +385,7 @@ export function MentalHealthTab() {
                 max={10}
                 value={stressLevel}
                 onChange={(e) => setStressLevel(Number(e.target.value))}
-                className="w-full accent-warning"
+                className="w-full cursor-pointer accent-warning"
               />
             </div>
 
@@ -400,14 +400,14 @@ export function MentalHealthTab() {
                 max={10}
                 value={crewCohesion}
                 onChange={(e) => setCrewCohesion(Number(e.target.value))}
-                className="w-full accent-secondary"
+                className="w-full cursor-pointer accent-secondary"
               />
             </div>
           </div>
 
           <button
             type="submit"
-            className="w-full rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-on-primary dt-transition hover:bg-primary-hover font-display"
+            className="w-full cursor-pointer rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-on-primary dt-transition hover:-translate-y-0.5 hover:bg-primary-hover hover:shadow-[0_8px_18px_-8px_rgba(47,93,70,0.45)] active:translate-y-0 active:scale-[0.985] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35 font-display"
           >
             Registrar Check-in del Día (+30 pts)
           </button>
@@ -430,10 +430,10 @@ export function MentalHealthTab() {
           <div className="rounded-xl border border-primary/30 bg-primary-container p-4 flex items-center justify-between gap-4">
             <div className="flex items-center gap-3.5">
               <div
-                className={`flex h-14 w-14 items-center justify-center rounded-full border-2 border-primary bg-surface-container transition-transform duration-1000 ${
+                className={`flex h-14 w-14 items-center justify-center rounded-full border-2 border-primary bg-surface-container transition-transform duration-1000 ease-[cubic-bezier(0.4,0,0.2,1)] ${
                   breathingActive
                     ? breathTick < 8
-                      ? 'scale-110'
+                      ? 'scale-110 shadow-[0_0_0_6px_rgba(47,93,70,0.14)]'
                       : 'scale-90'
                     : 'scale-100'
                 }`}
@@ -455,7 +455,7 @@ export function MentalHealthTab() {
                 setBreathingActive((b) => !b);
                 setBreathTick(0);
               }}
-              className="inline-flex items-center gap-1.5 rounded-xl bg-primary px-3.5 py-2 text-xs font-semibold text-on-primary dt-transition hover:bg-primary-hover"
+              className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl bg-primary px-3.5 py-2 text-xs font-semibold text-on-primary dt-transition hover:-translate-y-px hover:bg-primary-hover hover:shadow-[0_6px_14px_-6px_rgba(47,93,70,0.45)] active:translate-y-0 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35"
             >
               {breathingActive ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
               {breathingActive ? 'Pausar' : 'Iniciar'}
@@ -486,14 +486,14 @@ export function MentalHealthTab() {
                   key={item.key}
                   type="button"
                   onClick={() => togglePsychRoutine(item.key)}
-                  className={`flex w-full items-start gap-3 rounded-xl border p-3 text-left dt-transition ${
+                  className={`group flex w-full cursor-pointer items-start gap-3 rounded-xl border p-3 text-left dt-transition hover:-translate-y-px active:translate-y-0 active:scale-[0.992] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35 ${
                     checked
-                      ? 'border-primary/30 bg-primary-container/55'
-                      : 'border-outline bg-surface-container-low hover:border-primary'
+                      ? 'border-primary/30 bg-primary-container/55 hover:bg-primary-container/75'
+                      : 'border-outline bg-surface-container-low hover:border-primary hover:bg-surface-container'
                   }`}
                 >
                   <CheckCircle2
-                    className={`mt-0.5 h-4 w-4 shrink-0 ${
+                    className={`mt-0.5 h-4 w-4 shrink-0 dt-transition group-hover:scale-110 ${
                       checked ? 'text-primary' : 'text-on-surface-variant'
                     }`}
                   />
@@ -534,10 +534,10 @@ export function MentalHealthTab() {
               <button
                 type="button"
                 onClick={() => setDiaryMode('video')}
-                className={`rounded-lg px-3 py-1 font-semibold dt-transition ${
+                className={`cursor-pointer rounded-lg px-3 py-1 font-semibold dt-transition active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35 ${
                   diaryMode === 'video'
-                    ? 'bg-primary text-on-primary'
-                    : 'text-on-surface-variant hover:text-on-surface'
+                    ? 'bg-primary text-on-primary shadow-xs'
+                    : 'text-on-surface-variant hover:bg-surface-container hover:text-on-surface'
                 }`}
               >
                 Modo Video
@@ -545,10 +545,10 @@ export function MentalHealthTab() {
               <button
                 type="button"
                 onClick={() => setDiaryMode('texto')}
-                className={`rounded-lg px-3 py-1 font-semibold dt-transition ${
+                className={`cursor-pointer rounded-lg px-3 py-1 font-semibold dt-transition active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35 ${
                   diaryMode === 'texto'
-                    ? 'bg-primary text-on-primary'
-                    : 'text-on-surface-variant hover:text-on-surface'
+                    ? 'bg-primary text-on-primary shadow-xs'
+                    : 'text-on-surface-variant hover:bg-surface-container hover:text-on-surface'
                 }`}
               >
                 Diario Escrito
@@ -557,7 +557,7 @@ export function MentalHealthTab() {
           </div>
 
           {diaryMode === 'video' && (
-            <div className="rounded-2xl border border-outline bg-surface-container-low p-4 space-y-3">
+            <div className="dt-animate-panel rounded-2xl border border-outline bg-surface-container-low p-4 space-y-3">
               {/* Optical Dark Viewport (reuses viewport-surface #1A241E) */}
               <div className="relative flex h-52 w-full items-center justify-center overflow-hidden rounded-xl border border-viewport-border bg-viewport-surface">
                 {cameraActive && !cameraFallback ? (
@@ -602,7 +602,7 @@ export function MentalHealthTab() {
                   <button
                     type="button"
                     onClick={startWebcam}
-                    className="inline-flex items-center gap-1.5 rounded-xl bg-primary px-3.5 py-2 text-xs font-semibold text-on-primary dt-transition hover:bg-primary-hover"
+                    className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl bg-primary px-3.5 py-2 text-xs font-semibold text-on-primary dt-transition hover:-translate-y-px hover:bg-primary-hover hover:shadow-[0_6px_14px_-6px_rgba(47,93,70,0.45)] active:translate-y-0 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35"
                   >
                     <Camera className="h-4 w-4" />
                     Activar Cámara / Simulador
@@ -612,10 +612,10 @@ export function MentalHealthTab() {
                     <button
                       type="button"
                       onClick={() => setIsRecording((r) => !r)}
-                      className={`inline-flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-bold dt-transition ${
+                      className={`inline-flex cursor-pointer items-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-bold dt-transition hover:-translate-y-px active:translate-y-0 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 ${
                         isRecording
-                          ? 'bg-danger text-on-secondary hover:bg-danger-hover'
-                          : 'bg-primary text-on-primary hover:bg-primary-hover'
+                          ? 'bg-danger text-on-secondary hover:bg-danger-hover focus-visible:ring-danger/40'
+                          : 'bg-primary text-on-primary hover:bg-primary-hover focus-visible:ring-primary/35'
                       }`}
                     >
                       <Radio className="h-4 w-4" />
@@ -624,7 +624,7 @@ export function MentalHealthTab() {
                     <button
                       type="button"
                       onClick={stopWebcam}
-                      className="rounded-xl border border-outline bg-surface-container px-3 py-2 text-xs font-medium text-on-surface dt-transition hover:bg-surface-container-high"
+                      className="cursor-pointer rounded-xl border border-outline bg-surface-container px-3 py-2 text-xs font-medium text-on-surface dt-transition hover:-translate-y-px hover:border-primary/40 hover:bg-surface-container-high active:translate-y-0 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35"
                     >
                       Apagar Cámara
                     </button>
@@ -640,18 +640,18 @@ export function MentalHealthTab() {
               value={diaryTitle}
               onChange={(e) => setDiaryTitle(e.target.value)}
               placeholder="Título de la entrada (ej. Balance emocional tras caminata espacial)"
-              className="w-full rounded-xl border border-outline bg-surface px-3.5 py-2 text-xs text-on-surface outline-none focus:border-primary"
+              className="w-full rounded-xl border border-outline bg-surface px-3.5 py-2 text-xs text-on-surface outline-none dt-transition focus:border-primary focus:ring-2 focus:ring-primary/15"
             />
             <textarea
               rows={3}
               value={diaryNotes}
               onChange={(e) => setDiaryNotes(e.target.value)}
               placeholder="Escribe tus pensamientos del día o notas para los psicólogos de misión..."
-              className="w-full rounded-xl border border-outline bg-surface px-3.5 py-2 text-xs text-on-surface outline-none focus:border-primary"
+              className="w-full rounded-xl border border-outline bg-surface px-3.5 py-2 text-xs text-on-surface outline-none dt-transition focus:border-primary focus:ring-2 focus:ring-primary/15"
             />
             <button
               type="submit"
-              className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-xs font-bold text-on-primary dt-transition hover:bg-primary-hover font-display"
+              className="inline-flex cursor-pointer items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-xs font-bold text-on-primary dt-transition hover:-translate-y-0.5 hover:bg-primary-hover hover:shadow-[0_8px_18px_-8px_rgba(47,93,70,0.45)] active:translate-y-0 active:scale-[0.985] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35 font-display"
             >
               <Sparkles className="h-4 w-4" />
               Analizar y Guardar en Bitácora (+35 pts)
@@ -801,7 +801,7 @@ export function MentalHealthTab() {
             <button
               type="button"
               onClick={stopAmbientSound}
-              className="inline-flex items-center gap-1.5 rounded-xl border border-danger/35 bg-danger-container px-3 py-1.5 text-xs font-semibold text-on-danger-container"
+              className="dt-animate-panel inline-flex cursor-pointer items-center gap-1.5 rounded-xl border border-danger/35 bg-danger-container px-3 py-1.5 text-xs font-semibold text-on-danger-container dt-transition hover:-translate-y-px hover:border-danger active:translate-y-0 active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger/35"
             >
               <VolumeX className="h-4 w-4 text-danger" />
               Silenciar Audio
@@ -822,7 +822,7 @@ export function MentalHealthTab() {
             return (
               <div
                 key={item.id}
-                className={`flex flex-col justify-between rounded-2xl border p-4 space-y-3 ${cardTheme}`}
+                className={`flex flex-col justify-between rounded-2xl border p-4 space-y-3 dt-transition ${cardTheme}`}
               >
                 <div className="space-y-2.5">
                   {item.imageUrl ? (
@@ -854,13 +854,13 @@ export function MentalHealthTab() {
                 <button
                   type="button"
                   onClick={() => playAmbientSound(item.soundId)}
-                  className={`inline-flex w-full items-center justify-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-semibold dt-transition ${
+                  className={`inline-flex w-full cursor-pointer items-center justify-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-semibold dt-transition hover:-translate-y-px active:translate-y-0 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35 ${
                     isPlaying
-                      ? 'border-primary bg-primary text-on-primary'
-                      : 'border-outline bg-surface-container text-on-surface hover:bg-surface-container-low'
+                      ? 'border-primary bg-primary text-on-primary hover:bg-primary-hover'
+                      : 'border-outline bg-surface-container text-on-surface hover:border-primary/45 hover:bg-surface-container-low'
                   }`}
                 >
-                  <Volume2 className="h-3.5 w-3.5" />
+                  <Volume2 className={`h-3.5 w-3.5 ${isPlaying ? 'animate-pulse' : ''}`} />
                   {isPlaying ? 'Reproduciendo (Pausar)' : item.soundLabel}
                 </button>
               </div>
@@ -882,7 +882,7 @@ export function MentalHealthTab() {
               value={newAnchorTitle}
               onChange={(e) => setNewAnchorTitle(e.target.value)}
               placeholder="Ej. Foto con mi hija en la playa"
-              className="w-full rounded-lg border border-outline bg-surface-container px-3 py-2 text-xs text-on-surface outline-none focus:border-primary"
+              className="w-full rounded-lg border border-outline bg-surface-container px-3 py-2 text-xs text-on-surface outline-none dt-transition focus:border-primary focus:ring-2 focus:ring-primary/15"
             />
           </div>
           <div>
@@ -894,14 +894,14 @@ export function MentalHealthTab() {
               value={newAnchorQuote}
               onChange={(e) => setNewAnchorQuote(e.target.value)}
               placeholder="Ej. ¡Nos vemos al regreso de Marte!"
-              className="w-full rounded-lg border border-outline bg-surface-container px-3 py-2 text-xs text-on-surface outline-none focus:border-primary"
+              className="w-full rounded-lg border border-outline bg-surface-container px-3 py-2 text-xs text-on-surface outline-none dt-transition focus:border-primary focus:ring-2 focus:ring-primary/15"
             />
           </div>
           <div>
             <label className="mb-1 block text-[11px] font-semibold text-on-surface-variant">
               Foto o imagen (opcional)
             </label>
-            <label className="flex cursor-pointer items-center justify-center gap-1.5 rounded-lg border border-outline bg-surface-container px-3 py-2 text-xs font-medium text-primary dt-transition hover:border-primary">
+            <label className="flex cursor-pointer items-center justify-center gap-1.5 rounded-lg border border-outline bg-surface-container px-3 py-2 text-xs font-medium text-primary dt-transition hover:-translate-y-px hover:border-primary hover:bg-primary-container/35 active:translate-y-0 active:scale-[0.98]">
               <ImagePlus className="h-4 w-4" />
               {newAnchorImage ? 'Imagen cargada ✓' : 'Subir foto familiar'}
               <input
@@ -914,7 +914,7 @@ export function MentalHealthTab() {
           </div>
           <button
             type="submit"
-            className="rounded-lg bg-primary px-4 py-2 text-xs font-bold text-on-primary dt-transition hover:bg-primary-hover font-display"
+            className="cursor-pointer rounded-lg bg-primary px-4 py-2 text-xs font-bold text-on-primary dt-transition hover:-translate-y-px hover:bg-primary-hover hover:shadow-[0_6px_14px_-6px_rgba(47,93,70,0.45)] active:translate-y-0 active:scale-[0.985] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35 font-display"
           >
             Agregar a Mi Ancla
           </button>

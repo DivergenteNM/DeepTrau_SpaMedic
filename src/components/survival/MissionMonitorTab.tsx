@@ -136,7 +136,7 @@ export function MissionMonitorTab() {
           </div>
           <div className="h-3 w-full overflow-hidden rounded-full bg-surface-container-high">
             <div
-              className={`h-full rounded-full dt-transition ${
+              className={`h-full rounded-full transition-[width,background-color] duration-300 ease-[cubic-bezier(0.2,0,0,1)] ${
                 radPct >= 95
                   ? 'bg-danger'
                   : radPct >= 70
@@ -437,7 +437,7 @@ export function MissionMonitorTab() {
           <button
             type="button"
             onClick={() => setActiveTab('sensors')}
-            className="w-full rounded-xl bg-primary px-4 py-2.5 text-xs font-bold text-on-primary dt-transition hover:bg-primary-hover font-display"
+            className="w-full cursor-pointer rounded-xl bg-primary px-4 py-2.5 text-xs font-bold text-on-primary dt-transition hover:-translate-y-0.5 hover:bg-primary-hover hover:shadow-[0_8px_18px_-8px_rgba(47,93,70,0.45)] active:translate-y-0 active:scale-[0.985] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35 font-display"
           >
             Simular Nueva Muestra de Sangre / Dosimetría →
           </button>

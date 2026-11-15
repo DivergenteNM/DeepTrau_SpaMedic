@@ -150,16 +150,16 @@ export function BoneMuscleTab() {
                 key={ex.id}
                 type="button"
                 onClick={() => toggleExerciseTask(ex.id)}
-                className={`w-full rounded-xl border p-4 text-left dt-transition ${
+                className={`group w-full cursor-pointer rounded-xl border p-4 text-left dt-transition hover:-translate-y-px active:translate-y-0 active:scale-[0.992] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35 ${
                   ex.completed
-                    ? 'border-primary/30 bg-primary-container/55'
+                    ? 'border-primary/30 bg-primary-container/55 hover:bg-primary-container/75'
                     : ex.isAdaptedForSurgery
-                      ? 'border-warning/40 bg-surface-container-low hover:border-warning'
-                      : 'border-outline bg-surface-container-low hover:border-primary'
+                      ? 'border-warning/40 bg-surface-container-low hover:border-warning hover:bg-surface-container'
+                      : 'border-outline bg-surface-container-low hover:border-primary hover:bg-surface-container'
                 }`}
               >
                 <div className="flex items-start gap-3">
-                  <span className="mt-0.5 shrink-0">
+                  <span className="mt-0.5 shrink-0 dt-transition group-hover:scale-110">
                     {ex.completed ? (
                       <CheckCircle2 className="h-5 w-5 text-primary" />
                     ) : (
@@ -240,14 +240,14 @@ export function BoneMuscleTab() {
                     key={sup.key}
                     type="button"
                     onClick={() => toggleSupplement(sup.key)}
-                    className={`flex w-full items-start gap-3 rounded-xl border p-3 text-left dt-transition ${
+                    className={`group flex w-full cursor-pointer items-start gap-3 rounded-xl border p-3 text-left dt-transition hover:-translate-y-px active:translate-y-0 active:scale-[0.992] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35 ${
                       checked
-                        ? 'border-primary/30 bg-primary-container/55'
-                        : 'border-outline bg-surface-container-low hover:border-primary'
+                        ? 'border-primary/30 bg-primary-container/55 hover:bg-primary-container/75'
+                        : 'border-outline bg-surface-container-low hover:border-primary hover:bg-surface-container'
                     }`}
                   >
                     <CheckCircle2
-                      className={`mt-0.5 h-4 w-4 shrink-0 ${
+                      className={`mt-0.5 h-4 w-4 shrink-0 dt-transition group-hover:scale-110 ${
                         checked ? 'text-primary' : 'text-on-surface-variant'
                       }`}
                     />

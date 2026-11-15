@@ -127,6 +127,13 @@ export function InteractiveBodyMap() {
     }
   };
 
+  const handleZoneKeyDown = (event: React.KeyboardEvent<SVGGElement>, sys: BodySystemId) => {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      setSelectedSystem(sys);
+    }
+  };
+
   return (
     <div className="rounded-2xl border border-outline bg-surface-container p-5">
       <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -184,8 +191,14 @@ export function InteractiveBodyMap() {
 
             {/* Zone 1: Brain / Head */}
             <g
+              role="button"
+              tabIndex={0}
+              aria-label="Inspeccionar cerebro y salud mental"
+              aria-pressed={selectedSystem === 'brain'}
+              data-selected={selectedSystem === 'brain'}
               onClick={() => setSelectedSystem('brain')}
-              className="cursor-pointer dt-transition"
+              onKeyDown={(e) => handleZoneKeyDown(e, 'brain')}
+              className="dt-body-zone"
               style={{
                 filter:
                   selectedSystem === 'brain' ? STATUS_STYLE[systemStatuses.brain].ring : undefined,
@@ -204,8 +217,14 @@ export function InteractiveBodyMap() {
 
             {/* Zone 2: Cardiovascular */}
             <g
+              role="button"
+              tabIndex={0}
+              aria-label="Inspeccionar sistema cardiovascular y oxigenación"
+              aria-pressed={selectedSystem === 'cardiovascular'}
+              data-selected={selectedSystem === 'cardiovascular'}
               onClick={() => setSelectedSystem('cardiovascular')}
-              className="cursor-pointer dt-transition"
+              onKeyDown={(e) => handleZoneKeyDown(e, 'cardiovascular')}
+              className="dt-body-zone"
               style={{
                 filter:
                   selectedSystem === 'cardiovascular'
@@ -235,8 +254,14 @@ export function InteractiveBodyMap() {
 
             {/* Zone 3: Immune */}
             <g
+              role="button"
+              tabIndex={0}
+              aria-label="Inspeccionar sistema inmunitario y sangre"
+              aria-pressed={selectedSystem === 'immune'}
+              data-selected={selectedSystem === 'immune'}
               onClick={() => setSelectedSystem('immune')}
-              className="cursor-pointer dt-transition"
+              onKeyDown={(e) => handleZoneKeyDown(e, 'immune')}
+              className="dt-body-zone"
               style={{
                 filter:
                   selectedSystem === 'immune'
@@ -259,8 +284,14 @@ export function InteractiveBodyMap() {
 
             {/* Zone 4: Metabolic / Glucose */}
             <g
+              role="button"
+              tabIndex={0}
+              aria-label="Inspeccionar metabolismo y glucosa"
+              aria-pressed={selectedSystem === 'metabolic'}
+              data-selected={selectedSystem === 'metabolic'}
               onClick={() => setSelectedSystem('metabolic')}
-              className="cursor-pointer dt-transition"
+              onKeyDown={(e) => handleZoneKeyDown(e, 'metabolic')}
+              className="dt-body-zone"
               style={{
                 filter:
                   selectedSystem === 'metabolic'
@@ -283,8 +314,14 @@ export function InteractiveBodyMap() {
 
             {/* Zone 5: Musculoskeletal */}
             <g
+              role="button"
+              tabIndex={0}
+              aria-label="Inspeccionar densidad ósea y músculos"
+              aria-pressed={selectedSystem === 'musculoskeletal'}
+              data-selected={selectedSystem === 'musculoskeletal'}
               onClick={() => setSelectedSystem('musculoskeletal')}
-              className="cursor-pointer dt-transition"
+              onKeyDown={(e) => handleZoneKeyDown(e, 'musculoskeletal')}
+              className="dt-body-zone"
               style={{
                 filter:
                   selectedSystem === 'musculoskeletal'
@@ -341,10 +378,10 @@ export function InteractiveBodyMap() {
                   key={sysId}
                   type="button"
                   onClick={() => setSelectedSystem(sysId)}
-                  className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[11px] font-semibold dt-transition ${
+                  className={`inline-flex cursor-pointer items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[11px] font-semibold dt-transition active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35 ${
                     isSelected
                       ? 'border-primary bg-primary-container text-on-primary-container'
-                      : 'border-outline bg-surface-container text-on-surface-variant hover:text-on-surface'
+                      : 'border-outline bg-surface-container text-on-surface-variant hover:-translate-y-px hover:border-primary/45 hover:bg-surface-container-low hover:text-on-surface'
                   }`}
                 >
                   <span className={`h-2 w-2 rounded-full ${dotColor}`} />
@@ -357,7 +394,7 @@ export function InteractiveBodyMap() {
 
         {/* Right: Detailed Diagnostic & Preventive Card */}
         <div className="lg:col-span-7 flex flex-col justify-between rounded-2xl border border-outline bg-surface-container-low p-5 space-y-4">
-          <div className="space-y-4">
+          <div key={selectedSystem} className="space-y-4 dt-animate-panel">
             <div className="flex flex-wrap items-start justify-between gap-3 border-b border-outline-variant pb-3">
               <div className="flex items-center gap-2.5">
                 <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-outline bg-surface-container text-primary">
@@ -413,7 +450,7 @@ export function InteractiveBodyMap() {
               </div>
 
               <div
-                className={`rounded-xl border p-3.5 ${
+                className={`rounded-xl border p-3.5 dt-transition ${
                   activeStatus === 'nominal'
                     ? 'border-primary/30 bg-primary-container text-on-primary-container'
                     : activeStatus === 'warning'
@@ -444,10 +481,10 @@ export function InteractiveBodyMap() {
             <button
               type="button"
               onClick={() => setActiveTab(activeGuide.linkedTab)}
-              className="inline-flex items-center gap-1.5 rounded-xl bg-primary px-3.5 py-2 text-xs font-semibold text-on-primary dt-transition hover:bg-primary-hover"
+              className="group inline-flex cursor-pointer items-center gap-1.5 rounded-xl bg-primary px-3.5 py-2 text-xs font-semibold text-on-primary dt-transition hover:-translate-y-0.5 hover:bg-primary-hover hover:shadow-[0_8px_18px_-8px_rgba(47,93,70,0.45)] active:translate-y-0 active:scale-[0.985] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35"
             >
               Abrir módulo especializado
-              <ArrowRight className="h-3.5 w-3.5" />
+              <ArrowRight className="h-3.5 w-3.5 dt-transition group-hover:translate-x-0.5" />
             </button>
           </div>
         </div>

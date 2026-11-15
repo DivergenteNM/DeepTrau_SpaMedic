@@ -55,7 +55,7 @@ export default function HomePage() {
 
         <main className="flex-1 min-w-0 p-4 sm:p-6 lg:p-8 dt-transition">
           <div
-            className={`mx-auto w-full dt-transition ${
+            className={`mx-auto w-full transition-[max-width] duration-250 ease-[cubic-bezier(0.2,0,0,1)] ${
               isDesktopSidebarOpen ? 'max-w-7xl' : 'max-w-[1440px]'
             }`}
           >
@@ -64,18 +64,20 @@ export default function HomePage() {
                 type="button"
                 onClick={() => setIsMobileSidebarOpen(true)}
                 aria-label="Abrir menú lateral"
-                className="inline-flex items-center gap-2 rounded-xl border border-outline bg-surface-container px-3 py-2 text-xs font-semibold text-on-surface font-display dt-transition hover:bg-surface-container-low"
+                className="group inline-flex cursor-pointer items-center gap-2 rounded-xl border border-outline bg-surface-container px-3 py-2 text-xs font-semibold text-on-surface font-display dt-transition hover:-translate-y-px hover:border-primary/45 hover:bg-surface-container-low active:translate-y-0 active:scale-[0.985] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35"
               >
-                <PanelLeftOpen className="h-4 w-4 text-primary" />
+                <PanelLeftOpen className="h-4 w-4 text-primary dt-transition group-hover:scale-105" />
                 <span>Menú DeepTrau</span>
               </button>
             </div>
 
-            {activeTab === 'dashboard' && <CommandDashboard />}
-            {activeTab === 'sensors' && <SensorHubTab />}
-            {activeTab === 'psychology' && <MentalHealthTab />}
-            {activeTab === 'musculoskeletal' && <BoneMuscleTab />}
-            {activeTab === 'survival' && <MissionMonitorTab />}
+            <div key={activeTab} className="dt-animate-enter">
+              {activeTab === 'dashboard' && <CommandDashboard />}
+              {activeTab === 'sensors' && <SensorHubTab />}
+              {activeTab === 'psychology' && <MentalHealthTab />}
+              {activeTab === 'musculoskeletal' && <BoneMuscleTab />}
+              {activeTab === 'survival' && <MissionMonitorTab />}
+            </div>
           </div>
         </main>
       </div>

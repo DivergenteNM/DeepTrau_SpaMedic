@@ -48,18 +48,62 @@ export function OnboardingFlow() {
   const {
     mission: currentMission,
     astronaut: currentAstronaut,
+    hasCompletedWelcome,
     completeOnboarding,
     reopenWelcome,
   } = useMission();
 
   const [step, setStep] = useState<1 | 2>(1);
   const stepContainerRef = useRef<HTMLDivElement>(null);
+  const prevStepRef = useRef<1 | 2 | null>(null);
 
   useEffect(() => {
     const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const prevStep = prevStepRef.current;
+    prevStepRef.current = step;
+
     if (prefersReducedMotion || !stepContainerRef.current) return;
 
     const easeExpo = 'cubic-bezier(0.16, 1, 0.3, 1)';
+
+    if (step === 1 && (prevStep === 2 || (prevStep === null && hasCompletedWelcome))) {
+      const heading = stepContainerRef.current.querySelector<HTMLElement>(
+        '[data-choreo="onboard-heading"]'
+      );
+      const cards = stepContainerRef.current.querySelectorAll<HTMLElement>(
+        '[data-choreo="mission-card"]'
+      );
+      const summary = stepContainerRef.current.querySelector<HTMLElement>(
+        '[data-choreo="mission-summary-bar"]'
+      );
+
+      heading?.animate(
+        [
+          { transform: 'translate3d(-24px, 0, 0)', opacity: 0 },
+          { transform: 'translate3d(0, 0, 0)', opacity: 1 },
+        ],
+        { duration: 540, easing: easeExpo, fill: 'both' }
+      );
+
+      cards.forEach((card, idx) => {
+        card.animate(
+          [
+            { transform: 'translate3d(0, 22px, 0) scale(0.97)', opacity: 0 },
+            { transform: 'translate3d(0, 0, 0) scale(1)', opacity: 1 },
+          ],
+          { duration: 580, delay: 45 + idx * 55, easing: easeExpo, fill: 'both' }
+        );
+      });
+
+      summary?.animate(
+        [
+          { transform: 'translate3d(0, 20px, 0) scale(0.98)', opacity: 0 },
+          { transform: 'translate3d(0, 0, 0) scale(1)', opacity: 1 },
+        ],
+        { duration: 580, delay: 220, easing: easeExpo, fill: 'both' }
+      );
+      return;
+    }
 
     if (step === 2) {
       const heading = stepContainerRef.current.querySelector<HTMLElement>(
@@ -222,14 +266,14 @@ export function OnboardingFlow() {
               onClick={reopenWelcome}
               title="Ver portada de bienvenida DeepTrau"
               data-choreo="onboard-logo-target"
-              className="flex h-14 w-14 shrink-0 cursor-pointer items-center justify-center overflow-hidden rounded-xl border border-outline bg-surface-container-low/70 p-1 dt-transition hover:border-primary/40"
+              className="group flex h-14 w-14 shrink-0 cursor-pointer items-center justify-center overflow-hidden rounded-xl border border-outline bg-surface-container-low/70 p-1 dt-transition hover:-translate-y-0.5 hover:border-primary/45 hover:shadow-sm active:translate-y-0 active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35"
             >
               <Image
                 src="/DeepTrau_logo.webp"
                 alt="Logo de DeepTrau"
                 width={56}
                 height={56}
-                className="h-full w-full scale-[1.35] object-contain mix-blend-multiply"
+                className="h-full w-full scale-[1.35] object-contain mix-blend-multiply dt-transition group-hover:scale-[1.42]"
                 priority
               />
             </button>
@@ -253,14 +297,14 @@ export function OnboardingFlow() {
             <button
               type="button"
               onClick={() => setStep(1)}
-              className={`flex items-center gap-2 rounded-lg px-3 py-2 dt-transition ${
+              className={`flex cursor-pointer items-center gap-2 rounded-lg px-3 py-2 dt-transition active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35 ${
                 step === 1
                   ? 'bg-primary text-on-primary font-semibold'
                   : 'text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface'
               }`}
             >
               <span
-                className={`flex h-5 w-5 items-center justify-center rounded-full text-[11px] font-bold font-mono ${
+                className={`flex h-5 w-5 items-center justify-center rounded-full text-[11px] font-bold font-mono dt-transition ${
                   step === 1
                     ? 'bg-on-primary/20 text-on-primary'
                     : 'bg-surface-container-high text-on-surface'
@@ -273,14 +317,14 @@ export function OnboardingFlow() {
             <button
               type="button"
               onClick={() => setStep(2)}
-              className={`flex items-center gap-2 rounded-lg px-3 py-2 dt-transition ${
+              className={`flex cursor-pointer items-center gap-2 rounded-lg px-3 py-2 dt-transition active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35 ${
                 step === 2
                   ? 'bg-primary text-on-primary font-semibold'
                   : 'text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface'
               }`}
             >
               <span
-                className={`flex h-5 w-5 items-center justify-center rounded-full text-[11px] font-bold font-mono ${
+                className={`flex h-5 w-5 items-center justify-center rounded-full text-[11px] font-bold font-mono dt-transition ${
                   step === 2
                     ? 'bg-on-primary/20 text-on-primary'
                     : 'bg-surface-container-high text-on-surface'
@@ -319,15 +363,15 @@ export function OnboardingFlow() {
                     type="button"
                     data-choreo="mission-card"
                     onClick={() => setSelectedMissionId(m.id)}
-                    className={`group text-left rounded-2xl border p-5 dt-transition ${
+                    className={`group cursor-pointer text-left rounded-2xl border p-5 dt-transition hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.992] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35 ${
                       isSelected
                         ? 'border-primary bg-surface-container dt-selected-ring'
-                        : 'border-outline bg-surface-container hover:bg-surface-container-low'
+                        : 'border-outline bg-surface-container hover:border-primary/50 hover:bg-surface-container-low hover:shadow-[0_10px_24px_-14px_rgba(47,93,70,0.22)]'
                     }`}
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex items-center gap-3">
-                        <div className="flex h-11 w-11 items-center justify-center rounded-xl border border-outline bg-surface-container-low">
+                        <div className="flex h-11 w-11 items-center justify-center rounded-xl border border-outline bg-surface-container-low dt-transition group-hover:scale-105 group-hover:border-primary/35">
                           {MISSION_ICONS[m.id]}
                         </div>
                         <div>
@@ -398,10 +442,10 @@ export function OnboardingFlow() {
               <button
                 type="button"
                 onClick={() => setStep(2)}
-                className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-semibold text-on-primary dt-transition hover:bg-primary-hover"
+                className="group inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-semibold text-on-primary dt-transition hover:-translate-y-0.5 hover:bg-primary-hover hover:shadow-[0_8px_18px_-8px_rgba(47,93,70,0.45)] active:translate-y-0 active:scale-[0.985] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35"
               >
                 Continuar al Expediente del Astronauta
-                <ArrowRight className="h-4 w-4" />
+                <ArrowRight className="h-4 w-4 dt-transition group-hover:translate-x-1" />
               </button>
             </div>
           </section>
@@ -427,9 +471,9 @@ export function OnboardingFlow() {
               <button
                 type="button"
                 onClick={() => setStep(1)}
-                className="inline-flex items-center gap-1.5 self-start rounded-xl border border-outline bg-surface-container px-3.5 py-2 text-xs font-semibold text-on-surface dt-transition hover:bg-surface-container-low"
+                className="group inline-flex cursor-pointer items-center gap-1.5 self-start rounded-xl border border-outline bg-surface-container px-3.5 py-2 text-xs font-semibold text-on-surface dt-transition hover:-translate-y-px hover:border-primary/45 hover:bg-surface-container-low active:translate-y-0 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35"
               >
-                <ChevronLeft className="h-4 w-4" />
+                <ChevronLeft className="h-4 w-4 dt-transition group-hover:-translate-x-0.5" />
                 Cambiar Misión
               </button>
             </div>
@@ -445,15 +489,15 @@ export function OnboardingFlow() {
                     type="button"
                     data-choreo="astro-card"
                     onClick={() => applyPresetAstronaut(astro)}
-                    className={`rounded-2xl border p-4 text-left dt-transition ${
+                    className={`group cursor-pointer rounded-2xl border p-4 text-left dt-transition hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35 ${
                       isActive
                         ? 'border-primary bg-surface-container dt-selected-ring'
-                        : 'border-outline bg-surface-container hover:bg-surface-container-low'
+                        : 'border-outline bg-surface-container hover:border-primary/50 hover:bg-surface-container-low hover:shadow-[0_8px_20px_-12px_rgba(47,93,70,0.2)]'
                     }`}
                   >
                     <div className="flex items-center justify-between gap-2">
                       <div className="flex items-center gap-2.5">
-                        <div className="flex h-10 w-10 items-center justify-center rounded-full border border-primary/30 bg-primary-container text-sm font-bold text-on-primary-container font-display">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-full border border-primary/30 bg-primary-container text-sm font-bold text-on-primary-container dt-transition group-hover:scale-105 font-display">
                           {astro.avatarBadge}
                         </div>
                         <div>
@@ -510,7 +554,7 @@ export function OnboardingFlow() {
                       value={name}
                       onChange={(e) => setName(e.target.value)}
                       placeholder="Ej. Cmdr. Elena Vance"
-                      className="w-full rounded-xl border border-outline bg-surface px-3.5 py-2.5 text-sm text-on-surface outline-none focus:border-primary"
+                      className="w-full rounded-xl border border-outline bg-surface px-3.5 py-2.5 text-sm text-on-surface outline-none dt-transition focus:border-primary focus:ring-2 focus:ring-primary/15"
                     />
                   </div>
                   <div>
@@ -521,7 +565,7 @@ export function OnboardingFlow() {
                       type="text"
                       value={role}
                       onChange={(e) => setRole(e.target.value)}
-                      className="w-full rounded-xl border border-outline bg-surface px-3.5 py-2.5 text-sm text-on-surface outline-none focus:border-primary"
+                      className="w-full rounded-xl border border-outline bg-surface px-3.5 py-2.5 text-sm text-on-surface outline-none dt-transition focus:border-primary focus:ring-2 focus:ring-primary/15"
                     />
                   </div>
                 </div>
@@ -537,7 +581,7 @@ export function OnboardingFlow() {
                       max={65}
                       value={age}
                       onChange={(e) => setAge(Number(e.target.value))}
-                      className="w-full rounded-xl border border-outline bg-surface px-3.5 py-2.5 text-sm text-on-surface outline-none focus:border-primary font-mono"
+                      className="w-full rounded-xl border border-outline bg-surface px-3.5 py-2.5 text-sm text-on-surface outline-none dt-transition focus:border-primary focus:ring-2 focus:ring-primary/15 font-mono"
                     />
                   </div>
                   <div>
@@ -547,7 +591,7 @@ export function OnboardingFlow() {
                     <select
                       value={bloodType}
                       onChange={(e) => setBloodType(e.target.value as BloodType)}
-                      className="w-full rounded-xl border border-outline bg-surface px-3.5 py-2.5 text-sm text-on-surface outline-none focus:border-primary font-mono"
+                      className="w-full cursor-pointer rounded-xl border border-outline bg-surface px-3.5 py-2.5 text-sm text-on-surface outline-none dt-transition hover:border-primary/50 focus:border-primary focus:ring-2 focus:ring-primary/15 font-mono"
                     >
                       {BLOOD_TYPES.map((bt) => (
                         <option key={bt} value={bt}>
@@ -563,7 +607,7 @@ export function OnboardingFlow() {
                     <select
                       value={immuneStatus}
                       onChange={(e) => setImmuneStatus(e.target.value as ImmuneStatus)}
-                      className="w-full rounded-xl border border-outline bg-surface px-3.5 py-2.5 text-sm text-on-surface outline-none focus:border-primary"
+                      className="w-full cursor-pointer rounded-xl border border-outline bg-surface px-3.5 py-2.5 text-sm text-on-surface outline-none dt-transition hover:border-primary/50 focus:border-primary focus:ring-2 focus:ring-primary/15"
                     >
                       <option value="Normal">Normal</option>
                       <option value="Defensas Bajas (Tendencia a leucopenia/reactivación viral)">
@@ -583,7 +627,7 @@ export function OnboardingFlow() {
                       value={surgeryInput}
                       onChange={(e) => setSurgeryInput(e.target.value)}
                       placeholder="Ej. Cirugía de menisco en rodilla derecha"
-                      className="w-full rounded-xl border border-outline bg-surface px-3.5 py-2.5 text-sm text-on-surface outline-none focus:border-primary"
+                      className="w-full rounded-xl border border-outline bg-surface px-3.5 py-2.5 text-sm text-on-surface outline-none dt-transition focus:border-primary focus:ring-2 focus:ring-primary/15"
                     />
                   </div>
                   <div>
@@ -595,7 +639,7 @@ export function OnboardingFlow() {
                       value={allergiesInput}
                       onChange={(e) => setAllergiesInput(e.target.value)}
                       placeholder="Ej. Penicilina"
-                      className="w-full rounded-xl border border-outline bg-surface px-3.5 py-2.5 text-sm text-on-surface outline-none focus:border-primary"
+                      className="w-full rounded-xl border border-outline bg-surface px-3.5 py-2.5 text-sm text-on-surface outline-none dt-transition focus:border-primary focus:ring-2 focus:ring-primary/15"
                     />
                   </div>
                 </div>
@@ -612,7 +656,7 @@ export function OnboardingFlow() {
                       max={140}
                       value={baselineGlucose}
                       onChange={(e) => setBaselineGlucose(Number(e.target.value))}
-                      className="w-full rounded-xl border border-outline bg-surface px-3 py-2 text-sm text-on-surface outline-none focus:border-primary font-mono"
+                      className="w-full rounded-xl border border-outline bg-surface px-3 py-2 text-sm text-on-surface outline-none dt-transition focus:border-primary focus:ring-2 focus:ring-primary/15 font-mono"
                     />
                   </div>
                   <div>
@@ -625,7 +669,7 @@ export function OnboardingFlow() {
                       max={150}
                       value={baselineSystolic}
                       onChange={(e) => setBaselineSystolic(Number(e.target.value))}
-                      className="w-full rounded-xl border border-outline bg-surface px-3 py-2 text-sm text-on-surface outline-none focus:border-primary font-mono"
+                      className="w-full rounded-xl border border-outline bg-surface px-3 py-2 text-sm text-on-surface outline-none dt-transition focus:border-primary focus:ring-2 focus:ring-primary/15 font-mono"
                     />
                   </div>
                   <div>
@@ -638,7 +682,7 @@ export function OnboardingFlow() {
                       max={100}
                       value={baselineDiastolic}
                       onChange={(e) => setBaselineDiastolic(Number(e.target.value))}
-                      className="w-full rounded-xl border border-outline bg-surface px-3 py-2 text-sm text-on-surface outline-none focus:border-primary font-mono"
+                      className="w-full rounded-xl border border-outline bg-surface px-3 py-2 text-sm text-on-surface outline-none dt-transition focus:border-primary focus:ring-2 focus:ring-primary/15 font-mono"
                     />
                   </div>
                   <div>
@@ -651,7 +695,7 @@ export function OnboardingFlow() {
                       max={95}
                       value={baselineHR}
                       onChange={(e) => setBaselineHR(Number(e.target.value))}
-                      className="w-full rounded-xl border border-outline bg-surface px-3 py-2 text-sm text-on-surface outline-none focus:border-primary font-mono"
+                      className="w-full rounded-xl border border-outline bg-surface px-3 py-2 text-sm text-on-surface outline-none dt-transition focus:border-primary focus:ring-2 focus:ring-primary/15 font-mono"
                     />
                   </div>
                 </div>
@@ -664,7 +708,7 @@ export function OnboardingFlow() {
                     rows={2}
                     value={clinicalNotes}
                     onChange={(e) => setClinicalNotes(e.target.value)}
-                    className="w-full rounded-xl border border-outline bg-surface px-3.5 py-2 text-sm text-on-surface outline-none focus:border-primary"
+                    className="w-full rounded-xl border border-outline bg-surface px-3.5 py-2 text-sm text-on-surface outline-none dt-transition focus:border-primary focus:ring-2 focus:ring-primary/15"
                   />
                 </div>
               </div>
@@ -738,10 +782,10 @@ export function OnboardingFlow() {
                   )}
                   <button
                     type="submit"
-                    className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3.5 text-sm font-bold text-on-primary dt-transition hover:bg-primary-hover font-display"
+                    className="group flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3.5 text-sm font-bold text-on-primary dt-transition hover:-translate-y-0.5 hover:bg-primary-hover hover:shadow-[0_8px_18px_-8px_rgba(47,93,70,0.45)] active:translate-y-0 active:scale-[0.985] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35 font-display"
                   >
                     Iniciar Monitorización de Misión
-                    <ArrowRight className="h-4 w-4" />
+                    <ArrowRight className="h-4 w-4 dt-transition group-hover:translate-x-1" />
                   </button>
                 </div>
               </div>
