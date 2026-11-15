@@ -45,7 +45,7 @@ export function CommandDashboard() {
       sub: `Base EHR: ${astronaut.clinicalHistory.baselineGlucose} mg/dL`,
       why: 'Evita hipoglucemia en tareas EVA y detecta resistencia insulínica en 0g.',
       status: systemStatuses.metabolic,
-      icon: <Droplets className="h-4 w-4 text-cyan-400" />,
+      icon: <Droplets className="h-4 w-4 text-telemetry" />,
       tab: 'survival' as const,
     },
     {
@@ -54,7 +54,7 @@ export function CommandDashboard() {
       sub: `Límite misión: ${mission.missionLimitMsv} mSv`,
       why: 'Controla la exposición ionizante acumulada (dosimetría CSA).',
       status: systemStatuses.immune,
-      icon: <Radiation className="h-4 w-4 text-amber-400" />,
+      icon: <Radiation className="h-4 w-4 text-warning" />,
       tab: 'survival' as const,
     },
     {
@@ -63,7 +63,7 @@ export function CommandDashboard() {
       sub: `${biomarkers.systolicBP}/${biomarkers.diastolicBP} mmHg · ${biomarkers.heartRateBpm} bpm`,
       why: 'Supervisa aire de cabina y respuesta cardiovascular en misión.',
       status: systemStatuses.cardiovascular,
-      icon: <HeartPulse className="h-4 w-4 text-emerald-400" />,
+      icon: <HeartPulse className="h-4 w-4 text-primary" />,
       tab: 'sensors' as const,
     },
     {
@@ -72,17 +72,17 @@ export function CommandDashboard() {
       sub: `Músculo: ${biomarkers.muscleMassRetentionPercent}% · ${mission.gravityLabel}`,
       why: 'Previene descalcificación por baja o nula gravedad.',
       status: systemStatuses.musculoskeletal,
-      icon: <Sparkles className="h-4 w-4 text-sky-400" />,
+      icon: <Sparkles className="h-4 w-4 text-secondary" />,
       tab: 'musculoskeletal' as const,
     },
   ];
 
   const statusBorder = (s: 'nominal' | 'warning' | 'critical') =>
     s === 'critical'
-      ? 'border-rose-500/50 bg-rose-950/20'
+      ? 'border-danger/45 bg-danger-container/50'
       : s === 'warning'
-        ? 'border-amber-500/40 bg-amber-950/15'
-        : 'border-slate-800 bg-slate-900/70';
+        ? 'border-warning/40 bg-warning-container/50'
+        : 'border-outline bg-surface-container';
 
   return (
     <div className="space-y-6">
@@ -93,18 +93,22 @@ export function CommandDashboard() {
             key={idx}
             type="button"
             onClick={() => setActiveTab(card.tab)}
-            className={`group text-left rounded-2xl border p-4 transition hover:border-cyan-400/50 ${statusBorder(
+            className={`group text-left rounded-2xl border p-4 dt-transition hover:border-primary ${statusBorder(
               card.status
             )}`}
           >
             <div className="flex items-center justify-between">
-              <span className="text-xs font-medium text-slate-400">{card.label}</span>
+              <span className="text-xs font-semibold text-on-surface-variant font-display">
+                {card.label}
+              </span>
               {card.icon}
             </div>
-            <p className="mt-2 text-2xl font-bold tracking-tight text-white">{card.value}</p>
-            <p className="mt-0.5 text-xs text-slate-400">{card.sub}</p>
-            <p className="mt-2.5 flex items-start gap-1.5 text-[11px] leading-snug text-slate-300">
-              <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-cyan-400" />
+            <p className="mt-2 text-[22px] leading-[28px] font-bold tracking-tight text-on-surface font-mono">
+              {card.value}
+            </p>
+            <p className="mt-0.5 text-xs text-on-surface-variant">{card.sub}</p>
+            <p className="mt-2.5 flex items-start gap-1.5 text-[11px] leading-snug text-on-surface-variant">
+              <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
               <span>{card.why}</span>
             </p>
           </button>
@@ -119,38 +123,44 @@ export function CommandDashboard() {
 
         <div className="xl:col-span-5 flex flex-col gap-5">
           {/* Gamification Streak & Mission Readiness */}
-          <div className="rounded-2xl border border-slate-800 bg-gradient-to-br from-slate-900/90 to-slate-950 p-5">
+          <div className="rounded-2xl border border-outline bg-surface-container p-5">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-wider text-cyan-400">
+                <p className="text-xs font-semibold uppercase tracking-[0.06em] text-primary font-display">
                   Motivación y Adherencia Médica
                 </p>
-                <h2 className="mt-0.5 text-lg font-bold text-white">
+                <h2 className="mt-0.5 text-[18px] leading-[24px] font-bold text-on-surface font-display">
                   Racha de Misión y Estado Operativo
                 </h2>
               </div>
-              <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-amber-400/40 bg-amber-500/15">
-                <Flame className="h-6 w-6 text-amber-400" />
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-warning/30 bg-warning-container">
+                <Flame className="h-6 w-6 text-warning" />
               </div>
             </div>
 
             <div className="mt-4 grid grid-cols-3 gap-2.5 text-center">
-              <div className="rounded-xl border border-slate-800 bg-slate-950/80 p-3">
-                <span className="text-[11px] text-slate-400 block">Racha Activa</span>
-                <span className="mt-1 block text-lg font-bold text-amber-300">
+              <div className="rounded-xl border border-warning/25 bg-warning-container p-3">
+                <span className="text-[11px] font-medium text-on-warning-container block">
+                  Racha Activa
+                </span>
+                <span className="mt-1 block text-base font-bold text-on-warning-container font-mono">
                   {streakDays} días
                 </span>
               </div>
-              <div className="rounded-xl border border-slate-800 bg-slate-950/80 p-3">
-                <span className="text-[11px] text-slate-400 block">Puntos Salud</span>
-                <span className="mt-1 flex items-center justify-center gap-1 text-lg font-bold text-cyan-300">
-                  <Trophy className="h-4 w-4" />
+              <div className="rounded-xl border border-primary/25 bg-primary-container p-3">
+                <span className="text-[11px] font-medium text-on-primary-container block">
+                  Puntos Salud
+                </span>
+                <span className="mt-1 flex items-center justify-center gap-1 text-base font-bold text-on-primary-container font-mono">
+                  <Trophy className="h-4 w-4 text-primary" />
                   {healthPoints}
                 </span>
               </div>
-              <div className="rounded-xl border border-slate-800 bg-slate-950/80 p-3">
-                <span className="text-[11px] text-slate-400 block">Aptitud Hoy</span>
-                <span className="mt-1 block text-lg font-bold text-emerald-300">
+              <div className="rounded-xl border border-telemetry/25 bg-telemetry-container p-3">
+                <span className="text-[11px] font-medium text-on-telemetry-container block">
+                  Aptitud Hoy
+                </span>
+                <span className="mt-1 block text-base font-bold text-on-telemetry-container font-mono">
                   {readinessScore}%
                 </span>
               </div>
@@ -158,36 +168,36 @@ export function CommandDashboard() {
           </div>
 
           {/* Dynamic Daily Routines & Pending Scans */}
-          <div className="flex-1 rounded-2xl border border-slate-800 bg-slate-900/75 p-5 space-y-4">
+          <div className="flex-1 rounded-2xl border border-outline bg-surface-container p-5 space-y-4">
             <div className="flex items-start justify-between gap-2">
               <div>
-                <h2 className="text-lg font-bold text-white">
+                <h2 className="text-[18px] leading-[24px] font-bold text-on-surface font-display">
                   Rutinas del Día y Escaneos Pendientes
                 </h2>
-                <p className="text-xs text-slate-400">
-                  Adaptadas a <span className="text-cyan-300">{mission.shortName}</span> y a los{' '}
-                  {devices.length - disconnectedCount}/{devices.length} sensores conectados.
+                <p className="text-xs text-on-surface-variant">
+                  Adaptadas a <span className="font-semibold text-primary">{mission.shortName}</span>{' '}
+                  y a los {devices.length - disconnectedCount}/{devices.length} sensores conectados.
                 </p>
               </div>
               <span
-                className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-bold ${
+                className={`shrink-0 rounded-full border px-2.5 py-1 text-xs font-bold font-mono ${
                   pendingCount === 0
-                    ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
-                    : 'bg-amber-500/15 text-amber-300 border border-amber-500/30'
+                    ? 'bg-primary-container text-on-primary-container border-primary/30'
+                    : 'bg-warning-container text-on-warning-container border-warning/30'
                 }`}
               >
-                {pendingCount === 0 ? '¡Todo Completo!' : `${pendingCount} pendientes`}
+                {pendingCount === 0 ? '¡Completo!' : `${pendingCount} pend.`}
               </span>
             </div>
 
             {disconnectedCount > 0 && (
-              <div className="flex items-start gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-200">
-                <Wrench className="mt-0.5 h-4 w-4 shrink-0 text-amber-400" />
+              <div className="flex items-start gap-2 rounded-xl border border-warning/35 bg-warning-container p-3 text-xs text-on-warning-container">
+                <Wrench className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
                 <div>
                   <span className="font-semibold">
                     {disconnectedCount} herramienta(s) desconectada(s):
                   </span>{' '}
-                  el sistema adaptó automáticamente esos escaneos a protocolos clínicos manuales sin
+                  DeepTrau adaptó automáticamente esos escaneos a protocolos clínicos manuales sin
                   hardware.
                 </div>
               </div>
@@ -199,48 +209,50 @@ export function CommandDashboard() {
                   key={task.id}
                   type="button"
                   onClick={() => toggleRoutineTask(task.id)}
-                  className={`flex w-full items-start gap-3 rounded-xl border p-3.5 text-left transition ${
+                  className={`flex w-full items-start gap-3 rounded-xl border p-3.5 text-left dt-transition ${
                     task.completed
-                      ? 'border-emerald-500/30 bg-emerald-950/20 opacity-85'
-                      : 'border-slate-800 bg-slate-950/75 hover:border-cyan-500/40'
+                      ? 'border-primary/30 bg-primary-container/55'
+                      : 'border-outline bg-surface-container-low hover:border-primary'
                   }`}
                 >
                   <span className="mt-0.5 shrink-0">
                     {task.completed ? (
-                      <CheckCircle2 className="h-5 w-5 text-emerald-400" />
+                      <CheckCircle2 className="h-5 w-5 text-primary" />
                     ) : (
-                      <Circle className="h-5 w-5 text-slate-500" />
+                      <Circle className="h-5 w-5 text-on-surface-variant" />
                     )}
                   </span>
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <p
-                        className={`text-xs font-semibold ${
-                          task.completed ? 'line-through text-slate-400' : 'text-white'
+                        className={`text-xs font-semibold font-display ${
+                          task.completed
+                            ? 'line-through text-on-surface-variant'
+                            : 'text-on-surface'
                         }`}
                       >
                         {task.title}
                       </p>
                       <div className="flex items-center gap-1.5">
                         {task.usesManualFallback && (
-                          <span className="rounded bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-amber-300 border border-amber-500/30">
+                          <span className="rounded-md border border-warning/30 bg-warning-container px-1.5 py-0.5 text-[10px] font-semibold text-on-warning-container">
                             Modo Manual
                           </span>
                         )}
-                        <span className="rounded bg-slate-800 px-1.5 py-0.5 font-mono text-[10px] text-cyan-300">
+                        <span className="rounded-md border border-outline bg-surface-container px-1.5 py-0.5 font-mono text-[10px] font-semibold text-primary">
                           +{task.points} pts
                         </span>
                       </div>
                     </div>
-                    <p className="mt-1 text-[11px] text-slate-400">{task.reason}</p>
+                    <p className="mt-1 text-[11px] text-on-surface-variant">{task.reason}</p>
                   </div>
                 </button>
               ))}
             </div>
 
-            <div className="flex items-center justify-between border-t border-slate-800 pt-3 text-xs">
-              <span className="flex items-center gap-1.5 text-slate-400">
-                <AlertCircle className="h-3.5 w-3.5 text-cyan-400" />
+            <div className="flex items-center justify-between border-t border-outline-variant pt-3 text-xs">
+              <span className="flex items-center gap-1.5 text-on-surface-variant">
+                <AlertCircle className="h-3.5 w-3.5 text-primary" />
                 {astronaut.clinicalHistory.immuneStatus !== 'Normal'
                   ? 'EHR: Alerta inmune temprana activa'
                   : 'EHR: Parámetros base sincronizados'}
@@ -248,7 +260,7 @@ export function CommandDashboard() {
               <button
                 type="button"
                 onClick={() => setActiveTab('sensors')}
-                className="inline-flex items-center gap-1 font-semibold text-cyan-300 hover:text-cyan-200"
+                className="inline-flex items-center gap-1 font-semibold text-primary hover:text-primary-hover"
               >
                 <Cpu className="h-3.5 w-3.5" />
                 Gestionar sensores
@@ -259,23 +271,21 @@ export function CommandDashboard() {
       </section>
 
       {/* EHR Clinical Context Banner */}
-      <section className="rounded-2xl border border-slate-800 bg-slate-900/60 p-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+      <section className="rounded-2xl border border-outline bg-surface-container p-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div className="flex items-start gap-3">
-          <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0 text-cyan-400" />
+          <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
           <div className="text-xs">
-            <p className="font-semibold text-white">
+            <p className="font-semibold text-on-surface font-display">
               Expediente Clínico Pre-Misión Activo: {astronaut.name} ({astronaut.bloodType})
             </p>
-            <p className="mt-0.5 text-slate-400">
-              {astronaut.clinicalHistory.notes}
-            </p>
+            <p className="mt-0.5 text-on-surface-variant">{astronaut.clinicalHistory.notes}</p>
           </div>
         </div>
         <div className="flex flex-wrap gap-1.5 text-[11px] shrink-0">
           {astronaut.clinicalHistory.priorSurgeries.map((surg, i) => (
             <span
               key={i}
-              className="rounded-lg border border-slate-700 bg-slate-950 px-2.5 py-1 text-slate-300"
+              className="rounded-lg border border-outline bg-surface-container-low px-2.5 py-1 font-medium text-on-surface-variant"
             >
               {surg}
             </span>

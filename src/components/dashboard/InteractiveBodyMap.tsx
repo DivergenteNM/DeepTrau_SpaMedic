@@ -21,30 +21,30 @@ const STATUS_STYLE: Record<
   {
     fill: string;
     stroke: string;
-    glow: string;
+    ring: string;
     badge: string;
     label: string;
   }
 > = {
   nominal: {
-    fill: 'rgba(16, 185, 129, 0.28)',
-    stroke: '#34d399',
-    glow: 'drop-shadow(0 0 10px rgba(52,211,153,0.45))',
-    badge: 'border-emerald-500/40 bg-emerald-500/15 text-emerald-300',
+    fill: 'rgba(47, 93, 70, 0.20)',
+    stroke: '#2F5D46',
+    ring: 'drop-shadow(0 0 6px rgba(47, 93, 70, 0.35))',
+    badge: 'border-primary/35 bg-primary-container text-on-primary-container',
     label: 'Verde · Óptimo',
   },
   warning: {
-    fill: 'rgba(245, 158, 11, 0.34)',
-    stroke: '#fbbf24',
-    glow: 'drop-shadow(0 0 12px rgba(251,191,36,0.55))',
-    badge: 'border-amber-500/40 bg-amber-500/15 text-amber-300',
+    fill: 'rgba(181, 71, 8, 0.20)',
+    stroke: '#B54708',
+    ring: 'drop-shadow(0 0 7px rgba(181, 71, 8, 0.38))',
+    badge: 'border-warning/35 bg-warning-container text-on-warning-container',
     label: 'Amarillo · Precaución',
   },
   critical: {
-    fill: 'rgba(244, 63, 94, 0.42)',
-    stroke: '#fb7185',
-    glow: 'drop-shadow(0 0 14px rgba(251,113,133,0.75))',
-    badge: 'border-rose-500/50 bg-rose-500/20 text-rose-300',
+    fill: 'rgba(180, 35, 24, 0.22)',
+    stroke: '#B42318',
+    ring: 'drop-shadow(0 0 8px rgba(180, 35, 24, 0.45))',
+    badge: 'border-danger/45 bg-danger-container text-on-danger-container',
     label: 'Rojo · Atención Inmediata',
   },
 };
@@ -109,7 +109,10 @@ export function InteractiveBodyMap() {
             value: `${astronaut.clinicalHistory.baselineGlucose} mg/dL`,
           },
           { label: 'Rango Seguro', value: '75 – 125 mg/dL' },
-          { label: 'Demanda energética', value: mission.id === 'planetary-habitat' ? 'Alta (EVA)' : 'Estándar' },
+          {
+            label: 'Demanda energética',
+            value: mission.id === 'planetary-habitat' ? 'Alta (EVA)' : 'Estándar',
+          },
         ];
       case 'musculoskeletal':
         return [
@@ -125,40 +128,39 @@ export function InteractiveBodyMap() {
   };
 
   return (
-    <div className="rounded-2xl border border-slate-800 bg-slate-900/75 p-5">
+    <div className="rounded-2xl border border-outline bg-surface-container p-5">
       <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="text-lg font-bold text-white flex items-center gap-2">
-            <Sparkles className="h-5 w-5 text-cyan-400" />
+          <h2 className="text-[18px] leading-[24px] font-bold text-on-surface flex items-center gap-2 font-display">
+            <Sparkles className="h-5 w-5 text-primary" />
             Mapa Corporal Interactivo de Salud Espacial
           </h2>
-          <p className="text-xs text-slate-400">
+          <p className="text-xs text-on-surface-variant">
             Haz clic en cualquier zona del cuerpo para inspeccionar su estado (Verde / Amarillo /
             Rojo) y recibir medidas preventivas.
           </p>
         </div>
-        <div className="flex items-center gap-2 text-[11px]">
-          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2 py-0.5 text-emerald-300">
-            <span className="h-2 w-2 rounded-full bg-emerald-400" /> Óptimo
+        <div className="flex flex-wrap items-center gap-1.5 text-[11px] font-semibold">
+          <span className="inline-flex items-center gap-1 rounded-full border border-primary/25 bg-primary-container px-2.5 py-0.5 text-on-primary-container">
+            <span className="h-2 w-2 rounded-full bg-primary" /> Óptimo
           </span>
-          <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 px-2 py-0.5 text-amber-300">
-            <span className="h-2 w-2 rounded-full bg-amber-400" /> Precaución
+          <span className="inline-flex items-center gap-1 rounded-full border border-warning/25 bg-warning-container px-2.5 py-0.5 text-on-warning-container">
+            <span className="h-2 w-2 rounded-full bg-warning" /> Precaución
           </span>
-          <span className="inline-flex items-center gap-1 rounded-full bg-rose-500/15 px-2 py-0.5 text-rose-300">
-            <span className="h-2 w-2 rounded-full bg-rose-400" /> Crítico
+          <span className="inline-flex items-center gap-1 rounded-full border border-danger/25 bg-danger-container px-2.5 py-0.5 text-on-danger-container">
+            <span className="h-2 w-2 rounded-full bg-danger" /> Crítico
           </span>
         </div>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-12">
         {/* Left: Interactive SVG Human Figure */}
-        <div className="lg:col-span-5 flex flex-col items-center justify-center rounded-2xl border border-slate-800/90 bg-slate-950/90 p-4 relative overflow-hidden">
-          {/* HUD Grid Backdrop */}
+        <div className="lg:col-span-5 flex flex-col items-center justify-center rounded-2xl border border-outline bg-surface-container-low p-4 relative overflow-hidden">
           <div
-            className="pointer-events-none absolute inset-0 opacity-20"
+            className="pointer-events-none absolute inset-0 opacity-60"
             style={{
               backgroundImage:
-                'linear-gradient(to right, rgba(56,189,248,0.12) 1px, transparent 1px), linear-gradient(to bottom, rgba(56,189,248,0.12) 1px, transparent 1px)',
+                'linear-gradient(to right, #E6E2D8 1px, transparent 1px), linear-gradient(to bottom, #E6E2D8 1px, transparent 1px)',
               backgroundSize: '24px 24px',
             }}
           />
@@ -170,33 +172,23 @@ export function InteractiveBodyMap() {
             aria-label="Figura humana interactiva de monitoreo espacial"
           >
             {/* Outer Silhouette */}
-            <g
-              fill="rgba(15, 23, 42, 0.85)"
-              stroke="#334155"
-              strokeWidth="2"
-              strokeLinejoin="round"
-            >
-              {/* Head & Neck */}
+            <g fill="#FFFFFF" stroke="#D8D3C8" strokeWidth="2.5" strokeLinejoin="round">
               <circle cx="140" cy="48" r="28" />
               <rect x="128" y="75" width="24" height="16" rx="6" />
-              {/* Torso */}
               <path d="M90 96 C90 88, 190 88, 190 96 L182 225 C180 238, 100 238, 98 225 Z" />
-              {/* Left Arm */}
               <path d="M88 98 L62 175 L52 232 C50 242, 66 245, 70 234 L84 180 L96 125 Z" />
-              {/* Right Arm */}
               <path d="M192 98 L218 175 L228 232 C230 242, 214 245, 210 234 L196 180 L184 125 Z" />
-              {/* Left Leg */}
               <path d="M100 230 L94 320 L88 402 C87 412, 112 414, 114 402 L124 322 L134 235 Z" />
-              {/* Right Leg */}
               <path d="M180 230 L186 320 L192 402 C193 412, 168 414, 166 402 L156 322 L146 235 Z" />
             </g>
 
             {/* Zone 1: Brain / Head */}
             <g
               onClick={() => setSelectedSystem('brain')}
-              className="cursor-pointer transition-all"
+              className="cursor-pointer dt-transition"
               style={{
-                filter: selectedSystem === 'brain' ? STATUS_STYLE[systemStatuses.brain].glow : undefined,
+                filter:
+                  selectedSystem === 'brain' ? STATUS_STYLE[systemStatuses.brain].ring : undefined,
               }}
             >
               <circle
@@ -210,14 +202,14 @@ export function InteractiveBodyMap() {
               <circle cx="140" cy="46" r="5" fill={STATUS_STYLE[systemStatuses.brain].stroke} />
             </g>
 
-            {/* Zone 2: Cardiovascular / Chest Heart & Lungs */}
+            {/* Zone 2: Cardiovascular */}
             <g
               onClick={() => setSelectedSystem('cardiovascular')}
-              className="cursor-pointer transition-all"
+              className="cursor-pointer dt-transition"
               style={{
                 filter:
                   selectedSystem === 'cardiovascular'
-                    ? STATUS_STYLE[systemStatuses.cardiovascular].glow
+                    ? STATUS_STYLE[systemStatuses.cardiovascular].ring
                     : undefined,
               }}
             >
@@ -241,13 +233,15 @@ export function InteractiveBodyMap() {
               />
             </g>
 
-            {/* Zone 3: Immune / Blood Vessels (Right/Center Lymph & Circulatory Nodes) */}
+            {/* Zone 3: Immune */}
             <g
               onClick={() => setSelectedSystem('immune')}
-              className="cursor-pointer transition-all"
+              className="cursor-pointer dt-transition"
               style={{
                 filter:
-                  selectedSystem === 'immune' ? STATUS_STYLE[systemStatuses.immune].glow : undefined,
+                  selectedSystem === 'immune'
+                    ? STATUS_STYLE[systemStatuses.immune].ring
+                    : undefined,
               }}
             >
               <rect
@@ -263,14 +257,14 @@ export function InteractiveBodyMap() {
               <circle cx="119" cy="172" r="6" fill={STATUS_STYLE[systemStatuses.immune].stroke} />
             </g>
 
-            {/* Zone 4: Metabolic / Glucose (Abdomen / Liver / Pancreas) */}
+            {/* Zone 4: Metabolic / Glucose */}
             <g
               onClick={() => setSelectedSystem('metabolic')}
-              className="cursor-pointer transition-all"
+              className="cursor-pointer dt-transition"
               style={{
                 filter:
                   selectedSystem === 'metabolic'
-                    ? STATUS_STYLE[systemStatuses.metabolic].glow
+                    ? STATUS_STYLE[systemStatuses.metabolic].ring
                     : undefined,
               }}
             >
@@ -287,14 +281,14 @@ export function InteractiveBodyMap() {
               <circle cx="161" cy="172" r="6" fill={STATUS_STYLE[systemStatuses.metabolic].stroke} />
             </g>
 
-            {/* Zone 5: Musculoskeletal (Femur / Knee / Limbs) */}
+            {/* Zone 5: Musculoskeletal */}
             <g
               onClick={() => setSelectedSystem('musculoskeletal')}
-              className="cursor-pointer transition-all"
+              className="cursor-pointer dt-transition"
               style={{
                 filter:
                   selectedSystem === 'musculoskeletal'
-                    ? STATUS_STYLE[systemStatuses.musculoskeletal].glow
+                    ? STATUS_STYLE[systemStatuses.musculoskeletal].ring
                     : undefined,
               }}
             >
@@ -318,7 +312,6 @@ export function InteractiveBodyMap() {
                 stroke={STATUS_STYLE[systemStatuses.musculoskeletal].stroke}
                 strokeWidth={selectedSystem === 'musculoskeletal' ? 3 : 2}
               />
-              {/* Knee Joint Highlight Ring */}
               <circle
                 cx="167"
                 cy="318"
@@ -330,7 +323,7 @@ export function InteractiveBodyMap() {
             </g>
           </svg>
 
-          {/* Quick System Selector Pills under SVG */}
+          {/* Quick System Selector Pills */}
           <div className="relative z-10 mt-3 flex flex-wrap justify-center gap-1.5">
             {(Object.keys(BODY_SYSTEM_GUIDES) as BodySystemId[]).map((sysId) => {
               const guide = BODY_SYSTEM_GUIDES[sysId];
@@ -338,20 +331,20 @@ export function InteractiveBodyMap() {
               const isSelected = selectedSystem === sysId;
               const dotColor =
                 status === 'nominal'
-                  ? 'bg-emerald-400'
+                  ? 'bg-primary'
                   : status === 'warning'
-                    ? 'bg-amber-400'
-                    : 'bg-rose-400';
+                    ? 'bg-warning'
+                    : 'bg-danger';
 
               return (
                 <button
                   key={sysId}
                   type="button"
                   onClick={() => setSelectedSystem(sysId)}
-                  className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[11px] font-medium transition ${
+                  className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[11px] font-semibold dt-transition ${
                     isSelected
-                      ? 'border-cyan-400 bg-cyan-500/15 text-white'
-                      : 'border-slate-800 bg-slate-900/90 text-slate-300 hover:border-slate-700'
+                      ? 'border-primary bg-primary-container text-on-primary-container'
+                      : 'border-outline bg-surface-container text-on-surface-variant hover:text-on-surface'
                   }`}
                 >
                   <span className={`h-2 w-2 rounded-full ${dotColor}`} />
@@ -362,17 +355,19 @@ export function InteractiveBodyMap() {
           </div>
         </div>
 
-        {/* Right: Detailed Diagnostic & Preventive Explanation Card */}
-        <div className="lg:col-span-7 flex flex-col justify-between rounded-2xl border border-slate-800 bg-slate-950/70 p-5 space-y-4">
+        {/* Right: Detailed Diagnostic & Preventive Card */}
+        <div className="lg:col-span-7 flex flex-col justify-between rounded-2xl border border-outline bg-surface-container-low p-5 space-y-4">
           <div className="space-y-4">
-            <div className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-800 pb-3">
+            <div className="flex flex-wrap items-start justify-between gap-3 border-b border-outline-variant pb-3">
               <div className="flex items-center gap-2.5">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-700 bg-slate-900 text-cyan-300">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-outline bg-surface-container text-primary">
                   {SYSTEM_ICONS[selectedSystem]}
                 </div>
                 <div>
-                  <h3 className="text-base font-bold text-white">{activeGuide.title}</h3>
-                  <p className="text-xs text-slate-400">
+                  <h3 className="text-base font-bold text-on-surface font-display">
+                    {activeGuide.title}
+                  </h3>
+                  <p className="text-xs text-on-surface-variant">
                     Evaluación en tiempo real · {astronaut.name}
                   </p>
                 </div>
@@ -381,11 +376,11 @@ export function InteractiveBodyMap() {
                 className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold ${activeStyle.badge}`}
               >
                 {activeStatus === 'nominal' ? (
-                  <ShieldCheck className="h-3.5 w-3.5" />
+                  <ShieldCheck className="h-3.5 w-3.5 text-primary" />
                 ) : activeStatus === 'warning' ? (
-                  <AlertTriangle className="h-3.5 w-3.5" />
+                  <AlertTriangle className="h-3.5 w-3.5 text-warning" />
                 ) : (
-                  <ShieldAlert className="h-3.5 w-3.5" />
+                  <ShieldAlert className="h-3.5 w-3.5 text-danger" />
                 )}
                 {activeStyle.label}
               </span>
@@ -396,21 +391,23 @@ export function InteractiveBodyMap() {
               {getMetricSummary(selectedSystem).map((m, idx) => (
                 <div
                   key={idx}
-                  className="rounded-xl border border-slate-800 bg-slate-900/70 px-3.5 py-2.5"
+                  className="rounded-xl border border-outline bg-surface-container px-3.5 py-2.5"
                 >
-                  <span className="block text-[11px] text-slate-400">{m.label}</span>
-                  <span className="mt-0.5 block text-sm font-bold text-white">{m.value}</span>
+                  <span className="block text-[11px] text-on-surface-variant">{m.label}</span>
+                  <span className="mt-0.5 block text-sm font-bold text-on-surface font-mono">
+                    {m.value}
+                  </span>
                 </div>
               ))}
             </div>
 
             {/* Plain-Language Medical Education */}
             <div className="space-y-3 text-xs">
-              <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-3.5">
-                <p className="font-semibold text-cyan-300">
+              <div className="rounded-xl border border-outline bg-surface-container p-3.5">
+                <p className="font-semibold text-primary font-display">
                   ¿Por qué importa este sistema en {mission.shortName}?
                 </p>
-                <p className="mt-1 leading-relaxed text-slate-300">
+                <p className="mt-1 leading-relaxed text-on-surface-variant">
                   {activeGuide.whySpaceAffectsIt}
                 </p>
               </div>
@@ -418,18 +415,18 @@ export function InteractiveBodyMap() {
               <div
                 className={`rounded-xl border p-3.5 ${
                   activeStatus === 'nominal'
-                    ? 'border-emerald-500/30 bg-emerald-500/10'
+                    ? 'border-primary/30 bg-primary-container text-on-primary-container'
                     : activeStatus === 'warning'
-                      ? 'border-amber-500/30 bg-amber-500/10'
-                      : 'border-rose-500/40 bg-rose-500/15'
+                      ? 'border-warning/35 bg-warning-container text-on-warning-container'
+                      : 'border-danger/40 bg-danger-container text-on-danger-container'
                 }`}
               >
-                <p className="font-semibold text-white">
+                <p className="font-bold font-display">
                   {activeStatus === 'nominal'
                     ? 'Estado y Prevención Continua:'
                     : 'Qué hacer ahora (Medida Preventiva Autónoma):'}
                 </p>
-                <p className="mt-1 leading-relaxed text-slate-200">
+                <p className="mt-1 leading-relaxed">
                   {activeStatus === 'nominal'
                     ? activeGuide.nominalSummary
                     : activeStatus === 'warning'
@@ -440,14 +437,14 @@ export function InteractiveBodyMap() {
             </div>
           </div>
 
-          <div className="flex items-center justify-between pt-2 border-t border-slate-800/80">
-            <span className="text-[11px] text-slate-400">
+          <div className="flex items-center justify-between pt-3 border-t border-outline-variant">
+            <span className="text-[11px] text-on-surface-variant">
               Basado en NASA HRP & Dosimetría CSA
             </span>
             <button
               type="button"
               onClick={() => setActiveTab(activeGuide.linkedTab)}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-cyan-500/15 border border-cyan-500/40 px-3 py-1.5 text-xs font-semibold text-cyan-300 transition hover:bg-cyan-500/25"
+              className="inline-flex items-center gap-1.5 rounded-xl bg-primary px-3.5 py-2 text-xs font-semibold text-on-primary dt-transition hover:bg-primary-hover"
             >
               Abrir módulo especializado
               <ArrowRight className="h-3.5 w-3.5" />

@@ -22,18 +22,18 @@ const TRIAGE_BADGE: Record<
 > = {
   nominal: {
     label: 'ESTADO NOMINAL',
-    classes: 'border-emerald-500/40 bg-emerald-500/15 text-emerald-300',
-    icon: <ShieldCheck className="h-4 w-4 text-emerald-400" />,
+    classes: 'border-primary/30 bg-primary-container text-on-primary-container',
+    icon: <ShieldCheck className="h-4 w-4 text-primary" />,
   },
   warning: {
     label: 'PRECAUCIÓN ACTIVA',
-    classes: 'border-amber-500/40 bg-amber-500/15 text-amber-300',
-    icon: <AlertTriangle className="h-4 w-4 text-amber-400" />,
+    classes: 'border-warning/35 bg-warning-container text-on-warning-container',
+    icon: <AlertTriangle className="h-4 w-4 text-warning" />,
   },
   critical: {
     label: 'ALERTA CRÍTICA',
-    classes: 'border-rose-500/50 bg-rose-500/20 text-rose-300 animate-pulse',
-    icon: <ShieldAlert className="h-4 w-4 text-rose-400" />,
+    classes: 'border-danger/45 bg-danger-container text-on-danger-container animate-pulse',
+    icon: <ShieldAlert className="h-4 w-4 text-danger" />,
   },
 };
 
@@ -55,57 +55,63 @@ export function TopTelemetryBar() {
     {
       id: 'nominal',
       label: 'Nominal',
-      style: 'border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/15',
+      style:
+        'border-primary/30 bg-primary-container/60 text-on-primary-container hover:bg-primary-container',
     },
     {
       id: 'solar_storm',
       label: 'Tormenta Solar',
-      style: 'border-rose-500/30 text-rose-300 hover:bg-rose-500/15',
+      style:
+        'border-danger/35 bg-danger-container/70 text-on-danger-container hover:bg-danger-container',
     },
     {
       id: 'hypoglycemia_immune',
       label: 'Glucosa + Defensas',
-      style: 'border-amber-500/30 text-amber-300 hover:bg-amber-500/15',
+      style:
+        'border-warning/35 bg-warning-container/70 text-on-warning-container hover:bg-warning-container',
     },
     {
       id: 'isolation_fatigue',
       label: 'Fatiga Mental',
-      style: 'border-cyan-500/30 text-cyan-300 hover:bg-cyan-500/15',
+      style:
+        'border-telemetry/35 bg-telemetry-container/70 text-on-telemetry-container hover:bg-telemetry-container',
     },
   ];
 
   return (
-    <header className="sticky top-0 z-30 border-b border-slate-800/90 bg-slate-950/90 backdrop-blur-md">
+    <header className="sticky top-0 z-30 border-b border-outline bg-surface-container/95 backdrop-blur-md">
       <div className="flex flex-col gap-3 px-4 py-3 lg:flex-row lg:items-center lg:justify-between lg:px-6">
         {/* Left: Mission & Astronaut Clinical Pill */}
-        <div className="flex flex-wrap items-center gap-2.5">
-          <div className="flex items-center gap-2 rounded-xl border border-slate-800 bg-slate-900/90 px-3 py-1.5">
-            <span className="h-2 w-2 rounded-full bg-cyan-400 shadow-[0_0_8px_rgba(34,211,238,0.8)]" />
-            <span className="text-xs font-bold text-white">{mission.shortName}</span>
-            <span className="text-xs text-slate-500">|</span>
-            <span className="font-mono text-xs font-semibold text-cyan-300">
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex items-center gap-2 rounded-xl border border-outline bg-surface-container-low px-3 py-1.5">
+            <span className="h-2 w-2 rounded-full bg-primary" />
+            <span className="text-xs font-bold text-on-surface font-display">
+              {mission.shortName}
+            </span>
+            <span className="text-xs text-outline">|</span>
+            <span className="font-mono text-xs font-semibold text-primary">
               DÍA {missionDay}/{mission.durationDays}
             </span>
           </div>
 
-          <div className="flex items-center gap-1.5 rounded-xl border border-slate-800 bg-slate-900/70 px-3 py-1.5 text-xs text-slate-300">
-            <Gauge className="h-3.5 w-3.5 text-cyan-400" />
+          <div className="flex items-center gap-1.5 rounded-xl border border-outline bg-surface-container-low px-3 py-1.5 text-xs text-on-surface-variant">
+            <Gauge className="h-3.5 w-3.5 text-primary" />
             <span>{mission.gravityLabel}</span>
           </div>
 
-          <div className="flex items-center gap-1.5 rounded-xl border border-slate-800 bg-slate-900/70 px-3 py-1.5 text-xs text-slate-300">
-            <Radio className="h-3.5 w-3.5 text-sky-400" />
+          <div className="flex items-center gap-1.5 rounded-xl border border-outline bg-surface-container-low px-3 py-1.5 text-xs text-on-surface-variant">
+            <Radio className="h-3.5 w-3.5 text-telemetry" />
             <span>Retraso Tierra: {mission.commDelay}</span>
           </div>
 
-          <div className="flex items-center gap-2 rounded-xl border border-slate-800 bg-slate-900/90 px-3 py-1.5 text-xs">
-            <span className="font-semibold text-white">{astronaut.name}</span>
-            <span className="inline-flex items-center gap-1 rounded bg-rose-500/15 px-1.5 py-0.5 font-bold text-rose-300 border border-rose-500/30">
-              <Droplets className="h-3 w-3" />
+          <div className="flex items-center gap-2 rounded-xl border border-outline bg-surface-container px-3 py-1.5 text-xs">
+            <span className="font-semibold text-on-surface font-display">{astronaut.name}</span>
+            <span className="inline-flex items-center gap-1 rounded-md border border-danger/30 bg-danger-container px-1.5 py-0.5 font-bold text-on-danger-container font-mono">
+              <Droplets className="h-3 w-3 text-danger" />
               {astronaut.bloodType}
             </span>
             {hasLowImmune && (
-              <span className="rounded bg-amber-500/15 px-1.5 py-0.5 font-medium text-amber-300 border border-amber-500/30">
+              <span className="rounded-md border border-warning/30 bg-warning-container px-1.5 py-0.5 font-semibold text-on-warning-container">
                 Defensas Bajas
               </span>
             )}
@@ -115,16 +121,16 @@ export function TopTelemetryBar() {
         {/* Right: Global Triage + Quick Pitch Simulator + Switch Mission */}
         <div className="flex flex-wrap items-center gap-2">
           <div
-            className={`inline-flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-bold ${badge.classes}`}
+            className={`inline-flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-bold font-display ${badge.classes}`}
           >
             {badge.icon}
             <span>{badge.label}</span>
           </div>
 
           {/* Demo Pitch Scenarios */}
-          <div className="flex items-center gap-1 rounded-xl border border-slate-800 bg-slate-900/80 p-1">
-            <span className="hidden items-center gap-1 px-2 text-[11px] font-medium text-slate-400 xl:inline-flex">
-              <Sparkles className="h-3 w-3 text-cyan-400" />
+          <div className="flex items-center gap-1 rounded-xl border border-outline bg-surface-container-low p-1">
+            <span className="hidden items-center gap-1 px-2 text-[11px] font-semibold text-on-surface-variant xl:inline-flex">
+              <Sparkles className="h-3 w-3 text-primary" />
               Simular:
             </span>
             {scenarios.map((sc) => (
@@ -132,7 +138,7 @@ export function TopTelemetryBar() {
                 key={sc.id}
                 type="button"
                 onClick={() => triggerDemoAnomaly(sc.id)}
-                className={`rounded-lg border px-2 py-1 text-[11px] font-semibold transition ${sc.style}`}
+                className={`rounded-lg border px-2 py-1 text-[11px] font-semibold dt-transition ${sc.style}`}
               >
                 {sc.label}
               </button>
@@ -143,7 +149,7 @@ export function TopTelemetryBar() {
             type="button"
             onClick={resetDemoData}
             title="Reiniciar métricas de demostración"
-            className="inline-flex items-center gap-1 rounded-xl border border-slate-800 bg-slate-900 px-2.5 py-1.5 text-xs font-medium text-slate-300 transition hover:border-slate-700 hover:text-white"
+            className="inline-flex items-center gap-1 rounded-xl border border-outline bg-surface-container-low px-2.5 py-1.5 text-xs font-medium text-on-surface-variant dt-transition hover:bg-surface-container-high hover:text-on-surface"
           >
             <RotateCcw className="h-3.5 w-3.5" />
           </button>
@@ -151,7 +157,7 @@ export function TopTelemetryBar() {
           <button
             type="button"
             onClick={reopenOnboarding}
-            className="inline-flex items-center gap-1.5 rounded-xl border border-cyan-500/30 bg-cyan-500/10 px-3 py-1.5 text-xs font-semibold text-cyan-300 transition hover:bg-cyan-500/20"
+            className="inline-flex items-center gap-1.5 rounded-xl bg-primary px-3 py-1.5 text-xs font-semibold text-on-primary dt-transition hover:bg-primary-hover"
           >
             <RefreshCw className="h-3.5 w-3.5" />
             Cambiar Misión / Astronauta
@@ -159,18 +165,18 @@ export function TopTelemetryBar() {
         </div>
       </div>
 
-      {/* Subtle Asynchronous Comm Notice when delay > 1 min */}
+      {/* Subtle Asynchronous Comm Notice when delay >= 1 min */}
       {mission.commDelayMinutes >= 1 && (
-        <div className="flex items-center justify-between border-t border-slate-800/60 bg-slate-900/50 px-4 py-1 text-[11px] text-slate-400 lg:px-6">
+        <div className="flex items-center justify-between border-t border-outline-variant bg-surface-container-low px-4 py-1.5 text-[11px] text-on-surface-variant lg:px-6">
           <div className="flex items-center gap-1.5">
-            <Clock className="h-3 w-3 text-amber-400" />
+            <Clock className="h-3.5 w-3.5 text-warning" />
             <span>
               Modo de Autonomía Médica Activo: las alertas y contramedidas funcionan offline aunque el
               enlace con Tierra tarde {mission.commDelay}.
             </span>
           </div>
-          <span className="hidden font-mono text-slate-500 sm:inline">
-            ASTROHEALTH TELEMETRY OS · LOCAL-FIRST
+          <span className="hidden font-mono text-on-surface-variant sm:inline">
+            DEEPTRAU TELEMETRY OS · LOCAL-FIRST
           </span>
         </div>
       )}

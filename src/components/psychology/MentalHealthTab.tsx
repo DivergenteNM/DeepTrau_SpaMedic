@@ -35,14 +35,12 @@ export function MentalHealthTab() {
     togglePsychRoutine,
   } = useMission();
 
-  // Check-in form state
   const [moodScore, setMoodScore] = useState<number>(biomarkers.moodScore);
   const [sleepHours, setSleepHours] = useState<number>(biomarkers.sleepHours);
   const [stressLevel, setStressLevel] = useState<number>(biomarkers.stressLevel);
   const [crewCohesion, setCrewCohesion] = useState<number>(biomarkers.crewCohesion);
   const [checkInSaved, setCheckInSaved] = useState(false);
 
-  // Video Diary & Webcam state
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const [cameraActive, setCameraActive] = useState(false);
@@ -53,16 +51,13 @@ export function MentalHealthTab() {
   const [diaryTitle, setDiaryTitle] = useState('');
   const [diaryNotes, setDiaryNotes] = useState('');
 
-  // Breathing pacer (Box breathing: 4-4-4-4)
   const [breathingActive, setBreathingActive] = useState(false);
   const [breathTick, setBreathTick] = useState(0);
 
-  // Native Web Audio API ambient soundscape
   const audioCtxRef = useRef<AudioContext | null>(null);
   const audioNodesRef = useRef<{ stop: () => void } | null>(null);
   const [playingSoundId, setPlayingSoundId] = useState<string | null>(null);
 
-  // Custom inspiration anchor upload
   const [newAnchorTitle, setNewAnchorTitle] = useState('');
   const [newAnchorQuote, setNewAnchorQuote] = useState('');
   const [newAnchorImage, setNewAnchorImage] = useState<string | undefined>(undefined);
@@ -137,7 +132,9 @@ export function MentalHealthTab() {
     }
     stopAmbientSound();
     try {
-      const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+      const AudioCtx =
+        window.AudioContext ||
+        (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
       const ctx = audioCtxRef.current ?? new AudioCtx();
       audioCtxRef.current = ctx;
       if (ctx.state === 'suspended') {
@@ -299,14 +296,14 @@ export function MentalHealthTab() {
     <div className="space-y-6">
       {/* Low Mood Countermeasure Alert */}
       {(biomarkers.moodScore <= 6 || biomarkers.sleepHours < 6.5) && (
-        <div className="rounded-2xl border border-amber-500/40 bg-amber-500/10 p-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div className="rounded-2xl border border-warning/35 bg-warning-container p-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-start gap-3">
-            <Heart className="mt-0.5 h-5 w-5 shrink-0 text-amber-400" />
-            <div className="text-xs">
-              <p className="font-bold text-amber-200">
+            <Heart className="mt-0.5 h-5 w-5 shrink-0 text-warning" />
+            <div className="text-xs text-on-warning-container">
+              <p className="font-bold font-display">
                 Contramedida Emocional Sugerida (Aislamiento y Sueño)
               </p>
-              <p className="mt-0.5 text-amber-100/80">
+              <p className="mt-0.5">
                 Detectamos descenso de ánimo ({biomarkers.moodScore}/10) o descanso reducido (
                 {biomarkers.sleepHours}h). Te recomendamos abrir tu Muro de Inspiración familiar o
                 realizar 2 minutos de respiración guiada.
@@ -315,7 +312,7 @@ export function MentalHealthTab() {
           </div>
           <a
             href="#muro-inspiracion"
-            className="shrink-0 rounded-xl bg-amber-400 px-3.5 py-2 text-xs font-bold text-slate-950 hover:bg-amber-300"
+            className="shrink-0 rounded-xl bg-warning px-3.5 py-2 text-xs font-bold text-surface dt-transition hover:bg-warning-hover"
           >
             Ir a Mi Ancla en la Tierra
           </a>
@@ -326,30 +323,30 @@ export function MentalHealthTab() {
       <div className="grid gap-6 lg:grid-cols-12">
         <form
           onSubmit={handleSaveCheckIn}
-          className="lg:col-span-6 rounded-2xl border border-slate-800 bg-slate-900/75 p-5 space-y-4"
+          className="lg:col-span-6 rounded-2xl border border-outline bg-surface-container p-5 space-y-4"
         >
-          <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+          <div className="flex items-center justify-between border-b border-outline-variant pb-3">
             <div>
-              <h2 className="text-base font-bold text-white flex items-center gap-2">
-                <Smile className="h-5 w-5 text-cyan-400" />
+              <h2 className="text-base font-bold text-on-surface flex items-center gap-2 font-display">
+                <Smile className="h-5 w-5 text-primary" />
                 Check-in Emocional y Calidad de Sueño
               </h2>
-              <p className="text-xs text-slate-400">
+              <p className="text-xs text-on-surface-variant">
                 Monitorea el impacto del confinamiento y los ciclos de luz en {mission.shortName}.
               </p>
             </div>
             {checkInSaved && (
-              <span className="rounded-full bg-emerald-500/20 px-2.5 py-1 text-[11px] font-semibold text-emerald-300">
+              <span className="rounded-full border border-primary/30 bg-primary-container px-2.5 py-1 text-[11px] font-semibold text-on-primary-container">
                 ¡Guardado!
               </span>
             )}
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
-            <div className="rounded-xl border border-slate-800 bg-slate-950/75 p-3.5 space-y-1.5">
+            <div className="rounded-xl border border-outline bg-surface-container-low p-3.5 space-y-1.5">
               <div className="flex justify-between text-xs">
-                <span className="text-slate-300 font-medium">Estado de Ánimo</span>
-                <span className="font-mono font-bold text-emerald-300">{moodScore}/10</span>
+                <span className="text-on-surface font-medium">Estado de Ánimo</span>
+                <span className="font-mono font-bold text-primary">{moodScore}/10</span>
               </div>
               <input
                 type="range"
@@ -357,14 +354,14 @@ export function MentalHealthTab() {
                 max={10}
                 value={moodScore}
                 onChange={(e) => setMoodScore(Number(e.target.value))}
-                className="w-full accent-emerald-400"
+                className="w-full accent-primary"
               />
             </div>
 
-            <div className="rounded-xl border border-slate-800 bg-slate-950/75 p-3.5 space-y-1.5">
+            <div className="rounded-xl border border-outline bg-surface-container-low p-3.5 space-y-1.5">
               <div className="flex justify-between text-xs">
-                <span className="text-slate-300 font-medium">Horas de Sueño</span>
-                <span className="font-mono font-bold text-cyan-300">{sleepHours} h</span>
+                <span className="text-on-surface font-medium">Horas de Sueño</span>
+                <span className="font-mono font-bold text-telemetry">{sleepHours} h</span>
               </div>
               <input
                 type="range"
@@ -373,14 +370,14 @@ export function MentalHealthTab() {
                 step={0.5}
                 value={sleepHours}
                 onChange={(e) => setSleepHours(Number(e.target.value))}
-                className="w-full accent-cyan-400"
+                className="w-full accent-telemetry"
               />
             </div>
 
-            <div className="rounded-xl border border-slate-800 bg-slate-950/75 p-3.5 space-y-1.5">
+            <div className="rounded-xl border border-outline bg-surface-container-low p-3.5 space-y-1.5">
               <div className="flex justify-between text-xs">
-                <span className="text-slate-300 font-medium">Estrés por Confinamiento</span>
-                <span className="font-mono font-bold text-amber-300">{stressLevel}/10</span>
+                <span className="text-on-surface font-medium">Estrés por Confinamiento</span>
+                <span className="font-mono font-bold text-warning">{stressLevel}/10</span>
               </div>
               <input
                 type="range"
@@ -388,14 +385,14 @@ export function MentalHealthTab() {
                 max={10}
                 value={stressLevel}
                 onChange={(e) => setStressLevel(Number(e.target.value))}
-                className="w-full accent-amber-400"
+                className="w-full accent-warning"
               />
             </div>
 
-            <div className="rounded-xl border border-slate-800 bg-slate-950/75 p-3.5 space-y-1.5">
+            <div className="rounded-xl border border-outline bg-surface-container-low p-3.5 space-y-1.5">
               <div className="flex justify-between text-xs">
-                <span className="text-slate-300 font-medium">Cohesión de Tripulación</span>
-                <span className="font-mono font-bold text-sky-300">{crewCohesion}/10</span>
+                <span className="text-on-surface font-medium">Cohesión de Tripulación</span>
+                <span className="font-mono font-bold text-secondary">{crewCohesion}/10</span>
               </div>
               <input
                 type="range"
@@ -403,37 +400,37 @@ export function MentalHealthTab() {
                 max={10}
                 value={crewCohesion}
                 onChange={(e) => setCrewCohesion(Number(e.target.value))}
-                className="w-full accent-sky-400"
+                className="w-full accent-secondary"
               />
             </div>
           </div>
 
           <button
             type="submit"
-            className="w-full rounded-xl bg-cyan-500 px-4 py-2.5 text-sm font-bold text-slate-950 transition hover:bg-cyan-400"
+            className="w-full rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-on-primary dt-transition hover:bg-primary-hover font-display"
           >
             Registrar Check-in del Día (+30 pts)
           </button>
         </form>
 
         {/* Daily & Weekly Psychological Routines + Breathing Pacer */}
-        <div className="lg:col-span-6 rounded-2xl border border-slate-800 bg-slate-900/75 p-5 space-y-4">
-          <div className="border-b border-slate-800 pb-3">
-            <h2 className="text-base font-bold text-white flex items-center gap-2">
-              <Wind className="h-5 w-5 text-emerald-400" />
+        <div className="lg:col-span-6 rounded-2xl border border-outline bg-surface-container p-5 space-y-4">
+          <div className="border-b border-outline-variant pb-3">
+            <h2 className="text-base font-bold text-on-surface flex items-center gap-2 font-display">
+              <Wind className="h-5 w-5 text-primary" />
               Rutinas Psicológicas (Diarias y Semanales)
             </h2>
-            <p className="text-xs text-slate-400">
+            <p className="text-xs text-on-surface-variant">
               Regulación de cortisol, higiene circadiana y prevención del desgaste de &quot;tercer
               cuarto de misión&quot;.
             </p>
           </div>
 
           {/* Interactive Box Breathing Pacer */}
-          <div className="rounded-xl border border-emerald-500/30 bg-slate-950/85 p-4 flex items-center justify-between gap-4">
+          <div className="rounded-xl border border-primary/30 bg-primary-container p-4 flex items-center justify-between gap-4">
             <div className="flex items-center gap-3.5">
               <div
-                className={`flex h-14 w-14 items-center justify-center rounded-full border-2 border-emerald-400 bg-emerald-500/15 transition-transform duration-1000 ${
+                className={`flex h-14 w-14 items-center justify-center rounded-full border-2 border-primary bg-surface-container transition-transform duration-1000 ${
                   breathingActive
                     ? breathTick < 8
                       ? 'scale-110'
@@ -441,13 +438,13 @@ export function MentalHealthTab() {
                     : 'scale-100'
                 }`}
               >
-                <Wind className="h-6 w-6 text-emerald-300" />
+                <Wind className="h-6 w-6 text-primary" />
               </div>
               <div>
-                <p className="text-xs font-bold text-white">
+                <p className="text-xs font-bold text-on-primary-container font-display">
                   Respiración Guiada Anti-Cortisol (4-4-4-4)
                 </p>
-                <p className="mt-0.5 text-xs font-medium text-emerald-300">
+                <p className="mt-0.5 text-xs font-semibold text-primary">
                   {breathingActive ? breathPhase : 'Presiona iniciar para bajar pulsaciones'}
                 </p>
               </div>
@@ -458,7 +455,7 @@ export function MentalHealthTab() {
                 setBreathingActive((b) => !b);
                 setBreathTick(0);
               }}
-              className="inline-flex items-center gap-1.5 rounded-xl border border-emerald-500/40 bg-emerald-500/15 px-3.5 py-2 text-xs font-semibold text-emerald-300 hover:bg-emerald-500/25"
+              className="inline-flex items-center gap-1.5 rounded-xl bg-primary px-3.5 py-2 text-xs font-semibold text-on-primary dt-transition hover:bg-primary-hover"
             >
               {breathingActive ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
               {breathingActive ? 'Pausar' : 'Iniciar'}
@@ -489,26 +486,28 @@ export function MentalHealthTab() {
                   key={item.key}
                   type="button"
                   onClick={() => togglePsychRoutine(item.key)}
-                  className={`flex w-full items-start gap-3 rounded-xl border p-3 text-left transition ${
+                  className={`flex w-full items-start gap-3 rounded-xl border p-3 text-left dt-transition ${
                     checked
-                      ? 'border-emerald-500/35 bg-emerald-950/20'
-                      : 'border-slate-800 bg-slate-950/70 hover:border-slate-700'
+                      ? 'border-primary/30 bg-primary-container/55'
+                      : 'border-outline bg-surface-container-low hover:border-primary'
                   }`}
                 >
                   <CheckCircle2
                     className={`mt-0.5 h-4 w-4 shrink-0 ${
-                      checked ? 'text-emerald-400' : 'text-slate-600'
+                      checked ? 'text-primary' : 'text-on-surface-variant'
                     }`}
                   />
                   <div>
                     <p
-                      className={`text-xs font-semibold ${
-                        checked ? 'line-through text-slate-400' : 'text-white'
+                      className={`text-xs font-semibold font-display ${
+                        checked
+                          ? 'line-through text-on-surface-variant'
+                          : 'text-on-surface'
                       }`}
                     >
                       {item.title}
                     </p>
-                    <p className="text-[11px] text-slate-400">{item.desc}</p>
+                    <p className="text-[11px] text-on-surface-variant">{item.desc}</p>
                   </div>
                 </button>
               );
@@ -517,26 +516,28 @@ export function MentalHealthTab() {
         </div>
       </div>
 
-      {/* Row 2: Video Diary & Written Log (Camera + AI Evaluation for Earth Psychologists) */}
+      {/* Row 2: Video Diary & Written Log */}
       <div className="grid gap-6 lg:grid-cols-12">
-        <div className="lg:col-span-7 rounded-2xl border border-slate-800 bg-slate-900/75 p-5 space-y-4">
-          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-3">
+        <div className="lg:col-span-7 rounded-2xl border border-outline bg-surface-container p-5 space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-outline-variant pb-3">
             <div>
-              <h2 className="text-base font-bold text-white flex items-center gap-2">
-                <Video className="h-5 w-5 text-cyan-400" />
+              <h2 className="text-base font-bold text-on-surface flex items-center gap-2 font-display">
+                <Video className="h-5 w-5 text-primary" />
                 Video-Diario Diario y Bitácora Psicológica
               </h2>
-              <p className="text-xs text-slate-400">
+              <p className="text-xs text-on-surface-variant">
                 Analiza indicadores emocionales en local y empaqueta la sesión para expertos en
                 Tierra ({mission.commDelay}).
               </p>
             </div>
-            <div className="flex rounded-xl border border-slate-800 bg-slate-950 p-1 text-xs">
+            <div className="flex rounded-xl border border-outline bg-surface-container-low p-1 text-xs">
               <button
                 type="button"
                 onClick={() => setDiaryMode('video')}
-                className={`rounded-lg px-3 py-1 font-semibold ${
-                  diaryMode === 'video' ? 'bg-cyan-500/20 text-cyan-300' : 'text-slate-400'
+                className={`rounded-lg px-3 py-1 font-semibold dt-transition ${
+                  diaryMode === 'video'
+                    ? 'bg-primary text-on-primary'
+                    : 'text-on-surface-variant hover:text-on-surface'
                 }`}
               >
                 Modo Video
@@ -544,8 +545,10 @@ export function MentalHealthTab() {
               <button
                 type="button"
                 onClick={() => setDiaryMode('texto')}
-                className={`rounded-lg px-3 py-1 font-semibold ${
-                  diaryMode === 'texto' ? 'bg-cyan-500/20 text-cyan-300' : 'text-slate-400'
+                className={`rounded-lg px-3 py-1 font-semibold dt-transition ${
+                  diaryMode === 'texto'
+                    ? 'bg-primary text-on-primary'
+                    : 'text-on-surface-variant hover:text-on-surface'
                 }`}
               >
                 Diario Escrito
@@ -554,8 +557,9 @@ export function MentalHealthTab() {
           </div>
 
           {diaryMode === 'video' && (
-            <div className="rounded-2xl border border-slate-800 bg-slate-950 p-4 space-y-3">
-              <div className="relative flex h-52 w-full items-center justify-center overflow-hidden rounded-xl border border-slate-800 bg-slate-900">
+            <div className="rounded-2xl border border-outline bg-surface-container-low p-4 space-y-3">
+              {/* Optical Dark Viewport (reuses viewport-surface #1A241E) */}
+              <div className="relative flex h-52 w-full items-center justify-center overflow-hidden rounded-xl border border-viewport-border bg-viewport-surface">
                 {cameraActive && !cameraFallback ? (
                   <video
                     ref={videoRef}
@@ -566,28 +570,28 @@ export function MentalHealthTab() {
                   />
                 ) : cameraActive && cameraFallback ? (
                   <div className="flex flex-col items-center justify-center text-center px-4">
-                    <div className="mb-2 flex h-14 w-14 items-center justify-center rounded-full border border-cyan-400/50 bg-cyan-500/15 animate-pulse">
-                      <Camera className="h-7 w-7 text-cyan-300" />
+                    <div className="mb-2 flex h-14 w-14 items-center justify-center rounded-full border border-primary bg-primary-container animate-pulse">
+                      <Camera className="h-7 w-7 text-primary" />
                     </div>
-                    <p className="text-xs font-semibold text-cyan-300">
+                    <p className="text-xs font-semibold text-on-viewport font-display">
                       Simulador de Cámara de Cabina Activo
                     </p>
-                    <p className="mt-1 text-[11px] text-slate-400">
+                    <p className="mt-1 text-[11px] text-on-viewport/75">
                       (Sin permisos de webcam o sin hardware físico: capturando biometría simulada)
                     </p>
                   </div>
                 ) : (
                   <div className="flex flex-col items-center text-center px-4">
-                    <VideoOff className="h-8 w-8 text-slate-600 mb-2" />
-                    <p className="text-xs text-slate-400">
+                    <VideoOff className="h-8 w-8 text-on-viewport/50 mb-2" />
+                    <p className="text-xs text-on-viewport/80">
                       Activa la cámara web o el simulador para grabar tu Video-Diario del día.
                     </p>
                   </div>
                 )}
 
                 {isRecording && (
-                  <span className="absolute top-3 right-3 inline-flex items-center gap-1.5 rounded-full bg-rose-600/90 px-2.5 py-1 font-mono text-[11px] font-bold text-white">
-                    <span className="h-2 w-2 rounded-full bg-white animate-ping" />
+                  <span className="absolute top-3 right-3 inline-flex items-center gap-1.5 rounded-full bg-danger px-2.5 py-1 font-mono text-[11px] font-bold text-on-secondary">
+                    <span className="h-2 w-2 rounded-full bg-on-secondary animate-ping" />
                     REC 00:{String(recordSeconds).padStart(2, '0')}
                   </span>
                 )}
@@ -598,7 +602,7 @@ export function MentalHealthTab() {
                   <button
                     type="button"
                     onClick={startWebcam}
-                    className="inline-flex items-center gap-1.5 rounded-xl border border-cyan-500/40 bg-cyan-500/15 px-3.5 py-2 text-xs font-semibold text-cyan-300 hover:bg-cyan-500/25"
+                    className="inline-flex items-center gap-1.5 rounded-xl bg-primary px-3.5 py-2 text-xs font-semibold text-on-primary dt-transition hover:bg-primary-hover"
                   >
                     <Camera className="h-4 w-4" />
                     Activar Cámara / Simulador
@@ -608,10 +612,10 @@ export function MentalHealthTab() {
                     <button
                       type="button"
                       onClick={() => setIsRecording((r) => !r)}
-                      className={`inline-flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-bold ${
+                      className={`inline-flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-bold dt-transition ${
                         isRecording
-                          ? 'bg-rose-500 text-white'
-                          : 'bg-emerald-500 text-slate-950 hover:bg-emerald-400'
+                          ? 'bg-danger text-on-secondary hover:bg-danger-hover'
+                          : 'bg-primary text-on-primary hover:bg-primary-hover'
                       }`}
                     >
                       <Radio className="h-4 w-4" />
@@ -620,7 +624,7 @@ export function MentalHealthTab() {
                     <button
                       type="button"
                       onClick={stopWebcam}
-                      className="rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-xs text-slate-300 hover:bg-slate-800"
+                      className="rounded-xl border border-outline bg-surface-container px-3 py-2 text-xs font-medium text-on-surface dt-transition hover:bg-surface-container-high"
                     >
                       Apagar Cámara
                     </button>
@@ -636,18 +640,18 @@ export function MentalHealthTab() {
               value={diaryTitle}
               onChange={(e) => setDiaryTitle(e.target.value)}
               placeholder="Título de la entrada (ej. Balance emocional tras caminata espacial)"
-              className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3.5 py-2 text-xs text-white outline-none focus:border-cyan-400"
+              className="w-full rounded-xl border border-outline bg-surface px-3.5 py-2 text-xs text-on-surface outline-none focus:border-primary"
             />
             <textarea
               rows={3}
               value={diaryNotes}
               onChange={(e) => setDiaryNotes(e.target.value)}
               placeholder="Escribe tus pensamientos del día o notas para los psicólogos de misión..."
-              className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3.5 py-2 text-xs text-white outline-none focus:border-cyan-400"
+              className="w-full rounded-xl border border-outline bg-surface px-3.5 py-2 text-xs text-on-surface outline-none focus:border-primary"
             />
             <button
               type="submit"
-              className="inline-flex items-center gap-2 rounded-xl bg-cyan-500 px-4 py-2.5 text-xs font-bold text-slate-950 hover:bg-cyan-400"
+              className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-xs font-bold text-on-primary dt-transition hover:bg-primary-hover font-display"
             >
               <Sparkles className="h-4 w-4" />
               Analizar y Guardar en Bitácora (+35 pts)
@@ -656,13 +660,13 @@ export function MentalHealthTab() {
         </div>
 
         {/* AI / Psychologist Indicators Feed */}
-        <div className="lg:col-span-5 rounded-2xl border border-slate-800 bg-slate-900/75 p-5 space-y-4">
-          <div className="border-b border-slate-800 pb-3">
-            <h3 className="text-base font-bold text-white flex items-center gap-2">
-              <Brain className="h-5 w-5 text-sky-400" />
+        <div className="lg:col-span-5 rounded-2xl border border-outline bg-surface-container p-5 space-y-4">
+          <div className="border-b border-outline-variant pb-3">
+            <h3 className="text-base font-bold text-on-surface flex items-center gap-2 font-display">
+              <Brain className="h-5 w-5 text-telemetry" />
               Evaluación Psicológica (IA Local & Tierra)
             </h3>
-            <p className="text-xs text-slate-400">
+            <p className="text-xs text-on-surface-variant">
               Historial de registros con indicadores de tono emocional y fatiga por confinamiento.
             </p>
           </div>
@@ -671,27 +675,29 @@ export function MentalHealthTab() {
             {videoLogs.map((log) => (
               <div
                 key={log.id}
-                className="rounded-xl border border-slate-800 bg-slate-950/80 p-3.5 space-y-2"
+                className="rounded-xl border border-outline bg-surface-container-low p-3.5 space-y-2"
               >
                 <div className="flex items-center justify-between gap-2">
-                  <span className="text-xs font-bold text-white">{log.title}</span>
-                  <span className="rounded bg-slate-800 px-2 py-0.5 text-[10px] font-semibold text-cyan-300">
+                  <span className="text-xs font-bold text-on-surface font-display">
+                    {log.title}
+                  </span>
+                  <span className="rounded-md border border-telemetry/25 bg-telemetry-container px-2 py-0.5 text-[10px] font-semibold text-on-telemetry-container font-mono">
                     {log.mode === 'video' ? 'Video-Diario' : 'Escrito'}
                   </span>
                 </div>
-                <p className="text-[11px] text-slate-500">{log.timestamp}</p>
-                <p className="text-xs leading-relaxed text-slate-300">{log.notes}</p>
-                <div className="grid grid-cols-2 gap-1.5 pt-2 border-t border-slate-800/80 text-[10px]">
-                  <div className="rounded bg-slate-900 px-2 py-1 text-slate-300">
-                    <span className="text-slate-500 block">Tono IA:</span>
+                <p className="text-[11px] text-on-surface-variant font-mono">{log.timestamp}</p>
+                <p className="text-xs leading-relaxed text-on-surface">{log.notes}</p>
+                <div className="grid grid-cols-2 gap-1.5 pt-2 border-t border-outline-variant text-[10px]">
+                  <div className="rounded-lg border border-outline bg-surface-container px-2 py-1 text-on-surface">
+                    <span className="text-on-surface-variant block">Tono IA:</span>
                     {log.aiIndicators.emotionalTone}
                   </div>
-                  <div className="rounded bg-slate-900 px-2 py-1 text-slate-300">
-                    <span className="text-slate-500 block">Fatiga Vocal:</span>
+                  <div className="rounded-lg border border-outline bg-surface-container px-2 py-1 text-on-surface">
+                    <span className="text-on-surface-variant block">Fatiga Vocal:</span>
                     {log.aiIndicators.vocalFatigue}
                   </div>
                 </div>
-                <p className="text-[10px] text-emerald-300/90">
+                <p className="text-[10px] font-medium text-primary">
                   ✓ {log.aiIndicators.earthSyncStatus}
                 </p>
               </div>
@@ -701,26 +707,26 @@ export function MentalHealthTab() {
       </div>
 
       {/* Row 3: Historical Mental Health Chart (Native SVG) */}
-      <section className="rounded-2xl border border-slate-800 bg-slate-900/75 p-5 space-y-4">
+      <section className="rounded-2xl border border-outline bg-surface-container p-5 space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
-            <h2 className="text-base font-bold text-white flex items-center gap-2">
-              <Moon className="h-5 w-5 text-cyan-400" />
+            <h2 className="text-base font-bold text-on-surface flex items-center gap-2 font-display">
+              <Moon className="h-5 w-5 text-telemetry" />
               Evolución de Salud Mental y Sueño en la Misión
             </h2>
-            <p className="text-xs text-slate-400">
+            <p className="text-xs text-on-surface-variant">
               Seguimiento desde el Día 1 hasta el día actual de la misión (escala 0–10 / horas).
             </p>
           </div>
-          <div className="flex flex-wrap items-center gap-3 text-xs">
-            <span className="inline-flex items-center gap-1.5 text-emerald-300">
-              <span className="h-2.5 w-2.5 rounded-full bg-emerald-400" /> Ánimo
+          <div className="flex flex-wrap items-center gap-3 text-xs font-semibold">
+            <span className="inline-flex items-center gap-1.5 text-primary">
+              <span className="h-2.5 w-2.5 rounded-full bg-primary" /> Ánimo
             </span>
-            <span className="inline-flex items-center gap-1.5 text-cyan-300">
-              <span className="h-2.5 w-2.5 rounded-full bg-cyan-400" /> Horas Sueño
+            <span className="inline-flex items-center gap-1.5 text-telemetry">
+              <span className="h-2.5 w-2.5 rounded-full bg-telemetry" /> Horas Sueño
             </span>
-            <span className="inline-flex items-center gap-1.5 text-amber-300">
-              <span className="h-2.5 w-2.5 rounded-full bg-amber-400" /> Estrés
+            <span className="inline-flex items-center gap-1.5 text-warning">
+              <span className="h-2.5 w-2.5 rounded-full bg-warning" /> Estrés
             </span>
           </div>
         </div>
@@ -732,7 +738,6 @@ export function MentalHealthTab() {
             role="img"
             aria-label="Gráfica histórica de evolución mental en la misión"
           >
-            {/* Horizontal grid lines */}
             {[2, 4, 6, 8, 10].map((v) => {
               const y = toY10(v);
               return (
@@ -742,30 +747,30 @@ export function MentalHealthTab() {
                     y1={y}
                     x2={chartW - padR}
                     y2={y}
-                    stroke="#1e293b"
+                    stroke="#E6E2D8"
                     strokeDasharray="4 4"
                   />
-                  <text x={8} y={y + 4} fill="#64748b" fontSize="10">
+                  <text x={8} y={y + 4} fill="#55635B" fontSize="10">
                     {v}
                   </text>
                 </g>
               );
             })}
 
-            <path d={moodPath} fill="none" stroke="#34d399" strokeWidth="2.5" />
-            <path d={sleepPath} fill="none" stroke="#22d3ee" strokeWidth="2.5" />
-            <path d={stressPath} fill="none" stroke="#fbbf24" strokeWidth="2" strokeDasharray="5 3" />
+            <path d={moodPath} fill="none" stroke="#2F5D46" strokeWidth="2.5" />
+            <path d={sleepPath} fill="none" stroke="#2B5B6C" strokeWidth="2.5" />
+            <path d={stressPath} fill="none" stroke="#B54708" strokeWidth="2" strokeDasharray="5 3" />
 
             {history.map((pt, i) => (
               <g key={pt.day}>
-                <circle cx={toX(i)} cy={toY10(pt.moodScore)} r="3.5" fill="#34d399" />
-                <circle cx={toX(i)} cy={toY10(pt.sleepHours)} r="3.5" fill="#22d3ee" />
-                <circle cx={toX(i)} cy={toY10(pt.stressLevel)} r="3" fill="#fbbf24" />
+                <circle cx={toX(i)} cy={toY10(pt.moodScore)} r="3.5" fill="#2F5D46" />
+                <circle cx={toX(i)} cy={toY10(pt.sleepHours)} r="3.5" fill="#2B5B6C" />
+                <circle cx={toX(i)} cy={toY10(pt.stressLevel)} r="3" fill="#B54708" />
                 <text
                   x={toX(i)}
                   y={chartH - 8}
                   textAnchor="middle"
-                  fill="#94a3b8"
+                  fill="#55635B"
                   fontSize="10"
                 >
                   D{pt.day}
@@ -779,15 +784,15 @@ export function MentalHealthTab() {
       {/* Row 4: Family Inspiration Vault ("Mi Ancla en la Tierra") */}
       <section
         id="muro-inspiracion"
-        className="rounded-2xl border border-slate-800 bg-slate-900/75 p-5 space-y-5"
+        className="rounded-2xl border border-outline bg-surface-container p-5 space-y-5"
       >
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between border-b border-slate-800 pb-3">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between border-b border-outline-variant pb-3">
           <div>
-            <h2 className="text-base font-bold text-white flex items-center gap-2">
-              <Heart className="h-5 w-5 text-rose-400" />
+            <h2 className="text-base font-bold text-on-surface flex items-center gap-2 font-display">
+              <Heart className="h-5 w-5 text-danger" />
               Muro de Inspiración y Conexión Terrestre (&quot;Mi Ancla en la Tierra&quot;)
             </h2>
-            <p className="text-xs text-slate-400">
+            <p className="text-xs text-on-surface-variant">
               Fotos familiares, recuerdos de la Tierra y paisajes sonoros relajantes sintetizados
               nativamente para reducir el cortisol en cabina.
             </p>
@@ -796,9 +801,9 @@ export function MentalHealthTab() {
             <button
               type="button"
               onClick={stopAmbientSound}
-              className="inline-flex items-center gap-1.5 rounded-xl border border-rose-500/40 bg-rose-500/15 px-3 py-1.5 text-xs font-semibold text-rose-300"
+              className="inline-flex items-center gap-1.5 rounded-xl border border-danger/35 bg-danger-container px-3 py-1.5 text-xs font-semibold text-on-danger-container"
             >
-              <VolumeX className="h-4 w-4" />
+              <VolumeX className="h-4 w-4 text-danger" />
               Silenciar Audio
             </button>
           )}
@@ -807,50 +812,52 @@ export function MentalHealthTab() {
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           {inspirationItems.map((item) => {
             const isPlaying = playingSoundId === item.soundId;
-            const gradientMap = {
-              amber: 'from-amber-500/20 via-slate-900 to-slate-950 border-amber-500/30',
-              cyan: 'from-cyan-500/20 via-slate-900 to-slate-950 border-cyan-500/30',
-              emerald: 'from-emerald-500/20 via-slate-900 to-slate-950 border-emerald-500/30',
-              rose: 'from-rose-500/20 via-slate-900 to-slate-950 border-rose-500/30',
+            const cardTheme = {
+              amber: 'border-warning/30 bg-warning-container/45',
+              cyan: 'border-telemetry/30 bg-telemetry-container/45',
+              emerald: 'border-primary/30 bg-primary-container/55',
+              rose: 'border-danger/30 bg-danger-container/45',
             }[item.palette];
 
             return (
               <div
                 key={item.id}
-                className={`flex flex-col justify-between rounded-2xl border bg-gradient-to-b p-4 space-y-3 ${gradientMap}`}
+                className={`flex flex-col justify-between rounded-2xl border p-4 space-y-3 ${cardTheme}`}
               >
                 <div className="space-y-2.5">
                   {item.imageUrl ? (
                     <img
                       src={item.imageUrl}
                       alt={item.title}
-                      className="h-28 w-full rounded-xl object-cover border border-slate-700"
+                      className="h-28 w-full rounded-xl object-cover border border-outline"
                     />
                   ) : (
-                    <div className="flex h-24 w-full items-center justify-center rounded-xl border border-slate-800 bg-slate-950/60 px-3 text-center">
+                    <div className="flex h-24 w-full items-center justify-center rounded-xl border border-outline bg-surface-container px-3 text-center">
                       <div>
-                        <span className="inline-block rounded-full bg-slate-800 px-2 py-0.5 text-[10px] font-semibold text-cyan-300">
+                        <span className="inline-block rounded-full border border-outline bg-surface-container-low px-2.5 py-0.5 text-[10px] font-semibold text-primary font-display">
                           {item.category}
                         </span>
-                        <p className="mt-1.5 text-[11px] text-slate-400">{item.durationOrDate}</p>
+                        <p className="mt-1.5 text-[11px] text-on-surface-variant font-mono">
+                          {item.durationOrDate}
+                        </p>
                       </div>
                     </div>
                   )}
 
                   <div>
-                    <h3 className="text-sm font-bold text-white">{item.title}</h3>
-                    <p className="mt-0.5 text-[11px] text-slate-400">{item.subtitle}</p>
+                    <h3 className="text-sm font-bold text-on-surface font-display">{item.title}</h3>
+                    <p className="mt-0.5 text-[11px] text-on-surface-variant">{item.subtitle}</p>
                   </div>
-                  <p className="text-xs italic leading-relaxed text-slate-200">{item.quote}</p>
+                  <p className="text-xs italic leading-relaxed text-on-surface">{item.quote}</p>
                 </div>
 
                 <button
                   type="button"
                   onClick={() => playAmbientSound(item.soundId)}
-                  className={`inline-flex w-full items-center justify-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-semibold transition ${
+                  className={`inline-flex w-full items-center justify-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-semibold dt-transition ${
                     isPlaying
-                      ? 'border-emerald-400 bg-emerald-500/25 text-emerald-200'
-                      : 'border-slate-700 bg-slate-950/80 text-slate-200 hover:border-cyan-400/50'
+                      ? 'border-primary bg-primary text-on-primary'
+                      : 'border-outline bg-surface-container text-on-surface hover:bg-surface-container-low'
                   }`}
                 >
                   <Volume2 className="h-3.5 w-3.5" />
@@ -864,10 +871,10 @@ export function MentalHealthTab() {
         {/* Upload New Family Photo / Memory */}
         <form
           onSubmit={handleAddAnchor}
-          className="rounded-xl border border-slate-800 bg-slate-950/75 p-4 grid gap-3 md:grid-cols-4 md:items-end"
+          className="rounded-xl border border-outline bg-surface-container-low p-4 grid gap-3 md:grid-cols-4 md:items-end"
         >
           <div>
-            <label className="mb-1 block text-[11px] font-medium text-slate-300">
+            <label className="mb-1 block text-[11px] font-semibold text-on-surface-variant">
               Título del recuerdo o foto
             </label>
             <input
@@ -875,11 +882,11 @@ export function MentalHealthTab() {
               value={newAnchorTitle}
               onChange={(e) => setNewAnchorTitle(e.target.value)}
               placeholder="Ej. Foto con mi hija en la playa"
-              className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-xs text-white"
+              className="w-full rounded-lg border border-outline bg-surface-container px-3 py-2 text-xs text-on-surface outline-none focus:border-primary"
             />
           </div>
           <div>
-            <label className="mb-1 block text-[11px] font-medium text-slate-300">
+            <label className="mb-1 block text-[11px] font-semibold text-on-surface-variant">
               Mensaje de ánimo
             </label>
             <input
@@ -887,14 +894,14 @@ export function MentalHealthTab() {
               value={newAnchorQuote}
               onChange={(e) => setNewAnchorQuote(e.target.value)}
               placeholder="Ej. ¡Nos vemos al regreso de Marte!"
-              className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-xs text-white"
+              className="w-full rounded-lg border border-outline bg-surface-container px-3 py-2 text-xs text-on-surface outline-none focus:border-primary"
             />
           </div>
           <div>
-            <label className="mb-1 block text-[11px] font-medium text-slate-300">
+            <label className="mb-1 block text-[11px] font-semibold text-on-surface-variant">
               Foto o imagen (opcional)
             </label>
-            <label className="flex cursor-pointer items-center justify-center gap-1.5 rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-xs text-cyan-300 hover:border-cyan-400">
+            <label className="flex cursor-pointer items-center justify-center gap-1.5 rounded-lg border border-outline bg-surface-container px-3 py-2 text-xs font-medium text-primary dt-transition hover:border-primary">
               <ImagePlus className="h-4 w-4" />
               {newAnchorImage ? 'Imagen cargada ✓' : 'Subir foto familiar'}
               <input
@@ -907,7 +914,7 @@ export function MentalHealthTab() {
           </div>
           <button
             type="submit"
-            className="rounded-lg bg-rose-500 px-4 py-2 text-xs font-bold text-white hover:bg-rose-400"
+            className="rounded-lg bg-primary px-4 py-2 text-xs font-bold text-on-primary dt-transition hover:bg-primary-hover font-display"
           >
             Agregar a Mi Ancla
           </button>

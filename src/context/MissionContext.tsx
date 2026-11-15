@@ -177,7 +177,8 @@ interface MissionContextValue {
   resetDemoData: () => void;
 }
 
-const STORAGE_KEY = 'astrohealth_mvp_state_v1';
+const STORAGE_KEY = 'deeptrau_mvp_state_v1';
+const LEGACY_STORAGE_KEY = 'astrohealth_mvp_state_v1';
 
 const MissionContext = createContext<MissionContextValue | null>(null);
 
@@ -489,7 +490,9 @@ export function MissionProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     try {
-      const raw = window.localStorage.getItem(STORAGE_KEY);
+      const raw =
+        window.localStorage.getItem(STORAGE_KEY) ??
+        window.localStorage.getItem(LEGACY_STORAGE_KEY);
       if (raw) {
         const parsed = JSON.parse(raw) as StoredState;
         if (parsed && parsed.missionId && parsed.astronaut) {

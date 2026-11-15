@@ -16,11 +16,11 @@ export default function HomePage() {
 
   if (!isHydrated) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-slate-950 text-slate-300">
+      <main className="flex min-h-screen items-center justify-center bg-surface text-on-surface">
         <div className="flex flex-col items-center gap-3 text-center">
-          <div className="h-10 w-10 animate-spin rounded-full border-2 border-cyan-400 border-t-transparent" />
-          <p className="text-sm font-medium text-cyan-300">
-            Inicializando telemetría médica AstroHealth...
+          <div className="h-10 w-10 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+          <p className="text-sm font-medium text-primary font-display">
+            Inicializando telemetría médica DeepTrau...
           </p>
         </div>
       </main>
@@ -32,7 +32,7 @@ export default function HomePage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col">
+    <div className="min-h-screen bg-surface text-on-surface flex flex-col">
       <TopTelemetryBar />
 
       <div className="flex flex-1 flex-col lg:flex-row">
