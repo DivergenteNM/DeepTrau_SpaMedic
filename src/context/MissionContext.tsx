@@ -14,6 +14,10 @@ import {
   analyzeMissionAndAstronautRisks,
   MissionRiskItem,
 } from '@/utils/missionRiskAnalysis';
+import {
+  analyzeDiaryEntryLocally,
+  PvtSessionResult,
+} from '@/utils/psychologyAnalysis';
 
 export type AppTabId = 'dashboard' | 'sensors' | 'psychology' | 'musculoskeletal' | 'survival';
 
@@ -112,11 +116,16 @@ export interface VideoDiaryEntry {
   title: string;
   notes: string;
   moodRating: number;
+  durationSeconds?: number;
   aiIndicators: {
     emotionalTone: string;
     vocalFatigue: string;
     confinementStress: 'Bajo' | 'Moderado' | 'Elevado';
     earthSyncStatus: string;
+    detectedThemes?: string[];
+    clinicalRecommendation?: string;
+    syncState?: 'queued' | 'transmitting' | 'acknowledged';
+    earthFeedback?: string;
   };
 }
 
@@ -131,6 +140,7 @@ export interface InspirationItem {
   palette: 'cyan' | 'emerald' | 'amber' | 'rose';
   soundId: 'rain' | 'ocean' | 'forest' | 'heartbeat';
   soundLabel: string;
+  audioUrl?: string;
 }
 
 export type DemoScenario =
@@ -168,6 +178,7 @@ interface StoredState {
   healthPoints: number;
   videoLogs: VideoDiaryEntry[];
   inspirationItems: InspirationItem[];
+  pvtHistory: PvtSessionResult[];
 }
 
 interface MissionContextValue {
@@ -204,7 +215,9 @@ interface MissionContextValue {
   systemStatuses: Record<BodySystemId, TriageLevel>;
   globalTriage: TriageLevel;
   videoLogs: VideoDiaryEntry[];
+  videoMediaUrls: Record<string, string>;
   inspirationItems: InspirationItem[];
+  pvtHistory: PvtSessionResult[];
   completeWelcome: () => void;
   reopenWelcome: () => void;
   completeOnboarding: (missionId: MissionId, astronautProfile: AstronautProfile) => void;
@@ -217,19 +230,29 @@ interface MissionContextValue {
   toggleExerciseTask: (exerciseId: string) => void;
   toggleSupplement: (key: 'vitaminD' | 'calcium' | 'hydration') => void;
   togglePsychRoutine: (key: 'breathing' | 'circadianLight' | 'weeklyResilience') => void;
+  completeBreathingSession: () => void;
+  savePvtSession: (result: PvtSessionResult) => void;
   addMentalCheckIn: (payload: {
     moodScore: number;
     sleepHours: number;
     stressLevel: number;
     crewCohesion: number;
+    sleepQuality?: 'Reparador' | 'Fragmentado' | 'Insomnio';
+    primaryStressor?: string;
   }) => void;
   addVideoDiaryEntry: (payload: {
     mode: 'video' | 'texto';
     title: string;
     notes: string;
     moodRating: number;
+    durationSeconds?: number;
+    voiceActiveRatio?: number;
+    usedRealMic?: boolean;
+    mediaUrl?: string;
   }) => void;
+  syncVideoDiaryToEarth: (entryId: string) => void;
   addInspirationItem: (item: Omit<InspirationItem, 'id'>) => void;
+  removeInspirationItem: (id: string) => void;
   resetDemoData: () => void;
   isSosOpen: boolean;
   activeEmergencyProtocolId: EmergencyProtocolId;
@@ -614,11 +637,16 @@ function createInitialVideoLogs(mission: MissionType): VideoDiaryEntry[] {
       notes:
         'Jornada exigente revisando sellos de laboratorio. Un poco de nostalgia al ver fotos familiares, pero la rutina de ciclismo CEVIS despejó la mente.',
       moodRating: 8,
+      durationSeconds: 38,
       aiIndicators: {
         emotionalTone: 'Estable y resiliente',
-        vocalFatigue: 'Leve (fin de turno)',
+        vocalFatigue: 'Leve · prosodia estable (fin de turno)',
         confinementStress: 'Bajo',
         earthSyncStatus: `Empaquetado para envío asíncrono (${mission.commDelay})`,
+        detectedThemes: ['Vínculo Terrestre / Nostalgia', 'Regulación Positiva'],
+        clinicalRecommendation:
+          'Mantener anclaje visual con familia y sostener bloque de ejercicio cardiovascular.',
+        syncState: 'queued',
       },
     },
     {
@@ -634,7 +662,12 @@ function createInitialVideoLogs(mission: MissionType): VideoDiaryEntry[] {
         emotionalTone: 'Positivo / Enfocado',
         vocalFatigue: 'N/A (Bitácora escrita)',
         confinementStress: 'Bajo',
-        earthSyncStatus: 'Sincronizado en registro médico local',
+        earthSyncStatus: 'Confirmado por Psicología de Tierra (Houston/CSA)',
+        detectedThemes: ['Higiene Circadiana / Sueño', 'Regulación Positiva'],
+        clinicalRecommendation: 'Continuar protocolo de luz ámbar 1800K pre-sueño.',
+        syncState: 'acknowledged',
+        earthFeedback:
+          'Psicología de Vuelo: Excelente respuesta circadiana. Sin signos de fatiga de tercer cuarto.',
       },
     },
   ];
@@ -727,6 +760,20 @@ function buildDefaultState(
     healthPoints: 1480,
     videoLogs: createInitialVideoLogs(mission),
     inspirationItems: DEFAULT_INSPIRATION_ITEMS,
+    pvtHistory: [
+      {
+        id: 'pvt-seed-1',
+        day: 43,
+        timestamp: 'Día 43 · 08:30 UTC',
+        trialsMs: [264, 279, 255, 288, 271],
+        meanRtMs: 271,
+        fastestRtMs: 255,
+        lapses: 0,
+        falseStarts: 0,
+        alertnessScore: 98,
+        statusLabel: 'Óptima',
+      },
+    ],
   };
 }
 
@@ -914,6 +961,7 @@ export function MissionProvider({ children }: { children: React.ReactNode }) {
     useState<EmergencyCrisisScenario | null>(null);
   const [crisisAlertBanner, setCrisisAlertBanner] = useState<CrisisAlertBanner | null>(null);
   const [shouldAutoStartTimer, setShouldAutoStartTimer] = useState(false);
+  const [videoMediaUrls, setVideoMediaUrls] = useState<Record<string, string>>({});
 
   useEffect(() => {
     try {
@@ -955,6 +1003,14 @@ export function MissionProvider({ children }: { children: React.ReactNode }) {
             bodyTempC: parsed.biomarkers?.bodyTempC ?? 36.7,
           };
 
+          const defaultMap = new Map(DEFAULT_INSPIRATION_ITEMS.map((d) => [d.id, d]));
+          const reconciledInspiration = Array.isArray(parsed.inspirationItems)
+            ? parsed.inspirationItems.map((item) => {
+                const preset = defaultMap.get(item.id);
+                return preset ? { ...item, ...preset, imageUrl: item.imageUrl } : item;
+              })
+            : DEFAULT_INSPIRATION_ITEMS;
+
           setState({
             ...parsed,
             astronaut: safeAstro,
@@ -964,6 +1020,8 @@ export function MissionProvider({ children }: { children: React.ReactNode }) {
             overdueRoutineMeta: safeOverdueMeta,
             startupSessionEpoch: safeEpoch,
             startupProgress: safeStartupProgress,
+            pvtHistory: Array.isArray(parsed.pvtHistory) ? parsed.pvtHistory : [],
+            inspirationItems: reconciledInspiration,
           });
         }
       }
@@ -1613,17 +1671,58 @@ export function MissionProvider({ children }: { children: React.ReactNode }) {
     }));
   };
 
+  const completeBreathingSession = () => {
+    setState((prev) => {
+      const alreadyDone = prev.psychRoutinesChecked.breathing;
+      return {
+        ...prev,
+        psychRoutinesChecked: {
+          ...prev.psychRoutinesChecked,
+          breathing: true,
+        },
+        biomarkers: {
+          ...prev.biomarkers,
+          stressLevel: Math.max(1, prev.biomarkers.stressLevel - 1),
+        },
+        healthPoints: prev.healthPoints + (alreadyDone ? 10 : 20),
+      };
+    });
+  };
+
+  const savePvtSession = (result: PvtSessionResult) => {
+    setState((prev) => {
+      const adjustedStress =
+        result.statusLabel === 'Alerta Circadiana'
+          ? Math.min(10, Math.max(prev.biomarkers.stressLevel, 6))
+          : prev.biomarkers.stressLevel;
+      return {
+        ...prev,
+        pvtHistory: [result, ...(prev.pvtHistory ?? [])].slice(0, 10),
+        biomarkers: {
+          ...prev.biomarkers,
+          stressLevel: adjustedStress,
+        },
+        healthPoints: prev.healthPoints + 20,
+      };
+    });
+  };
+
   const addMentalCheckIn = (payload: {
     moodScore: number;
     sleepHours: number;
     stressLevel: number;
     crewCohesion: number;
+    sleepQuality?: 'Reparador' | 'Fragmentado' | 'Insomnio';
+    primaryStressor?: string;
   }) => {
     setState((prev) => {
       const nextDay = prev.missionDay + 1;
       const nextBio: TelemetryBiomarkers = {
         ...prev.biomarkers,
-        ...payload,
+        moodScore: payload.moodScore,
+        sleepHours: payload.sleepHours,
+        stressLevel: payload.stressLevel,
+        crewCohesion: payload.crewCohesion,
       };
       const nextPoint: HistoryPoint = {
         day: nextDay,
@@ -1654,34 +1753,46 @@ export function MissionProvider({ children }: { children: React.ReactNode }) {
     title: string;
     notes: string;
     moodRating: number;
+    durationSeconds?: number;
+    voiceActiveRatio?: number;
+    usedRealMic?: boolean;
+    mediaUrl?: string;
   }) => {
+    const entryId = `vlog-${Date.now()}`;
+    if (payload.mediaUrl) {
+      setVideoMediaUrls((prev) => ({ ...prev, [entryId]: payload.mediaUrl! }));
+    }
     setState((prev) => {
       const activeMission = MISSIONS_DATA.find((m) => m.id === prev.missionId) ?? MISSIONS_DATA[0];
-      const stressLabel: 'Bajo' | 'Moderado' | 'Elevado' =
-        payload.moodRating <= 4 ? 'Elevado' : payload.moodRating <= 6 ? 'Moderado' : 'Bajo';
+      const analysis = analyzeDiaryEntryLocally({
+        title: payload.title,
+        notes: payload.notes,
+        mode: payload.mode,
+        moodRating: payload.moodRating,
+        sleepHours: prev.biomarkers.sleepHours,
+        stressLevel: prev.biomarkers.stressLevel,
+        durationSeconds: payload.durationSeconds,
+        voiceActiveRatio: payload.voiceActiveRatio,
+        usedRealMic: payload.usedRealMic,
+      });
+
       const entry: VideoDiaryEntry = {
-        id: `vlog-${Date.now()}`,
+        id: entryId,
         day: prev.missionDay,
         timestamp: `Día ${prev.missionDay} · Guardado ahora`,
         mode: payload.mode,
         title: payload.title,
         notes: payload.notes,
         moodRating: payload.moodRating,
+        durationSeconds: payload.durationSeconds,
         aiIndicators: {
-          emotionalTone:
-            payload.moodRating >= 7
-              ? 'Equilibrio emocional positivo'
-              : payload.moodRating >= 5
-                ? 'Alerta leve de desmotivación (tercer cuarto)'
-                : 'Fatiga emocional — activar ancla terrestre',
-          vocalFatigue:
-            payload.mode === 'video'
-              ? prev.biomarkers.sleepHours < 6.5
-                ? 'Moderada (micro-pausas detectadas)'
-                : 'Baja / Voz clara'
-              : 'N/A (Bitácora escrita)',
-          confinementStress: stressLabel,
+          emotionalTone: analysis.emotionalTone,
+          vocalFatigue: analysis.vocalFatigue,
+          confinementStress: analysis.confinementStress,
           earthSyncStatus: `En cola cifrada para psicólogos en Tierra (${activeMission.commDelay})`,
+          detectedThemes: analysis.detectedThemes,
+          clinicalRecommendation: analysis.clinicalRecommendation,
+          syncState: 'queued',
         },
       };
       return {
@@ -1696,11 +1807,67 @@ export function MissionProvider({ children }: { children: React.ReactNode }) {
     });
   };
 
+  const syncVideoDiaryToEarth = (entryId: string) => {
+    setState((prev) => ({
+      ...prev,
+      videoLogs: prev.videoLogs.map((log) =>
+        log.id === entryId
+          ? {
+              ...log,
+              aiIndicators: {
+                ...log.aiIndicators,
+                syncState: 'transmitting',
+                earthSyncStatus: 'Transmitiendo paquete cifrado hacia Red de Espacio Profundo...',
+              },
+            }
+          : log
+      ),
+    }));
+
+    setTimeout(() => {
+      setState((prev) => {
+        const target = prev.videoLogs.find((l) => l.id === entryId);
+        if (!target) return prev;
+        const feedback =
+          target.aiIndicators.confinementStress === 'Elevado'
+            ? 'Psicología de Vuelo (Houston/CSA): Alerta recibida. Se programa teleconferencia asíncrona prioritaria y ajuste de carga operativa.'
+            : target.aiIndicators.confinementStress === 'Moderado'
+              ? 'Psicología de Vuelo: Registro revisado. Recomendamos mantener higiene lumínica ámbar y sesión breve de respiración antes del descanso.'
+              : 'Psicología de Vuelo: Indicadores estables y coherentes con la línea base. Sin intervención adicional requerida.';
+
+        return {
+          ...prev,
+          videoLogs: prev.videoLogs.map((log) =>
+            log.id === entryId
+              ? {
+                  ...log,
+                  aiIndicators: {
+                    ...log.aiIndicators,
+                    syncState: 'acknowledged',
+                    earthSyncStatus: 'Confirmado por Psicología de Tierra (Houston/CSA)',
+                    earthFeedback: feedback,
+                  },
+                }
+              : log
+          ),
+          healthPoints: prev.healthPoints + 10,
+        };
+      });
+    }, 2200);
+  };
+
   const addInspirationItem = (item: Omit<InspirationItem, 'id'>) => {
     setState((prev) => ({
       ...prev,
       inspirationItems: [{ ...item, id: `insp-${Date.now()}` }, ...prev.inspirationItems],
       healthPoints: prev.healthPoints + 15,
+    }));
+  };
+
+  const removeInspirationItem = (id: string) => {
+    setState((prev) => ({
+      ...prev,
+      inspirationItems: prev.inspirationItems.filter((item) => item.id !== id),
     }));
   };
 
@@ -1866,7 +2033,9 @@ export function MissionProvider({ children }: { children: React.ReactNode }) {
     systemStatuses,
     globalTriage,
     videoLogs: state.videoLogs,
+    videoMediaUrls,
     inspirationItems: state.inspirationItems,
+    pvtHistory: state.pvtHistory ?? [],
     completeWelcome,
     reopenWelcome,
     completeOnboarding,
@@ -1879,9 +2048,13 @@ export function MissionProvider({ children }: { children: React.ReactNode }) {
     toggleExerciseTask,
     toggleSupplement,
     togglePsychRoutine,
+    completeBreathingSession,
+    savePvtSession,
     addMentalCheckIn,
     addVideoDiaryEntry,
+    syncVideoDiaryToEarth,
     addInspirationItem,
+    removeInspirationItem,
     resetDemoData,
     isSosOpen,
     activeEmergencyProtocolId,

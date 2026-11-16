@@ -101,6 +101,7 @@ export interface InspirationItemPreset {
   palette: 'cyan' | 'emerald' | 'amber' | 'rose';
   soundId: 'rain' | 'ocean' | 'forest' | 'heartbeat';
   soundLabel: string;
+  audioUrl?: string;
 }
 
 export const DEFAULT_INSPIRATION_ITEMS: InspirationItemPreset[] = [
@@ -109,11 +110,12 @@ export const DEFAULT_INSPIRATION_ITEMS: InspirationItemPreset[] = [
     title: 'Desayuno en Casa — Video Familiar',
     subtitle: 'Mensaje grabado antes del lanzamiento por tu familia',
     category: 'Familia',
-    durationOrDate: '01:45 min · Guardado offline',
+    durationOrDate: 'Audio familiar · Guardado offline',
     quote: '"Cada noche salimos al jardín a mirar hacia arriba. ¡Estamos contigo en cada órbita!"',
     palette: 'amber',
     soundId: 'forest',
-    soundLabel: 'Audio: Mañana en el bosque',
+    soundLabel: 'Reproducir: Desayuno en Casa',
+    audioUrl: '/audio/video_familiar.mp3',
   },
   {
     id: 'insp-2',
@@ -142,11 +144,12 @@ export const DEFAULT_INSPIRATION_ITEMS: InspirationItemPreset[] = [
     title: 'Carta de Voz — Equipo de Tierra y Amigos',
     subtitle: 'Compilación de aliento para días de alta carga operativa',
     category: 'Mensaje de Voz',
-    durationOrDate: '02:10 min · Sincronizado',
+    durationOrDate: 'Audio grabado · Sincronizado',
     quote: '"Tu disciplina médica diaria es el puente seguro de regreso a casa."',
     palette: 'rose',
     soundId: 'heartbeat',
-    soundLabel: 'Audio: Pulso calmante 60 bpm',
+    soundLabel: 'Reproducir: Carta de Voz',
+    audioUrl: '/audio/carta_de_voz.mp3',
   },
 ];
 
