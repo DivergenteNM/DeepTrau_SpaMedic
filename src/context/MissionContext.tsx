@@ -1626,32 +1626,91 @@ export function MissionProvider({ children }: { children: React.ReactNode }) {
         ? prev.completedExerciseIds.filter((id) => id !== exerciseId)
         : [...prev.completedExerciseIds, exerciseId];
       const delta = exists ? -0.2 : 0.2;
+      const nextBone = Number(
+        Math.min(100, Math.max(92, prev.biomarkers.boneDensityRetentionPercent + delta)).toFixed(1)
+      );
+      const nextMuscle = Number(
+        Math.min(100, Math.max(92, prev.biomarkers.muscleMassRetentionPercent + delta)).toFixed(1)
+      );
+      const nextBio: TelemetryBiomarkers = {
+        ...prev.biomarkers,
+        boneDensityRetentionPercent: nextBone,
+        muscleMassRetentionPercent: nextMuscle,
+      };
+
+      const lastPoint = prev.history[prev.history.length - 1];
+      const nextHistory =
+        lastPoint && lastPoint.day === prev.missionDay
+          ? prev.history.map((pt, idx) =>
+              idx === prev.history.length - 1
+                ? { ...pt, boneRetention: nextBone, muscleRetention: nextMuscle }
+                : pt
+            )
+          : [
+              ...prev.history.slice(-14),
+              {
+                day: prev.missionDay,
+                radiationMsv: nextBio.cumulativeRadiationMsv,
+                glucoseMgDl: nextBio.glucoseMgDl,
+                wbcCount: nextBio.wbcCount,
+                moodScore: nextBio.moodScore,
+                sleepHours: nextBio.sleepHours,
+                stressLevel: nextBio.stressLevel,
+                boneRetention: nextBone,
+                muscleRetention: nextMuscle,
+              },
+            ];
+
+      const activeMission = MISSIONS_DATA.find((m) => m.id === prev.missionId) ?? MISSIONS_DATA[0];
+      const dailyExerciseIds = activeMission.defaultExercises
+        .filter((ex) => ex.frequency === 'Diaria')
+        .map((ex) => ex.id);
+      const allDailyCompleted =
+        dailyExerciseIds.length > 0 && dailyExerciseIds.every((id) => nextIds.includes(id));
+
+      const hasExerciseRoutine = prev.completedRoutineIds.includes('exercise-daily-protocol');
+      let nextRoutineIds = prev.completedRoutineIds;
+      if (allDailyCompleted && !hasExerciseRoutine) {
+        nextRoutineIds = [...prev.completedRoutineIds, 'exercise-daily-protocol'];
+      } else if (!allDailyCompleted && hasExerciseRoutine) {
+        nextRoutineIds = prev.completedRoutineIds.filter((id) => id !== 'exercise-daily-protocol');
+      }
+
       return {
         ...prev,
         completedExerciseIds: nextIds,
+        completedRoutineIds: nextRoutineIds,
         healthPoints: exists ? Math.max(0, prev.healthPoints - 30) : prev.healthPoints + 30,
-        biomarkers: {
-          ...prev.biomarkers,
-          boneDensityRetentionPercent: Number(
-            Math.min(100, Math.max(92, prev.biomarkers.boneDensityRetentionPercent + delta)).toFixed(1)
-          ),
-          muscleMassRetentionPercent: Number(
-            Math.min(100, Math.max(92, prev.biomarkers.muscleMassRetentionPercent + delta)).toFixed(1)
-          ),
-        },
+        biomarkers: nextBio,
+        history: nextHistory,
       };
     });
   };
 
   const toggleSupplement = (key: 'vitaminD' | 'calcium' | 'hydration') => {
-    setState((prev) => ({
-      ...prev,
-      supplementsChecked: {
+    setState((prev) => {
+      const nextChecked = !prev.supplementsChecked[key];
+      const nextSupplements = {
         ...prev.supplementsChecked,
-        [key]: !prev.supplementsChecked[key],
-      },
-      healthPoints: prev.healthPoints + 10,
-    }));
+        [key]: nextChecked,
+      };
+      const allSupplementsDone =
+        nextSupplements.vitaminD && nextSupplements.calcium && nextSupplements.hydration;
+      const hasNutritionRoutine = prev.completedRoutineIds.includes('nutrition-calcium-daily');
+      let nextRoutineIds = prev.completedRoutineIds;
+      if (allSupplementsDone && !hasNutritionRoutine) {
+        nextRoutineIds = [...prev.completedRoutineIds, 'nutrition-calcium-daily'];
+      } else if (!allSupplementsDone && hasNutritionRoutine) {
+        nextRoutineIds = prev.completedRoutineIds.filter((id) => id !== 'nutrition-calcium-daily');
+      }
+
+      return {
+        ...prev,
+        supplementsChecked: nextSupplements,
+        completedRoutineIds: nextRoutineIds,
+        healthPoints: nextChecked ? prev.healthPoints + 10 : Math.max(0, prev.healthPoints - 10),
+      };
+    });
   };
 
   const togglePsychRoutine = (key: 'breathing' | 'circadianLight' | 'weeklyResilience') => {

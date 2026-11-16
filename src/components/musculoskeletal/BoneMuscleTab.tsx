@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   AlertTriangle,
   Bone,
@@ -9,11 +9,27 @@ import {
   Droplets,
   Dumbbell,
   Info,
+  Pause,
   Pill,
+  Play,
+  RotateCcw,
+  ShieldAlert,
   ShieldCheck,
+  Sparkles,
+  Timer,
+  X,
 } from 'lucide-react';
 import { useMission } from '@/context/MissionContext';
-import { MEDICAL_TOOLTIPS } from '@/data/medicalKnowledge';
+import { BODY_SYSTEM_GUIDES, MEDICAL_TOOLTIPS } from '@/data/medicalKnowledge';
+
+type ExerciseFilter = 'all' | 'Diaria' | 'Semanal';
+
+function formatTimerClock(totalSeconds: number): string {
+  const safe = Math.max(0, totalSeconds);
+  const mins = Math.floor(safe / 60);
+  const secs = safe % 60;
+  return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+}
 
 export function BoneMuscleTab() {
   const {
@@ -22,18 +38,136 @@ export function BoneMuscleTab() {
     biomarkers,
     history,
     exercises,
+    devices,
+    systemStatuses,
     supplementsChecked,
     toggleExerciseTask,
     toggleSupplement,
+    setActiveTab,
   } = useMission();
+
+  const [frequencyFilter, setFrequencyFilter] = useState<ExerciseFilter>('all');
+  const [activeTimerExId, setActiveTimerExId] = useState<string | null>(null);
+  const [timerRunning, setTimerRunning] = useState(false);
+  const [remainingSeconds, setRemainingSeconds] = useState(0);
+  const [sessionCompletedBanner, setSessionCompletedBanner] = useState<string | null>(null);
+  const [inspectedDayIdx, setInspectedDayIdx] = useState<number | null>(null);
+
+  const realPriorSurgeries = useMemo(
+    () =>
+      astronaut.clinicalHistory.priorSurgeries.filter(
+        (s) => !s.toLowerCase().includes('sin cirug')
+      ),
+    [astronaut.clinicalHistory.priorSurgeries]
+  );
 
   const adaptedCount = exercises.filter((e) => e.isAdaptedForSurgery).length;
   const completedCount = exercises.filter((e) => e.completed).length;
+  const totalMinutes = exercises.reduce((acc, ex) => acc + ex.durationMin, 0);
+  const completedMinutes = exercises
+    .filter((ex) => ex.completed)
+    .reduce((acc, ex) => acc + ex.durationMin, 0);
+  const exerciseProgressPct =
+    totalMinutes > 0 ? Math.round((completedMinutes / totalMinutes) * 100) : 0;
+
+  const dailyExercises = exercises.filter((e) => e.frequency === 'Diaria');
+  const weeklyExercises = exercises.filter((e) => e.frequency === 'Semanal');
+  const allDailyDone =
+    dailyExercises.length > 0 && dailyExercises.every((e) => e.completed);
+
+  const filteredExercises = useMemo(() => {
+    if (frequencyFilter === 'all') return exercises;
+    return exercises.filter((ex) => ex.frequency === frequencyFilter);
+  }, [exercises, frequencyFilter]);
+
+  const activeTimerExercise = useMemo(
+    () => exercises.find((ex) => ex.id === activeTimerExId) ?? null,
+    [exercises, activeTimerExId]
+  );
+
+  // Reset timer cleanly if mission changes and exercise ID is no longer present
+  useEffect(() => {
+    if (activeTimerExId && !exercises.some((ex) => ex.id === activeTimerExId)) {
+      setActiveTimerExId(null);
+      setTimerRunning(false);
+      setRemainingSeconds(0);
+    }
+  }, [exercises, activeTimerExId]);
+
+  useEffect(() => {
+    if (!timerRunning || !activeTimerExId) return;
+    const interval = window.setInterval(() => {
+      setRemainingSeconds((prev) => {
+        if (prev <= 1) {
+          setTimerRunning(false);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => window.clearInterval(interval);
+  }, [timerRunning, activeTimerExId]);
+
+  const handleStartExerciseSession = (exId: string, durationMin: number) => {
+    if (activeTimerExId === exId) {
+      setTimerRunning((prev) => !prev);
+      return;
+    }
+    setActiveTimerExId(exId);
+    setRemainingSeconds(durationMin * 60);
+    setTimerRunning(true);
+    setSessionCompletedBanner(null);
+  };
+
+  const handleFinishSessionAndMark = () => {
+    if (!activeTimerExercise) return;
+    const displayName = activeTimerExercise.isAdaptedForSurgery
+      ? activeTimerExercise.alternativeName ?? activeTimerExercise.name
+      : activeTimerExercise.name;
+
+    if (!activeTimerExercise.completed) {
+      toggleExerciseTask(activeTimerExercise.id);
+    }
+    setTimerRunning(false);
+    setActiveTimerExId(null);
+    setRemainingSeconds(0);
+    setSessionCompletedBanner(
+      `Bloque completado: ${displayName} (+0.2% retención · +30 pts)`
+    );
+    window.setTimeout(() => setSessionCompletedBanner(null), 4500);
+  };
+
+  const supCheckedCount = [
+    supplementsChecked.vitaminD,
+    supplementsChecked.calcium,
+    supplementsChecked.hydration,
+  ].filter(Boolean).length;
+  const supProgressPct = Math.round((supCheckedCount / 3) * 100);
+
+  const ultrasoundDevice = devices.find((d) => d.id === 'ultrasound');
+  const musculoStatus = systemStatuses.musculoskeletal;
+  const musculoGuide = BODY_SYSTEM_GUIDES.musculoskeletal;
+
+  const statusBadge =
+    musculoStatus === 'critical'
+      ? {
+          label: 'Crítico',
+          classes: 'border-danger/40 bg-danger-container text-on-danger-container',
+        }
+      : musculoStatus === 'warning'
+        ? {
+            label: 'Precaución',
+            classes: 'border-warning/35 bg-warning-container text-on-warning-container',
+          }
+        : {
+            label: 'Óptimo',
+            classes: 'border-primary/30 bg-primary-container text-on-primary-container',
+          };
 
   // Native SVG Bone & Muscle Retention Chart
   const chartW = 620;
-  const chartH = 220;
-  const padL = 42;
+  const chartH = 228;
+  const padL = 44;
   const padR = 20;
   const padT = 20;
   const padB = 30;
@@ -47,6 +181,8 @@ export function BoneMuscleTab() {
   const toY = (val: number) =>
     padT + plotH - ((Math.min(maxVal, Math.max(minVal, val)) - minVal) / (maxVal - minVal)) * plotH;
 
+  const computeUnmitigated = (day: number) => Math.max(minVal, 100 - (day / 30) * 1.5);
+
   const bonePath = history
     .map((pt, i) => `${i === 0 ? 'M' : 'L'} ${toX(i).toFixed(1)} ${toY(pt.boneRetention).toFixed(1)}`)
     .join(' ');
@@ -57,20 +193,61 @@ export function BoneMuscleTab() {
     .join(' ');
   const unmitigatedPath = history
     .map((pt, i) => {
-      const projected = Math.max(minVal, 100 - (pt.day / 30) * 1.5);
+      const projected = computeUnmitigated(pt.day);
       return `${i === 0 ? 'M' : 'L'} ${toX(i).toFixed(1)} ${toY(projected).toFixed(1)}`;
     })
     .join(' ');
 
+  const activeDayIdx =
+    inspectedDayIdx !== null && history[inspectedDayIdx]
+      ? inspectedDayIdx
+      : history.length > 0
+        ? history.length - 1
+        : null;
+  const activeDayPoint = activeDayIdx !== null ? history[activeDayIdx] : null;
+  const activeUnmitigated = activeDayPoint
+    ? Number(computeUnmitigated(activeDayPoint.day).toFixed(1))
+    : null;
+  const activeNetSaved =
+    activeDayPoint && activeUnmitigated !== null
+      ? Number((activeDayPoint.boneRetention - activeUnmitigated).toFixed(1))
+      : null;
+
+  const safeTopY = toY(100);
+  const safeBottomY = toY(98);
+  const criticalThresholdY = toY(95.5);
+
+  // Active timer derived metrics
+  const timerTotalSec = activeTimerExercise ? activeTimerExercise.durationMin * 60 : 1;
+  const timerElapsedSec = activeTimerExercise ? Math.max(0, timerTotalSec - remainingSeconds) : 0;
+  const timerPct = activeTimerExercise
+    ? Math.min(100, Math.round((timerElapsedSec / Math.max(1, timerTotalSec)) * 100))
+    : 0;
+  const timerPhaseLabel =
+    remainingSeconds === 0
+      ? 'Bloque finalizado · Listo para registrar'
+      : timerPct < 15
+        ? 'Fase 1: Calentamiento y movilidad articular'
+        : timerPct < 85
+          ? 'Fase 2: Carga mecánica ósea y resistencia'
+          : 'Fase 3: Enfriamiento y descarga lumbar';
+
   return (
     <div className="space-y-6">
-      {/* Header + Surgical Adaptation Banner */}
+      {/* Header + Triage KPIs + Surgical Adaptation Banner */}
       <div className="rounded-2xl border border-outline bg-surface-container p-5 space-y-4">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.06em] text-primary font-display">
-              Contramedida Gravitatoria · {mission.gravityLabel}
-            </p>
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="text-xs font-semibold uppercase tracking-[0.06em] text-primary font-display">
+                Contramedida Gravitatoria · {mission.gravityLabel}
+              </p>
+              <span
+                className={`rounded-full border px-2.5 py-0.5 text-[10px] font-bold font-display ${statusBadge.classes}`}
+              >
+                Estado: {statusBadge.label}
+              </span>
+            </div>
             <h2 className="mt-1 text-[22px] leading-[28px] font-bold text-on-surface flex items-center gap-2 font-display">
               <Dumbbell className="h-5 w-5 text-primary" />
               Densidad Ósea, Masa Muscular y Plan de Ejercicio
@@ -82,8 +259,8 @@ export function BoneMuscleTab() {
             </p>
           </div>
 
-          <div className="flex flex-wrap gap-3">
-            <div className="rounded-xl border border-primary/25 bg-primary-container px-4 py-2.5 text-center">
+          <div className="flex flex-wrap gap-2.5">
+            <div className="rounded-xl border border-primary/25 bg-primary-container px-4 py-2 text-center">
               <span className="block text-[10px] font-medium text-on-primary-container">
                 Retención Ósea (BMD)
               </span>
@@ -91,7 +268,7 @@ export function BoneMuscleTab() {
                 {biomarkers.boneDensityRetentionPercent}%
               </span>
             </div>
-            <div className="rounded-xl border border-telemetry/25 bg-telemetry-container px-4 py-2.5 text-center">
+            <div className="rounded-xl border border-telemetry/25 bg-telemetry-container px-4 py-2 text-center">
               <span className="block text-[10px] font-medium text-on-telemetry-container">
                 Masa Muscular
               </span>
@@ -99,29 +276,94 @@ export function BoneMuscleTab() {
                 {biomarkers.muscleMassRetentionPercent}%
               </span>
             </div>
+            <div className="rounded-xl border border-outline bg-surface-container-low px-4 py-2 text-center">
+              <span className="block text-[10px] font-medium text-on-surface-variant">
+                Carga Completada
+              </span>
+              <span className="font-mono text-lg font-bold text-on-surface">
+                {completedMinutes}/{totalMinutes}m
+              </span>
+            </div>
           </div>
         </div>
 
+        {/* Musculoskeletal Clinical Alert when Warning/Critical */}
+        {musculoStatus !== 'nominal' && (
+          <div
+            className={`dt-animate-panel flex flex-col gap-3 rounded-xl border p-3.5 text-xs sm:flex-row sm:items-center sm:justify-between ${
+              musculoStatus === 'critical'
+                ? 'border-danger/40 bg-danger-container text-on-danger-container'
+                : 'border-warning/35 bg-warning-container text-on-warning-container'
+            }`}
+          >
+            <div className="flex items-start gap-2.5">
+              <ShieldAlert
+                className={`mt-0.5 h-4 w-4 shrink-0 ${
+                  musculoStatus === 'critical' ? 'text-danger' : 'text-warning'
+                }`}
+              />
+              <div>
+                <p className="font-bold font-display">
+                  {musculoStatus === 'critical'
+                    ? 'Alerta Crítica de Desmineralización o Pérdida Muscular'
+                    : 'Precaución Musculoesquelética Activa'}
+                  {biomarkers.ultrasoundStatus === 'Atrofia Muscular Leve'
+                    ? ' · Hallazgo: Atrofia Muscular Leve (Eco)'
+                    : ''}
+                </p>
+                <p className="mt-0.5 leading-relaxed">
+                  {musculoStatus === 'critical'
+                    ? musculoGuide.criticalAction
+                    : musculoGuide.warningAction}
+                </p>
+              </div>
+            </div>
+            {ultrasoundDevice?.availableInMission && (
+              <button
+                type="button"
+                onClick={() => setActiveTab('sensors')}
+                className="shrink-0 cursor-pointer rounded-lg border border-outline bg-surface-container px-3 py-1.5 text-[11px] font-bold text-on-surface font-display dt-transition hover:-translate-y-px hover:border-primary/45 hover:bg-surface-container-low active:translate-y-0 active:scale-[0.985] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35"
+              >
+                Verificar Ultrasonido →
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* Surgical Adaptation Banner */}
         {adaptedCount > 0 ? (
           <div className="flex items-start gap-3 rounded-xl border border-warning/35 bg-warning-container p-3.5 text-xs text-on-warning-container">
             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
             <div>
               <p className="font-bold font-display">
-                Adaptación Automática por Cirugías Previas Activa ({adaptedCount} ejercicios
-                ajustados)
+                Adaptación Automática por Cirugías Previas Activa ({adaptedCount} ejercicio
+                {adaptedCount > 1 ? 's' : ''} ajustado{adaptedCount > 1 ? 's' : ''})
               </p>
               <p className="mt-0.5">
-                Debido al antecedente registrado (
-                {astronaut.clinicalHistory.priorSurgeries.join(', ')}), DeepTrau reemplazó las
-                cargas de alto impacto articular por alternativas seguras sin perder estímulo óseo.
+                Debido al antecedente registrado ({realPriorSurgeries.join(', ')}), DeepTrau
+                reemplazó las cargas de alto impacto articular por alternativas seguras sin perder
+                estímulo óseo.
+              </p>
+            </div>
+          </div>
+        ) : realPriorSurgeries.length > 0 ? (
+          <div className="flex items-start gap-3 rounded-xl border border-warning/30 bg-warning-container/65 p-3.5 text-xs text-on-warning-container">
+            <Info className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
+            <div>
+              <p className="font-bold font-display">
+                Antecedente Quirúrgico en Expediente ({realPriorSurgeries.join(', ')})
+              </p>
+              <p className="mt-0.5">
+                Los equipos asignados en {mission.shortName} no generan choque directo sobre la zona
+                operada; mantén control de rango articular y evita sobrecarga por encima de la cabeza.
               </p>
             </div>
           </div>
         ) : (
           <div className="flex items-center gap-2 rounded-xl border border-primary/30 bg-primary-container p-3 text-xs font-medium text-on-primary-container">
-            <ShieldCheck className="h-4 w-4 text-primary" />
-            Sin restricciones quirúrgicas para la gravedad actual ({mission.gravityLabel}). Protocolo
-            completo habilitado.
+            <ShieldCheck className="h-4 w-4 shrink-0 text-primary" />
+            Sin cirugías previas ni restricciones articulares para la gravedad actual (
+            {mission.gravityLabel}). Protocolo completo habilitado.
           </div>
         )}
       </div>
@@ -130,7 +372,7 @@ export function BoneMuscleTab() {
       <div className="grid gap-6 lg:grid-cols-12">
         {/* Daily & Weekly Exercise Planner */}
         <div className="lg:col-span-7 rounded-2xl border border-outline bg-surface-container p-5 space-y-4">
-          <div className="flex items-center justify-between border-b border-outline-variant pb-3">
+          <div className="flex flex-wrap items-start justify-between gap-3 border-b border-outline-variant pb-3">
             <div>
               <h3 className="text-base font-bold text-on-surface font-display">
                 Rutina de Ejercicio Diaria y Semanal
@@ -139,79 +381,304 @@ export function BoneMuscleTab() {
                 Completa tus bloques para sumar +0.2% de conservación proyectada y +30 pts.
               </p>
             </div>
-            <span className="rounded-full border border-primary/25 bg-primary-container px-2.5 py-1 text-xs font-semibold text-on-primary-container font-mono">
-              {completedCount}/{exercises.length} completados
-            </span>
+            <div className="flex flex-wrap items-center gap-1.5">
+              {allDailyDone && (
+                <span className="dt-animate-panel rounded-full border border-primary/30 bg-primary-container px-2.5 py-1 text-[10px] font-bold text-on-primary-container font-display">
+                  Rutina diaria sincronizada ✓
+                </span>
+              )}
+              <span className="rounded-full border border-primary/25 bg-primary-container px-2.5 py-1 text-xs font-semibold text-on-primary-container font-mono">
+                {completedCount}/{exercises.length} completados
+              </span>
+            </div>
           </div>
 
+          {/* Progress bar + Frequency Filter Tabs */}
           <div className="space-y-3">
-            {exercises.map((ex) => (
-              <button
-                key={ex.id}
-                type="button"
-                onClick={() => toggleExerciseTask(ex.id)}
-                className={`group w-full cursor-pointer rounded-xl border p-4 text-left dt-transition hover:-translate-y-px active:translate-y-0 active:scale-[0.992] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35 ${
-                  ex.completed
-                    ? 'border-primary/30 bg-primary-container/55 hover:bg-primary-container/75'
-                    : ex.isAdaptedForSurgery
-                      ? 'border-warning/40 bg-surface-container-low hover:border-warning hover:bg-surface-container'
-                      : 'border-outline bg-surface-container-low hover:border-primary hover:bg-surface-container'
-                }`}
-              >
-                <div className="flex items-start gap-3">
-                  <span className="mt-0.5 shrink-0 dt-transition group-hover:scale-110">
-                    {ex.completed ? (
-                      <CheckCircle2 className="h-5 w-5 text-primary" />
-                    ) : (
-                      <Circle className="h-5 w-5 text-on-surface-variant" />
-                    )}
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between text-[11px]">
+                <span className="font-medium text-on-surface-variant">
+                  Progreso de carga física ({completedMinutes} de {totalMinutes} min)
+                </span>
+                <span className="font-mono font-bold text-primary">{exerciseProgressPct}%</span>
+              </div>
+              <div className="h-2 w-full overflow-hidden rounded-full bg-surface-container-high">
+                <div
+                  className="h-full rounded-full bg-primary transition-[width,background-color] duration-300"
+                  style={{ width: `${exerciseProgressPct}%` }}
+                />
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-1.5">
+              {(
+                [
+                  { id: 'all', label: `Todas (${exercises.length})` },
+                  { id: 'Diaria', label: `Diarias (${dailyExercises.length})` },
+                  { id: 'Semanal', label: `Semanales (${weeklyExercises.length})` },
+                ] as const
+              ).map((tab) => {
+                const isActive = frequencyFilter === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => setFrequencyFilter(tab.id)}
+                    className={`cursor-pointer rounded-lg border px-3 py-1.5 text-xs font-semibold font-display dt-transition active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35 ${
+                      isActive
+                        ? 'border-primary bg-primary text-on-primary'
+                        : 'border-outline bg-surface-container-low text-on-surface-variant hover:border-primary/45 hover:bg-surface-container hover:text-on-surface'
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {sessionCompletedBanner && (
+            <div className="dt-animate-panel rounded-xl border border-primary/35 bg-primary-container px-3.5 py-2.5 text-xs font-semibold text-on-primary-container flex items-center gap-2">
+              <CheckCircle2 className="h-4 w-4 shrink-0 text-primary" />
+              <span>{sessionCompletedBanner}</span>
+            </div>
+          )}
+
+          {/* Active Guided Session Timer */}
+          {activeTimerExercise && (
+            <div
+              key={activeTimerExercise.id}
+              className="dt-animate-panel rounded-xl border border-primary/40 bg-primary-container/50 p-4 space-y-3"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.06em] text-primary font-display flex items-center gap-1.5">
+                    <Timer className="h-3.5 w-3.5" />
+                    Sesión Activa · {activeTimerExercise.machine}
+                  </p>
+                  <p className="mt-0.5 text-sm font-bold text-on-surface font-display truncate">
+                    {activeTimerExercise.isAdaptedForSurgery
+                      ? activeTimerExercise.alternativeName
+                      : activeTimerExercise.name}
+                  </p>
+                  <p className="text-[11px] text-on-surface-variant">{timerPhaseLabel}</p>
+                </div>
+
+                <div className="flex items-center gap-2 shrink-0">
+                  <span className="rounded-lg border border-primary/30 bg-surface-container px-2.5 py-1 font-mono text-base font-bold text-primary">
+                    {formatTimerClock(remainingSeconds)}
                   </span>
-                  <div className="flex-1 space-y-1.5">
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <p
-                        className={`text-sm font-bold font-display ${
-                          ex.completed
-                            ? 'line-through text-on-surface-variant'
-                            : 'text-on-surface'
-                        }`}
-                      >
-                        {ex.isAdaptedForSurgery ? ex.alternativeName : ex.name}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setTimerRunning(false);
+                      setActiveTimerExId(null);
+                    }}
+                    aria-label="Cerrar temporizador de sesión"
+                    className="cursor-pointer rounded-lg border border-outline bg-surface-container p-1.5 text-on-surface-variant dt-transition hover:border-primary/45 hover:text-on-surface active:scale-[0.96] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              </div>
+
+              <div className="h-1.5 w-full overflow-hidden rounded-full bg-surface-container-high">
+                <div
+                  className="h-full rounded-full bg-primary transition-[width] duration-300"
+                  style={{ width: `${timerPct}%` }}
+                />
+              </div>
+
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setTimerRunning((prev) => !prev)}
+                    className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-outline bg-surface-container px-3 py-1.5 text-xs font-semibold text-on-surface font-display dt-transition hover:-translate-y-px hover:border-primary/45 hover:bg-surface-container-low active:translate-y-0 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35"
+                  >
+                    {timerRunning ? (
+                      <>
+                        <Pause className="h-3.5 w-3.5 text-warning" />
+                        Pausar
+                      </>
+                    ) : (
+                      <>
+                        <Play className="h-3.5 w-3.5 text-primary" />
+                        {remainingSeconds === 0 ? 'Reiniciar' : 'Reanudar'}
+                      </>
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setTimerRunning(false);
+                      setRemainingSeconds(activeTimerExercise.durationMin * 60);
+                    }}
+                    className="inline-flex cursor-pointer items-center gap-1 rounded-lg border border-outline bg-surface-container px-2.5 py-1.5 text-xs font-semibold text-on-surface-variant font-display dt-transition hover:-translate-y-px hover:border-primary/45 hover:text-on-surface active:translate-y-0 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35"
+                  >
+                    <RotateCcw className="h-3.5 w-3.5" />
+                    Reiniciar
+                  </button>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleFinishSessionAndMark}
+                  className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-bold text-on-primary font-display dt-transition hover:-translate-y-px hover:bg-primary-hover active:translate-y-0 active:scale-[0.985] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35"
+                >
+                  <CheckCircle2 className="h-3.5 w-3.5" />
+                  Finalizar y completar (+30 pts)
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Exercise List */}
+          <div className="space-y-3">
+            {filteredExercises.map((ex) => {
+              const isTimerActive = activeTimerExId === ex.id;
+              const loadBadgeLabel = ex.isAdaptedForSurgery
+                ? 'Impacto adaptado · Seguro'
+                : ex.jointLoad;
+              const loadBadgeClass = ex.isAdaptedForSurgery
+                ? 'border-warning/35 bg-warning-container text-on-warning-container'
+                : ex.jointLoad === 'Alto impacto'
+                  ? 'border-telemetry/30 bg-telemetry-container text-on-telemetry-container'
+                  : 'border-outline bg-surface-container text-on-surface-variant';
+
+              return (
+                <div
+                  key={ex.id}
+                  className={`rounded-xl border p-4 dt-transition ${
+                    ex.completed
+                      ? 'border-primary/30 bg-primary-container/55'
+                      : ex.isAdaptedForSurgery
+                        ? 'border-warning/40 bg-surface-container-low'
+                        : 'border-outline bg-surface-container-low'
+                  }`}
+                >
+                  <div className="flex items-start gap-3">
+                    <button
+                      type="button"
+                      onClick={() => toggleExerciseTask(ex.id)}
+                      aria-label={
+                        ex.completed
+                          ? `Desmarcar ${ex.isAdaptedForSurgery ? ex.alternativeName : ex.name}`
+                          : `Marcar como completado ${ex.isAdaptedForSurgery ? ex.alternativeName : ex.name}`
+                      }
+                      className="group mt-0.5 shrink-0 cursor-pointer rounded-full p-0.5 dt-transition hover:scale-110 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35"
+                    >
+                      {ex.completed ? (
+                        <CheckCircle2 className="h-5 w-5 text-primary" />
+                      ) : (
+                        <Circle className="h-5 w-5 text-on-surface-variant group-hover:text-primary" />
+                      )}
+                    </button>
+
+                    <div className="flex-1 space-y-2 min-w-0">
+                      <div className="flex flex-wrap items-start justify-between gap-2">
+                        <button
+                          type="button"
+                          onClick={() => toggleExerciseTask(ex.id)}
+                          className={`cursor-pointer text-left text-sm font-bold font-display dt-transition hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35 rounded ${
+                            ex.completed
+                              ? 'line-through text-on-surface-variant'
+                              : 'text-on-surface'
+                          }`}
+                        >
+                          {ex.isAdaptedForSurgery ? ex.alternativeName : ex.name}
+                        </button>
+
+                        <div className="flex flex-wrap items-center gap-1.5 text-[10px] font-semibold font-mono">
+                          <span className="rounded-md border border-outline bg-surface-container px-2 py-0.5 text-on-surface-variant">
+                            {ex.frequency}
+                          </span>
+                          <span className="rounded-md border border-primary/25 bg-primary-container px-2 py-0.5 text-on-primary-container">
+                            {ex.durationMin} min
+                          </span>
+                          <span className={`rounded-md border px-2 py-0.5 ${loadBadgeClass}`}>
+                            {loadBadgeLabel}
+                          </span>
+                        </div>
+                      </div>
+
+                      <p className="text-xs text-on-surface-variant">
+                        Equipo: <span className="font-semibold text-on-surface">{ex.machine}</span> ·
+                        Objetivo: {ex.targetSystem}
                       </p>
-                      <div className="flex items-center gap-1.5 text-[10px] font-semibold font-mono">
-                        <span className="rounded-md border border-outline bg-surface-container px-2 py-0.5 text-on-surface-variant">
-                          {ex.frequency}
+
+                      {ex.isAdaptedForSurgery && (
+                        <div className="rounded-lg border border-warning/30 bg-warning-container p-2.5 text-[11px] text-on-warning-container">
+                          <span className="font-bold">Adaptado por {ex.matchedSurgery}:</span>{' '}
+                          {ex.alternativeDescription} (Reemplaza a: <em>{ex.name}</em>)
+                        </div>
+                      )}
+
+                      <div className="flex flex-wrap items-center justify-between gap-2 pt-0.5">
+                        <span className="text-[11px] font-mono text-on-surface-variant">
+                          {ex.completed ? 'Registrado hoy (+0.2% BMD/Músculo)' : 'Pendiente (+30 pts)'}
                         </span>
-                        <span className="rounded-md border border-primary/25 bg-primary-container px-2 py-0.5 text-on-primary-container">
-                          {ex.durationMin} min
-                        </span>
+                        <button
+                          type="button"
+                          onClick={() => handleStartExerciseSession(ex.id, ex.durationMin)}
+                          className={`inline-flex cursor-pointer items-center gap-1.5 rounded-lg border px-2.5 py-1 text-[11px] font-semibold font-display dt-transition hover:-translate-y-px active:translate-y-0 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35 ${
+                            isTimerActive
+                              ? 'border-primary bg-primary text-on-primary'
+                              : 'border-outline bg-surface-container text-on-surface hover:border-primary/45 hover:bg-surface-container-high'
+                          }`}
+                        >
+                          {isTimerActive && timerRunning ? (
+                            <>
+                              <Pause className="h-3 w-3" />
+                              Pausar ({formatTimerClock(remainingSeconds)})
+                            </>
+                          ) : isTimerActive ? (
+                            <>
+                              <Play className="h-3 w-3" />
+                              Reanudar ({formatTimerClock(remainingSeconds)})
+                            </>
+                          ) : (
+                            <>
+                              <Timer className="h-3 w-3 text-primary" />
+                              {ex.completed ? 'Repetir sesión' : `Iniciar bloque (${ex.durationMin}m)`}
+                            </>
+                          )}
+                        </button>
                       </div>
                     </div>
-
-                    <p className="text-xs text-on-surface-variant">
-                      Equipo: <span className="font-semibold text-on-surface">{ex.machine}</span> ·
-                      Objetivo: {ex.targetSystem}
-                    </p>
-
-                    {ex.isAdaptedForSurgery && (
-                      <div className="mt-2 rounded-lg border border-warning/30 bg-warning-container p-2.5 text-[11px] text-on-warning-container">
-                        <span className="font-bold">Adaptado por {ex.matchedSurgery}:</span>{' '}
-                        {ex.alternativeDescription} (Reemplaza a: <em>{ex.name}</em>)
-                      </div>
-                    )}
                   </div>
                 </div>
-              </button>
-            ))}
+              );
+            })}
           </div>
         </div>
 
         {/* Bone Nutrition, Supplements & Medical Explanation */}
         <div className="lg:col-span-5 space-y-5">
           <div className="rounded-2xl border border-outline bg-surface-container p-5 space-y-4">
-            <h3 className="text-base font-bold text-on-surface flex items-center gap-2 font-display">
-              <Pill className="h-5 w-5 text-primary" />
-              Suplementación Ósea e Hidratación
-            </h3>
+            <div className="flex items-center justify-between gap-2 border-b border-outline-variant pb-3">
+              <h3 className="text-base font-bold text-on-surface flex items-center gap-2 font-display">
+                <Pill className="h-5 w-5 text-primary" />
+                Suplementación Ósea e Hidratación
+              </h3>
+              <span className="rounded-full border border-primary/25 bg-primary-container px-2.5 py-0.5 text-xs font-semibold text-on-primary-container font-mono">
+                {supCheckedCount}/3
+              </span>
+            </div>
+
+            <div className="space-y-1.5">
+              <div className="h-2 w-full overflow-hidden rounded-full bg-surface-container-high">
+                <div
+                  className="h-full rounded-full bg-primary transition-[width,background-color] duration-300"
+                  style={{ width: `${supProgressPct}%` }}
+                />
+              </div>
+              {supCheckedCount === 3 && (
+                <p className="dt-animate-panel text-[11px] font-semibold text-primary">
+                  Soporte mineral completo · Sincronizado con rutina diaria ✓
+                </p>
+              )}
+            </div>
 
             <div className="space-y-2.5">
               {[
@@ -252,16 +719,23 @@ export function BoneMuscleTab() {
                       }`}
                     />
                     <div className="flex-1">
-                      <p
-                        className={`text-xs font-semibold flex items-center gap-1.5 font-display ${
-                          checked
-                            ? 'line-through text-on-surface-variant'
-                            : 'text-on-surface'
-                        }`}
-                      >
-                        {sup.icon}
-                        {sup.title}
-                      </p>
+                      <div className="flex items-center justify-between gap-2">
+                        <p
+                          className={`text-xs font-semibold flex items-center gap-1.5 font-display ${
+                            checked
+                              ? 'line-through text-on-surface-variant'
+                              : 'text-on-surface'
+                          }`}
+                        >
+                          {sup.icon}
+                          {sup.title}
+                        </p>
+                        {!checked && (
+                          <span className="shrink-0 font-mono text-[10px] font-semibold text-primary">
+                            +10 pts
+                          </span>
+                        )}
+                      </div>
                       <p className="mt-0.5 text-[11px] text-on-surface-variant">{sup.desc}</p>
                     </div>
                   </button>
@@ -270,23 +744,40 @@ export function BoneMuscleTab() {
             </div>
           </div>
 
-          <div className="rounded-2xl border border-outline bg-surface-container p-5 space-y-2.5 text-xs">
+          <div className="rounded-2xl border border-outline bg-surface-container p-5 space-y-3 text-xs">
             <p className="font-bold text-primary flex items-center gap-1.5 font-display">
-              <Info className="h-4 w-4" />
-              ¿Por qué importa en esta misión?
+              <Sparkles className="h-4 w-4" />
+              ¿Por qué importa en {mission.shortName} ({mission.gravityLabel})?
             </p>
             <p className="leading-relaxed text-on-surface-variant">
+              {mission.gravityG === 0
+                ? 'En microgravedad continua (0g), el esqueleto y los músculos posturales dejan de recibir carga axial terrestre. '
+                : `En gravedad parcial (${mission.gravityLabel}), la carga mecánica es insuficiente frente a 1g terrestre y las caminatas EVA exigen resistencia articular. `}
               {MEDICAL_TOOLTIPS.boneMuscle.why}
             </p>
-            <p className="pt-1 font-semibold text-on-surface font-display">Qué hacer ahora:</p>
-            <p className="leading-relaxed text-on-surface-variant">
-              {MEDICAL_TOOLTIPS.boneMuscle.how}
-            </p>
+            <div className="rounded-xl border border-outline bg-surface-container-low p-3 space-y-1">
+              <p className="font-semibold text-on-surface font-display">
+                Ultrasonido / Seguimiento Muscular: {biomarkers.ultrasoundStatus}
+              </p>
+              <p className="text-[11px] text-on-surface-variant leading-relaxed">
+                {biomarkers.ultrasoundNotes}
+              </p>
+            </div>
+            <div>
+              <p className="font-semibold text-on-surface font-display">Qué hacer ahora:</p>
+              <p className="mt-0.5 leading-relaxed text-on-surface-variant">
+                {musculoStatus === 'critical'
+                  ? musculoGuide.criticalAction
+                  : musculoStatus === 'warning'
+                    ? musculoGuide.warningAction
+                    : MEDICAL_TOOLTIPS.boneMuscle.how}
+              </p>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Bone & Muscle Retention SVG Chart */}
+      {/* Bone & Muscle Retention Interactive SVG Chart */}
       <section className="rounded-2xl border border-outline bg-surface-container p-5 space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
@@ -294,8 +785,8 @@ export function BoneMuscleTab() {
               Curva de Conservación Ósea y Muscular vs. Deterioro sin Ejercicio
             </h3>
             <p className="text-xs text-on-surface-variant">
-              Porcentaje retenido respecto al Día 1 previo al despegue (línea punteada roja = pérdida
-              estimada de -1.5%/mes sin contramedidas NASA).
+              Haz clic o pasa el cursor sobre cualquier día para comparar tu retención real frente a
+              la pérdida sin contramedidas (-1.5%/mes).
             </p>
           </div>
           <div className="flex flex-wrap gap-3 text-xs font-semibold">
@@ -311,13 +802,44 @@ export function BoneMuscleTab() {
           </div>
         </div>
 
+        {activeDayPoint && activeUnmitigated !== null && activeNetSaved !== null && (
+          <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-outline bg-surface-container-low px-3.5 py-2 text-xs">
+            <span className="font-mono font-bold text-on-surface">
+              Inspección Día {activeDayPoint.day}
+            </span>
+            <div className="flex flex-wrap items-center gap-4 font-mono">
+              <span className="text-primary font-semibold">
+                Ósea (BMD): {activeDayPoint.boneRetention}%
+              </span>
+              <span className="text-telemetry font-semibold">
+                Músculo: {activeDayPoint.muscleRetention}%
+              </span>
+              <span className="text-danger font-semibold">
+                Sin ejercicio: {activeUnmitigated}%
+              </span>
+              <span className="rounded-md border border-primary/25 bg-primary-container px-2 py-0.5 text-[11px] font-bold text-on-primary-container">
+                Protección neta: {activeNetSaved >= 0 ? `+${activeNetSaved}` : activeNetSaved}%
+              </span>
+            </div>
+          </div>
+        )}
+
         <div className="w-full overflow-x-auto">
           <svg
             viewBox={`0 0 ${chartW} ${chartH}`}
             className="w-full min-w-[460px] h-56"
             role="img"
-            aria-label="Gráfica de conservación de densidad ósea y masa muscular"
+            aria-label="Gráfica interactiva de conservación de densidad ósea y masa muscular"
           >
+            {/* Safe Corridor >= 98% */}
+            <rect
+              x={padL}
+              y={safeTopY}
+              width={plotW}
+              height={safeBottomY - safeTopY}
+              fill="rgba(47, 93, 70, 0.09)"
+            />
+
             {[90, 92.5, 95, 97.5, 100].map((v) => {
               const y = toY(v);
               return (
@@ -337,6 +859,28 @@ export function BoneMuscleTab() {
               );
             })}
 
+            {/* Warning (98%) & Critical (95.5%) reference lines */}
+            <line
+              x1={padL}
+              y1={safeBottomY}
+              x2={chartW - padR}
+              y2={safeBottomY}
+              stroke="#2F5D46"
+              strokeWidth="1"
+              strokeDasharray="3 3"
+              opacity="0.55"
+            />
+            <line
+              x1={padL}
+              y1={criticalThresholdY}
+              x2={chartW - padR}
+              y2={criticalThresholdY}
+              stroke="#B54708"
+              strokeWidth="1"
+              strokeDasharray="4 4"
+              opacity="0.55"
+            />
+
             <path
               d={unmitigatedPath}
               fill="none"
@@ -347,21 +891,72 @@ export function BoneMuscleTab() {
             <path d={bonePath} fill="none" stroke="#2F5D46" strokeWidth="2.5" />
             <path d={musclePath} fill="none" stroke="#2B5B6C" strokeWidth="2.5" />
 
-            {history.map((pt, i) => (
-              <g key={pt.day}>
-                <circle cx={toX(i)} cy={toY(pt.boneRetention)} r="3.5" fill="#2F5D46" />
-                <circle cx={toX(i)} cy={toY(pt.muscleRetention)} r="3.5" fill="#2B5B6C" />
-                <text
-                  x={toX(i)}
-                  y={chartH - 8}
-                  textAnchor="middle"
-                  fill="#55635B"
-                  fontSize="10"
+            {history.map((pt, i) => {
+              const x = toX(i);
+              const isSelected = activeDayIdx === i;
+              const projectedY = toY(computeUnmitigated(pt.day));
+              return (
+                <g
+                  key={pt.day}
+                  role="button"
+                  tabIndex={0}
+                  aria-label={`Inspeccionar Día ${pt.day}: Ósea ${pt.boneRetention}%, Músculo ${pt.muscleRetention}%`}
+                  onMouseEnter={() => setInspectedDayIdx(i)}
+                  onClick={() => setInspectedDayIdx(i)}
+                  onFocus={() => setInspectedDayIdx(i)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      setInspectedDayIdx(i);
+                    }
+                  }}
+                  className="cursor-pointer focus:outline-none"
                 >
-                  D{pt.day}
-                </text>
-              </g>
-            ))}
+                  <rect x={x - 16} y={padT} width={32} height={plotH} fill="transparent" />
+                  {isSelected && (
+                    <line
+                      x1={x}
+                      y1={padT}
+                      x2={x}
+                      y2={padT + plotH}
+                      stroke="#2F5D46"
+                      strokeWidth="1"
+                      strokeDasharray="3 3"
+                      opacity="0.55"
+                    />
+                  )}
+                  <circle
+                    cx={x}
+                    cy={projectedY}
+                    r={isSelected ? '4' : '2.5'}
+                    fill="#B42318"
+                    opacity={isSelected ? '1' : '0.7'}
+                  />
+                  <circle
+                    cx={x}
+                    cy={toY(pt.boneRetention)}
+                    r={isSelected ? '5' : '3.5'}
+                    fill="#2F5D46"
+                  />
+                  <circle
+                    cx={x}
+                    cy={toY(pt.muscleRetention)}
+                    r={isSelected ? '5' : '3.5'}
+                    fill="#2B5B6C"
+                  />
+                  <text
+                    x={x}
+                    y={chartH - 8}
+                    textAnchor="middle"
+                    fill={isSelected ? '#1A241E' : '#55635B'}
+                    fontWeight={isSelected ? '700' : '400'}
+                    fontSize="10"
+                  >
+                    D{pt.day}
+                  </text>
+                </g>
+              );
+            })}
           </svg>
         </div>
       </section>
