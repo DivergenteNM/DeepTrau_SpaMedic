@@ -114,7 +114,11 @@ export function SidebarNav({
           <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-outline bg-surface-container p-1">
             <Image
               src="/DeepTrau_logo.webp"
-              alt={language === 'es' ? 'Logo de DeepTrau' : 'DeepTrau Logo'}
+              alt={
+                language === 'es'
+                  ? 'Logo de DeepTrau (generado con IA · OpenAI GPT)'
+                  : 'DeepTrau Logo (AI-generated · OpenAI GPT)'
+              }
               width={40}
               height={40}
               className="h-full w-full object-contain"
@@ -126,7 +130,7 @@ export function SidebarNav({
               DeepTrau
             </p>
             <p className="truncate text-[11px] text-on-surface-variant">
-              {language === 'es' ? 'SpaMedic · Medicina Espacial' : 'SpaMedic · Space Medicine'}
+              {language === 'es' ? 'SpaMedic · Logo IA (GPT)' : 'SpaMedic · AI Logo (GPT)'}
             </p>
           </div>
         </div>
@@ -269,6 +273,12 @@ export function SidebarNav({
             </p>
           </div>
         </div>
+
+        <p className="mt-3 border-t border-outline-variant pt-2.5 font-mono text-[10px] leading-relaxed text-on-surface-variant">
+          {language === 'es'
+            ? 'Transparencia IA: Código y datos simulados asistidos con Google Antigravity · Audio: Gemini Lyria · Logo: GPT.'
+            : 'AI Disclosure: Code & simulated data assisted by Google Antigravity · Audio: Gemini Lyria · Logo: GPT.'}
+        </p>
       </div>
     </div>
   );

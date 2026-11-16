@@ -2,6 +2,12 @@
   "name": "deeptrau-spamedic",
   "version": "0.1.0",
   "private": true,
+  "description": "Autonomous aerospace medical monitoring & offline SOS copilot for NASA Space Apps Challenge. Code and simulated clinical data developed with AI assistance (Google Antigravity); audio generated with Google Gemini (Lyria / Lyria 3); logo generated with OpenAI GPT.",
+  "aiDisclosure": {
+    "codeAndData": "AI-assisted development and simulated clinical datasets created with Google Antigravity under team supervision, grounded in public NASA/CSA/ESA space medicine literature.",
+    "audio": "Offline Earth Anchor MP3 assets synthesized with Google Gemini (Lyria / Lyria 3, Nov 2026).",
+    "visualIdentity": "Logo and favicon generated with OpenAI GPT under team creative direction."
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",

@@ -464,8 +464,8 @@ export function EarthAnchorVault() {
           </h2>
           <p className="text-xs text-on-surface-variant">
             {isEs
-              ? 'Audios familiares reales offline, vista inmersiva de calma y paisajes sonoros bioacústicos para reducir el cortisol en cabina.'
-              : 'Offline family recordings, immersive calm focus mode, and bioacoustic Earth soundscapes to reduce cabin cortisol.'}
+              ? 'Audios de apoyo generados con IA (Google Gemini / Lyria) offline, vista inmersiva de calma y paisajes sonoros bioacústicos para reducir el cortisol en cabina.'
+              : 'AI-generated offline support audio (Google Gemini / Lyria), immersive calm focus mode, and bioacoustic Earth soundscapes to reduce cabin cortisol.'}
           </p>
         </div>
 
@@ -579,6 +579,11 @@ export function EarthAnchorVault() {
                     )}
                   </div>
                   <p className="mt-0.5 text-[11px] text-on-surface-variant">{item.subtitle}</p>
+                  {item.audioUrl && (
+                    <span className="mt-1.5 inline-flex items-center rounded-lg border border-outline bg-surface-container-low px-2 py-0.5 font-mono text-[10px] font-medium text-on-surface-variant">
+                      {isEs ? 'Audio IA · Google Gemini (Lyria)' : 'AI-generated · Google Gemini (Lyria)'}
+                    </span>
+                  )}
                 </div>
                 <p className="text-xs italic leading-relaxed text-on-surface">{item.quote}</p>
               </div>
@@ -748,6 +753,13 @@ export function EarthAnchorVault() {
                     {focusedItem.title}
                   </h3>
                   <p className="text-xs text-on-surface-variant">{focusedItem.subtitle}</p>
+                  {focusedItem.audioUrl && (
+                    <p className="mt-1 font-mono text-[10px] text-on-surface-variant">
+                      {isEs
+                        ? 'Recurso auditivo sintetizado con IA · Google Gemini (Lyria / Lyria 3)'
+                        : 'AI-synthesized audio resource · Google Gemini (Lyria / Lyria 3)'}
+                    </p>
+                  )}
                 </div>
                 <button
                   type="button"

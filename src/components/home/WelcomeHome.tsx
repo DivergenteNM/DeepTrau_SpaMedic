@@ -506,7 +506,11 @@ export function WelcomeHome({ onStart }: WelcomeHomeProps) {
           >
             <Image
               src="/DeepTrau_logo.webp"
-              alt={language === 'es' ? 'Icono de DeepTrau SpaMedic' : 'DeepTrau SpaMedic Icon'}
+              alt={
+                language === 'es'
+                  ? 'Icono de DeepTrau SpaMedic (logo generado con IA · OpenAI GPT)'
+                  : 'DeepTrau SpaMedic Icon (AI-generated logo · OpenAI GPT)'
+              }
               width={220}
               height={220}
               priority
@@ -514,6 +518,9 @@ export function WelcomeHome({ onStart }: WelcomeHomeProps) {
             />
           </div>
         </div>
+        <span className="mb-2 inline-flex items-center rounded-lg border border-outline bg-surface-container-low px-2 py-0.5 font-mono text-[10px] font-medium text-on-surface-variant">
+          {language === 'es' ? 'Logo IA · OpenAI GPT' : 'AI-generated logo · OpenAI GPT'}
+        </span>
 
         <h1 className="flex flex-wrap items-baseline justify-center gap-x-3 font-display text-4xl font-bold tracking-[-0.02em] text-on-surface sm:text-5xl">
           <span className="inline-block overflow-hidden py-1">
@@ -577,9 +584,14 @@ export function WelcomeHome({ onStart }: WelcomeHomeProps) {
 
       <p
         ref={creditRef}
-        className="pointer-events-none absolute bottom-4 right-5 z-20 select-none text-xs font-medium tracking-wide text-on-surface-variant opacity-65 will-change-transform sm:bottom-6 sm:right-8"
+        className="pointer-events-none absolute bottom-4 right-5 z-20 select-none text-right text-xs font-medium tracking-wide text-on-surface-variant opacity-65 will-change-transform sm:bottom-6 sm:right-8"
       >
-        By: Nicolás Martínez
+        <span>By: Nicolás Martínez</span>
+        <span className="block font-mono text-[10px]">
+          {language === 'es'
+            ? 'Código y datos simulados asistidos por IA (Google Antigravity) · Audio: Gemini Lyria'
+            : 'AI-assisted code & simulated data (Google Antigravity) · Audio: Gemini Lyria'}
+        </span>
       </p>
     </section>
   );

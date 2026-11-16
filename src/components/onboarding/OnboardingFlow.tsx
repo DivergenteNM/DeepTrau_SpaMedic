@@ -393,7 +393,11 @@ export function OnboardingFlow() {
             >
               <Image
                 src="/DeepTrau_logo.webp"
-                alt={language === 'es' ? 'Logo de DeepTrau' : 'DeepTrau Logo'}
+                alt={
+                  language === 'es'
+                    ? 'Logo de DeepTrau (generado con IA · OpenAI GPT)'
+                    : 'DeepTrau Logo (AI-generated · OpenAI GPT)'
+                }
                 width={56}
                 height={56}
                 className="h-full w-full scale-[1.35] object-contain mix-blend-multiply dt-transition group-hover:scale-[1.42]"
@@ -401,12 +405,15 @@ export function OnboardingFlow() {
               />
             </button>
             <div>
-              <div className="flex items-center gap-2.5">
+              <div className="flex flex-wrap items-center gap-2">
                 <h1 className="text-[28px] leading-[36px] font-bold tracking-[-0.02em] text-on-surface font-display">
                   DeepTrau
                 </h1>
                 <span className="rounded-full border border-primary/25 bg-primary-container px-2.5 py-0.5 text-[11px] font-semibold text-on-primary-container font-mono">
                   SpaMedic · NASA Space Apps
+                </span>
+                <span className="rounded-lg border border-outline bg-surface-container-low px-2 py-0.5 text-[10px] font-medium text-on-surface-variant font-mono">
+                  {language === 'es' ? 'Logo IA (GPT)' : 'AI Logo (GPT)'}
                 </span>
               </div>
               <p className="text-sm text-on-surface-variant">

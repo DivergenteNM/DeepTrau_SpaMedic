@@ -89,6 +89,12 @@ export default function HomePage() {
               {activeTab === 'musculoskeletal' && <BoneMuscleTab />}
               {activeTab === 'survival' && <MissionMonitorTab />}
             </div>
+
+            <footer className="mt-8 border-t border-outline-variant pt-4 text-center font-mono text-[11px] text-on-surface-variant">
+              {language === 'es'
+                ? 'DeepTrau SpaMedic · Código, estructura de pitch deck y datos clínicos simulados desarrollados con asistencia de IA (Google Antigravity) basados en fuentes públicas NASA/CSA/ESA · Audio: Google Gemini (Lyria / Lyria 3) · Logo: OpenAI GPT.'
+                : 'DeepTrau SpaMedic · Code, pitch deck structure, and simulated clinical data developed with AI assistance (Google Antigravity) grounded in public NASA/CSA/ESA resources · Audio: Google Gemini (Lyria / Lyria 3) · Logo: OpenAI GPT.'}
+            </footer>
           </div>
         </main>
       </div>

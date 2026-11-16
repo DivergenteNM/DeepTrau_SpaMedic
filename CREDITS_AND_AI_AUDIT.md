@@ -28,7 +28,7 @@ Los parámetros fisiológicos, misiones y protocolos médicos del proyecto se fu
 2. **NASA HRP — *Human Research Roadmap*** ([humanresearchroadmap.nasa.gov](https://humanresearchroadmap.nasa.gov/)): Pérdida ósea/muscular (equipos ARED, T2, CEVIS), síndrome neuro-ocular (SANS), intolerancia ortostática/síncope, desregulación inmune, resistencia insulínica y fatiga psicológica.
 3. **NASA HRP (ExMC / ADUM) & ESA:** Guías de RCP en microgravedad (*Evetts-Russomano* y *Handstand Method*) y protocolo de ultrasonido diagnóstico rápido en órbita (*FAST / ADUM*).
 4. **NASA ISS Integrated Medical Group — *ISS Medical Checklist (JSC-48522)*:** Protocolos de emergencia ante crisis convulsivas, hipoxia/atmósfera hostil y shock hipoglucémico o térmico.
-5. **Canadian Space Agency (CSA) — *Radiation Monitoring*** ([asc-csa.gc.ca/eng/sciences/radiation.asp](https://www.asc-csa.gc.ca/eng/sciences/radiation.asp)): Modelado del dosímetro personal ($\text{mSv}$), tasas diarias por entorno espacial y refugio ante tormentas solares.
+5. **Canadian Space Agency (CSA) — *Radiation Monitoring*** ([asc-csa.gc.ca/eng/astronauts/space-medicine/radiation.asp](https://www.asc-csa.gc.ca/eng/astronauts/space-medicine/radiation.asp)): Modelado del dosímetro personal ($\text{mSv}$), tasas diarias por entorno espacial y refugio ante tormentas solares.
 
 ---
 

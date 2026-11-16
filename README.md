@@ -1,6 +1,7 @@
 <div align="center">
 
-<img src="public/DeepTrau_logo.webp" alt="DeepTrau SpaMedic Logo" width="110" />
+<img src="public/DeepTrau_logo.webp" alt="DeepTrau SpaMedic Logo (AI-generated with OpenAI GPT)" width="110" />
+<sub><em>Visual logo &amp; icon generated with OpenAI GPT under team creative direction.</em></sub>
 
 # DeepTrau SpaMedic
 
@@ -157,7 +158,7 @@ Addressing the NASA HRP **"Third-Quarter Phenomenon"** and neurobehavioral risks
   <img src="docs/screenshots/14-earth-anchor-vault.png" alt="My Earth Anchor Inspiration Vault" width="85%" />
 </p>
 
-> **Offline Emotional Countermeasure:** *"My Earth Anchor"* bundles synthesized offline family voice recordings (`public/audio/carta_de_voz.mp3`, `public/audio/video_familiar.mp3`) and procedural **Web Audio API** rain/ocean soundscapes alongside `1800K Amber` pre-sleep cabin lighting control.
+> **Offline Emotional Countermeasure (AI-Generated Audio):** *"My Earth Anchor"* bundles two AI-synthesized English audio assets generated in November 2026 via **Google Gemini (Lyria / Lyria 3)** (`public/audio/carta_de_voz.mp3` — *"Bridge Back Home"*, 60 BPM; `public/audio/video_familiar.mp3` — *"Breakfast at Home — Family Message"*, ~90 s, both with embedded C2PA & ID3v2.3 AI disclosure metadata) alongside procedural **Web Audio API** rain/ocean soundscapes and `1800K Amber` pre-sleep cabin lighting control.
 
 ---
 
@@ -228,4 +229,10 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000) in your browser (SOS workspace also accessible directly at [http://localhost:3000/sos](http://localhost:3000/sos)).
 
-For full AI usage disclosure, scientific citations (**NASA HRP** & **CSA**), and open-source dependency auditing, see [`CREDITS_AND_AI_AUDIT.md`](CREDITS_AND_AI_AUDIT.md).
+## AI Transparency & Simulated Data Disclosure
+
+- **Code, Architecture & Pitch Deck:** Application source code, UI components, simulated clinical/EHR datasets, and presentation structuring (`PITCH_DECK_CANVA_7_SLIDES.md`) were developed with AI coding assistance (**Google Antigravity**) under team supervision and grounded in public **NASA**, **CSA**, and **ESA** space medicine literature.
+- **Audio Assets:** *"Bridge Back Home"* (`public/audio/carta_de_voz.mp3`) and *"Breakfast at Home — Family Message"* (`public/audio/video_familiar.mp3`) were synthesized with **Google Gemini (Lyria / Lyria 3, Nov 2026)** and carry embedded C2PA and ID3v2.3 AI-disclosure metadata.
+- **Visual Identity:** `public/DeepTrau_logo.webp` and `src/app/favicon.ico` were generated with **OpenAI GPT**.
+
+For full AI usage disclosure, scientific citations (**NASA HRP**, **CSA**, **ESA**), and open-source dependency auditing, see [`CREDITS_AND_AI_AUDIT.md`](CREDITS_AND_AI_AUDIT.md).
