@@ -1,0 +1,282 @@
+@import "tailwindcss";
+
+@theme inline {
+  /* Tipografía del Design System (DeepTrau SpaMedic: IBM Plex Sans + IBM Plex Mono) */
+  --font-display: var(--font-ibm-plex-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-sans: var(--font-ibm-plex-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-ibm-plex-mono), ui-monospace, SFMono-Regular, monospace;
+
+  /* Paleta Canónica del Design System */
+  --color-primary: #2F5D46;
+  --color-primary-hover: #1D3D2D;
+  --color-on-primary: #F7F5F0;
+  --color-primary-container: #DFECE4;
+  --color-on-primary-container: #1D3D2D;
+  --color-secondary: #4A7C64;
+  --color-on-secondary: #FFFFFF;
+
+  --color-surface: #F7F5F0;
+  --color-surface-container-low: #EFECE4;
+  --color-surface-container: #FFFFFF;
+  --color-surface-container-high: #E5E0D5;
+  --color-on-surface: #1A241E;
+  --color-on-surface-variant: #55635B;
+  --color-outline: #D8D3C8;
+  --color-outline-variant: #E6E2D8;
+
+  --color-danger: #B42318;
+  --color-danger-hover: #7A271A;
+  --color-danger-container: #FEE4E2;
+  --color-on-danger-container: #7A271A;
+
+  --color-warning: #B54708;
+  --color-warning-hover: #7A2E0E;
+  --color-warning-container: #FEF0C7;
+  --color-on-warning-container: #7A2E0E;
+
+  --color-info: #2F5D46;
+  --color-info-container: #DFECE4;
+  --color-on-info-container: #1D3D2D;
+
+  --color-nominal: #2F5D46;
+  --color-nominal-container: #DFECE4;
+  --color-on-nominal-container: #1D3D2D;
+
+  /* Tokens adicionales estrictamente necesarios para gráficas y visor óptico */
+  --color-telemetry: #2B5B6C;
+  --color-telemetry-container: #DCE9EE;
+  --color-on-telemetry-container: #183945;
+
+  --color-viewport-surface: #1A241E;
+  --color-on-viewport: #F7F5F0;
+  --color-viewport-border: #2F5D46;
+}
+
+:root {
+  color-scheme: light;
+  --dt-primary: #2F5D46;
+  --dt-primary-hover: #1D3D2D;
+  --dt-on-primary: #F7F5F0;
+  --dt-primary-container: #DFECE4;
+  --dt-on-primary-container: #1D3D2D;
+  --dt-secondary: #4A7C64;
+  --dt-surface: #F7F5F0;
+  --dt-surface-low: #EFECE4;
+  --dt-surface-container: #FFFFFF;
+  --dt-surface-high: #E5E0D5;
+  --dt-on-surface: #1A241E;
+  --dt-on-surface-variant: #55635B;
+  --dt-outline: #D8D3C8;
+  --dt-outline-variant: #E6E2D8;
+  --dt-danger: #B42318;
+  --dt-danger-container: #FEE4E2;
+  --dt-on-danger-container: #7A271A;
+  --dt-warning: #B54708;
+  --dt-warning-container: #FEF0C7;
+  --dt-on-warning-container: #7A2E0E;
+  --dt-telemetry: #2B5B6C;
+  --dt-telemetry-container: #DCE9EE;
+  --dt-on-telemetry-container: #183945;
+  --dt-nominal-fill: rgba(47, 93, 70, 0.20);
+  --dt-warning-fill: rgba(181, 71, 8, 0.20);
+  --dt-danger-fill: rgba(180, 35, 24, 0.22);
+  --dt-telemetry-fill: rgba(43, 91, 108, 0.14);
+  --dt-focus-ring: rgba(47, 93, 70, 0.18);
+  --dt-duration: 180ms;
+  --dt-duration-smooth: 260ms;
+  --dt-ease: cubic-bezier(0.2, 0, 0, 1);
+  --dt-ease-enter: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@layer base {
+
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]),
+  a[href],
+  select:not(:disabled),
+  input[type="checkbox"]:not(:disabled),
+  input[type="radio"]:not(:disabled),
+  input[type="range"]:not(:disabled),
+  input[type="file"]:not(:disabled),
+  summary {
+    cursor: pointer;
+  }
+
+  button:disabled,
+  [role="button"][aria-disabled="true"],
+  select:disabled,
+  input:disabled {
+    cursor: not-allowed;
+  }
+}
+
+body {
+  background-color: var(--dt-surface);
+  color: var(--dt-on-surface);
+  font-family: var(--font-sans);
+}
+
+h1,
+h2,
+h3,
+h4,
+.font-display {
+  font-family: var(--font-display);
+}
+
+.dt-transition {
+  transition-property: color, background-color, border-color, text-decoration-color, fill, stroke, opacity, box-shadow, transform, filter;
+  transition-duration: var(--dt-duration);
+  transition-timing-function: var(--dt-ease);
+}
+
+.dt-selected-ring {
+  box-shadow: 0 0 0 3px var(--dt-focus-ring);
+}
+
+@keyframes dtFadeSlideUp {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 10px, 0);
+  }
+
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes dtFadeInScale {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 4px, 0) scale(0.985);
+  }
+
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+@keyframes dtBodyReticlePulse {
+
+  0%,
+  100% {
+    opacity: 0.45;
+  }
+
+  50% {
+    opacity: 0.95;
+  }
+}
+
+@keyframes dtDockLanded {
+  0% {
+    box-shadow: 0 0 0 4px var(--dt-focus-ring), 0 12px 28px -14px rgba(47, 93, 70, 0.25);
+    border-color: var(--dt-primary);
+  }
+
+  100% {
+    box-shadow: 0 0 0 0 rgba(47, 93, 70, 0), 0 0 0 0 rgba(47, 93, 70, 0);
+  }
+}
+
+.dt-animate-enter {
+  animation: dtFadeSlideUp var(--dt-duration-smooth) var(--dt-ease-enter) both;
+}
+
+.dt-animate-panel {
+  animation: dtFadeInScale 220ms var(--dt-ease-enter) both;
+}
+
+.dt-dock-landed {
+  animation: dtDockLanded 460ms var(--dt-ease-enter) both;
+}
+
+.dt-body-reticle {
+  animation: dtBodyReticlePulse 2.4s var(--dt-ease) infinite;
+}
+
+.dt-body-zone {
+  cursor: pointer;
+  transform-box: fill-box;
+  transform-origin: center;
+  transition:
+    transform var(--dt-duration) var(--dt-ease),
+    filter var(--dt-duration) var(--dt-ease),
+    opacity var(--dt-duration) var(--dt-ease);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .dt-body-zone:hover {
+    transform: scale(1.03);
+  }
+
+  .dt-body-zone[data-selected="false"]:hover {
+    filter: drop-shadow(0 0 6px rgba(47, 93, 70, 0.28));
+  }
+
+  .dt-body-zone[data-status="warning"][data-selected="false"]:hover {
+    filter: drop-shadow(0 0 6px rgba(181, 71, 8, 0.34));
+  }
+
+  .dt-body-zone[data-status="critical"][data-selected="false"]:hover {
+    filter: drop-shadow(0 0 7px rgba(180, 35, 24, 0.38));
+  }
+}
+
+.dt-body-zone:active {
+  transform: scale(0.98);
+}
+
+.dt-body-zone:focus-visible {
+  outline: 2px solid var(--dt-primary);
+  outline-offset: 2px;
+  filter: drop-shadow(0 0 7px rgba(47, 93, 70, 0.45));
+}
+
+.dt-body-zone[data-status="warning"]:focus-visible {
+  outline: 2px solid var(--dt-warning);
+  outline-offset: 2px;
+  filter: drop-shadow(0 0 7px rgba(181, 71, 8, 0.45));
+}
+
+.dt-body-zone[data-status="critical"]:focus-visible {
+  outline: 2px solid var(--dt-danger);
+  outline-offset: 2px;
+  filter: drop-shadow(0 0 8px rgba(180, 35, 24, 0.48));
+}
+
+@media (prefers-reduced-motion: reduce) {
+
+  .dt-animate-enter,
+  .dt-animate-panel,
+  .dt-dock-landed,
+  .dt-body-reticle {
+    animation: none;
+  }
+
+  .dt-transition,
+  .dt-body-zone {
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Custom DeepTrau Mineral Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--dt-surface-low);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--dt-outline);
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--dt-primary);
+}
