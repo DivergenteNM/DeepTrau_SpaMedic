@@ -20,11 +20,13 @@ import { PvtCognitiveTestCard } from './PvtCognitiveTestCard';
 import { VideoDiaryStudio } from './VideoDiaryStudio';
 import { EarthAnchorVault } from './EarthAnchorVault';
 
-type SleepQuality = 'Reparador' | 'Fragmentado' | 'Insomnio';
+type SleepQualityKey = 'restorative' | 'fragmented' | 'insomnia';
+type StressorKey = 'none' | 'isolation' | 'circadian' | 'workload' | 'noise';
 type CabinLightMode = 'day_480' | 'neutral_3500' | 'amber_1800';
 
 export function MentalHealthTab() {
   const {
+    language,
     mission,
     missionDay,
     biomarkers,
@@ -36,15 +38,17 @@ export function MentalHealthTab() {
     completeBreathingSession,
   } = useMission();
 
+  const isEs = language === 'es';
+
   // Check-in state synced cleanly with biomarkers
   const [moodScore, setMoodScore] = useState<number>(biomarkers.moodScore);
   const [sleepHours, setSleepHours] = useState<number>(biomarkers.sleepHours);
   const [stressLevel, setStressLevel] = useState<number>(biomarkers.stressLevel);
   const [crewCohesion, setCrewCohesion] = useState<number>(biomarkers.crewCohesion);
-  const [sleepQuality, setSleepQuality] = useState<SleepQuality>(
-    biomarkers.sleepHours >= 7 ? 'Reparador' : biomarkers.sleepHours >= 5.5 ? 'Fragmentado' : 'Insomnio'
+  const [sleepQualityKey, setSleepQualityKey] = useState<SleepQualityKey>(
+    biomarkers.sleepHours >= 7 ? 'restorative' : biomarkers.sleepHours >= 5.5 ? 'fragmented' : 'insomnia'
   );
-  const [primaryStressor, setPrimaryStressor] = useState<string>('Ninguno');
+  const [primaryStressorKey, setPrimaryStressorKey] = useState<StressorKey>('none');
   const [checkInSaved, setCheckInSaved] = useState(false);
 
   useEffect(() => {
@@ -52,8 +56,8 @@ export function MentalHealthTab() {
     setSleepHours(biomarkers.sleepHours);
     setStressLevel(biomarkers.stressLevel);
     setCrewCohesion(biomarkers.crewCohesion);
-    setSleepQuality(
-      biomarkers.sleepHours >= 7 ? 'Reparador' : biomarkers.sleepHours >= 5.5 ? 'Fragmentado' : 'Insomnio'
+    setSleepQualityKey(
+      biomarkers.sleepHours >= 7 ? 'restorative' : biomarkers.sleepHours >= 5.5 ? 'fragmented' : 'insomnia'
     );
   }, [biomarkers.moodScore, biomarkers.sleepHours, biomarkers.stressLevel, biomarkers.crewCohesion]);
 
@@ -143,22 +147,49 @@ export function MentalHealthTab() {
 
   const breathPhase =
     breathTick < 4
-      ? `Inhala profundo (${phaseRemainingSec}s)`
+      ? isEs
+        ? `Inhala profundo (${phaseRemainingSec}s)`
+        : `Inhale deeply (${phaseRemainingSec}s)`
       : breathTick < 8
-        ? `Mantén el aire (${phaseRemainingSec}s)`
+        ? isEs
+          ? `Mantén el aire (${phaseRemainingSec}s)`
+          : `Hold breath (${phaseRemainingSec}s)`
         : breathTick < 12
-          ? `Exhala lento (${phaseRemainingSec}s)`
-          : `Pausa en calma (${phaseRemainingSec}s)`;
+          ? isEs
+            ? `Exhala lento (${phaseRemainingSec}s)`
+            : `Exhale slowly (${phaseRemainingSec}s)`
+          : isEs
+            ? `Pausa en calma (${phaseRemainingSec}s)`
+            : `Calm pause (${phaseRemainingSec}s)`;
 
   const handleSaveCheckIn = (e: React.FormEvent) => {
     e.preventDefault();
+    const sleepQualityValue =
+      sleepQualityKey === 'restorative'
+        ? isEs
+          ? 'Reparador'
+          : 'Restorative'
+        : sleepQualityKey === 'fragmented'
+          ? isEs
+            ? 'Fragmentado'
+            : 'Fragmented'
+          : isEs
+            ? 'Insomnio'
+            : 'Insomnia';
+    const stressorMap: Record<StressorKey, string> = {
+      none: isEs ? 'Ninguno' : 'None',
+      isolation: isEs ? 'Aislamiento' : 'Isolation',
+      circadian: isEs ? 'Desfase Circadiano' : 'Circadian Shift',
+      workload: isEs ? 'Carga Operativa' : 'Operational Workload',
+      noise: isEs ? 'Ruido Cabina' : 'Cabin Noise',
+    };
     addMentalCheckIn({
       moodScore,
       sleepHours,
       stressLevel,
       crewCohesion,
-      sleepQuality,
-      primaryStressor,
+      sleepQuality: sleepQualityValue,
+      primaryStressor: stressorMap[primaryStressorKey],
     });
     setCheckInSaved(true);
     setTimeout(() => setCheckInSaved(false), 3500);
@@ -183,8 +214,9 @@ export function MentalHealthTab() {
         stressLevel: biomarkers.stressLevel,
         crewCohesion: biomarkers.crewCohesion,
         latestPvtScore: pvtHistory[0]?.alertnessScore,
+        lang: language,
       }),
-    [missionDay, mission, biomarkers, pvtHistory]
+    [missionDay, mission, biomarkers, pvtHistory, language]
   );
 
   // SVG Mental History Chart calculations
@@ -235,8 +267,8 @@ export function MentalHealthTab() {
             </div>
             <div>
               <p className="text-xs font-bold text-on-surface font-display">
-                {phaseInsight.phaseTitle} · Día {missionDay} de {mission.durationDays} (
-                {phaseInsight.progressPercent}%)
+                {phaseInsight.phaseTitle} · {isEs ? 'Día' : 'Day'} {missionDay}{' '}
+                {isEs ? 'de' : 'of'} {mission.durationDays} ({phaseInsight.progressPercent}%)
               </p>
               <p className="text-[11px] text-on-surface-variant">{phaseInsight.summary}</p>
             </div>
@@ -245,7 +277,7 @@ export function MentalHealthTab() {
           <div className="flex items-center gap-2">
             {phaseInsight.isThirdQuarterWindow && (
               <span className="rounded-full border border-warning/35 bg-warning-container px-2.5 py-1 text-[10px] font-bold text-on-warning-container font-display">
-                Ventana Tercer Cuarto Activa
+                {isEs ? 'Ventana Tercer Cuarto Activa' : 'Third-Quarter Window Active'}
               </span>
             )}
             <span
@@ -257,7 +289,7 @@ export function MentalHealthTab() {
                     : 'border-danger/35 bg-danger-container text-on-danger-container'
               }`}
             >
-              Resiliencia: {phaseInsight.resilienceScore}%
+              {isEs ? 'Resiliencia' : 'Resilience'}: {phaseInsight.resilienceScore}%
             </span>
           </div>
         </div>
@@ -267,7 +299,11 @@ export function MentalHealthTab() {
           <div
             className="absolute top-0 bottom-0 bg-warning/25"
             style={{ left: '50%', width: '28%' }}
-            title="Ventana crítica de Tercer Cuarto (50%–78%)"
+            title={
+              isEs
+                ? 'Ventana crítica de Tercer Cuarto (50%–78%)'
+                : 'Critical Third-Quarter Window (50%–78%)'
+            }
           />
           <div
             className="relative h-full rounded-full bg-primary transition-[width] duration-300"
@@ -283,12 +319,24 @@ export function MentalHealthTab() {
             <Heart className="mt-0.5 h-5 w-5 shrink-0 text-warning" />
             <div className="text-xs text-on-warning-container">
               <p className="font-bold font-display">
-                Contramedida Emocional Sugerida (Aislamiento y Sueño)
+                {isEs
+                  ? 'Contramedida Emocional Sugerida (Aislamiento y Sueño)'
+                  : 'Suggested Emotional Countermeasure (Isolation & Sleep)'}
               </p>
               <p className="mt-0.5">
-                Detectamos descenso de ánimo ({biomarkers.moodScore}/10) o descanso reducido (
-                {biomarkers.sleepHours}h). Te recomendamos completar el Test PVT, iniciar una
-                sesión de respiración 4-4-4-4 o abrir &quot;Mi Ancla en la Tierra&quot;.
+                {isEs ? (
+                  <>
+                    Detectamos descenso de ánimo ({biomarkers.moodScore}/10) o descanso reducido (
+                    {biomarkers.sleepHours}h). Te recomendamos completar el Test PVT, iniciar una
+                    sesión de respiración 4-4-4-4 o abrir &quot;Mi Ancla en la Tierra&quot;.
+                  </>
+                ) : (
+                  <>
+                    Detected mood decline ({biomarkers.moodScore}/10) or reduced sleep (
+                    {biomarkers.sleepHours}h). We recommend completing the PVT Test, starting a
+                    4-4-4-4 breathing session, or opening &quot;My Earth Anchor&quot;.
+                  </>
+                )}
               </p>
             </div>
           </div>
@@ -296,7 +344,7 @@ export function MentalHealthTab() {
             href="#muro-inspiracion"
             className="shrink-0 cursor-pointer rounded-xl bg-warning px-3.5 py-2 text-center text-xs font-bold text-surface dt-transition hover:-translate-y-0.5 hover:bg-warning-hover hover:shadow-sm active:translate-y-0 active:scale-[0.985] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-warning/40"
           >
-            Ir a Mi Ancla en la Tierra
+            {isEs ? 'Ir a Mi Ancla en la Tierra' : 'Go to My Earth Anchor'}
           </a>
         </div>
       )}
@@ -311,15 +359,17 @@ export function MentalHealthTab() {
             <div>
               <h2 className="text-base font-bold text-on-surface flex items-center gap-2 font-display">
                 <Smile className="h-5 w-5 text-primary" />
-                Check-in Emocional y Calidad de Sueño
+                {isEs ? 'Check-in Emocional y Calidad de Sueño' : 'Emotional & Sleep Quality Check-in'}
               </h2>
               <p className="text-xs text-on-surface-variant">
-                Monitorea confinamiento, arquitectura del descanso y cohesión en {mission.shortName}.
+                {isEs
+                  ? `Monitorea confinamiento, arquitectura del descanso y cohesión en ${mission.shortName}.`
+                  : `Monitor confinement, sleep architecture, and crew cohesion on ${mission.shortName}.`}
               </p>
             </div>
             {checkInSaved && (
               <span className="dt-animate-panel rounded-full border border-primary/30 bg-primary-container px-2.5 py-1 text-[11px] font-semibold text-on-primary-container">
-                ¡Guardado!
+                {isEs ? '¡Guardado!' : 'Saved!'}
               </span>
             )}
           </div>
@@ -327,7 +377,9 @@ export function MentalHealthTab() {
           <div className="grid gap-3.5 sm:grid-cols-2">
             <div className="rounded-xl border border-outline bg-surface-container-low p-3.5 space-y-1.5">
               <div className="flex justify-between text-xs">
-                <span className="text-on-surface font-medium">Estado de Ánimo</span>
+                <span className="text-on-surface font-medium">
+                  {isEs ? 'Estado de Ánimo' : 'Mood State'}
+                </span>
                 <span className="font-mono font-bold text-primary">{moodScore}/10</span>
               </div>
               <input
@@ -342,7 +394,9 @@ export function MentalHealthTab() {
 
             <div className="rounded-xl border border-outline bg-surface-container-low p-3.5 space-y-1.5">
               <div className="flex justify-between text-xs">
-                <span className="text-on-surface font-medium">Horas de Sueño</span>
+                <span className="text-on-surface font-medium">
+                  {isEs ? 'Horas de Sueño' : 'Sleep Hours'}
+                </span>
                 <span className="font-mono font-bold text-telemetry">{sleepHours} h</span>
               </div>
               <input
@@ -358,7 +412,9 @@ export function MentalHealthTab() {
 
             <div className="rounded-xl border border-outline bg-surface-container-low p-3.5 space-y-1.5">
               <div className="flex justify-between text-xs">
-                <span className="text-on-surface font-medium">Estrés por Confinamiento</span>
+                <span className="text-on-surface font-medium">
+                  {isEs ? 'Estrés por Confinamiento' : 'Confinement Stress'}
+                </span>
                 <span className="font-mono font-bold text-warning">{stressLevel}/10</span>
               </div>
               <input
@@ -373,7 +429,9 @@ export function MentalHealthTab() {
 
             <div className="rounded-xl border border-outline bg-surface-container-low p-3.5 space-y-1.5">
               <div className="flex justify-between text-xs">
-                <span className="text-on-surface font-medium">Cohesión de Tripulación</span>
+                <span className="text-on-surface font-medium">
+                  {isEs ? 'Cohesión de Tripulación' : 'Crew Cohesion'}
+                </span>
                 <span className="font-mono font-bold text-secondary">{crewCohesion}/10</span>
               </div>
               <input
@@ -391,21 +449,25 @@ export function MentalHealthTab() {
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-1.5">
               <span className="block text-[11px] font-semibold text-on-surface-variant">
-                Calidad del descanso
+                {isEs ? 'Calidad del descanso' : 'Sleep quality'}
               </span>
               <div className="grid grid-cols-3 gap-1 rounded-xl border border-outline bg-surface-container-low p-1">
-                {(['Reparador', 'Fragmentado', 'Insomnio'] as const).map((q) => (
+                {([
+                  { key: 'restorative' as const, label: isEs ? 'Reparador' : 'Restorative' },
+                  { key: 'fragmented' as const, label: isEs ? 'Fragmentado' : 'Fragmented' },
+                  { key: 'insomnia' as const, label: isEs ? 'Insomnio' : 'Insomnia' },
+                ]).map((q) => (
                   <button
-                    key={q}
+                    key={q.key}
                     type="button"
-                    onClick={() => setSleepQuality(q)}
+                    onClick={() => setSleepQualityKey(q.key)}
                     className={`cursor-pointer rounded-lg px-2 py-1.5 text-[11px] font-semibold dt-transition ${
-                      sleepQuality === q
+                      sleepQualityKey === q.key
                         ? 'bg-primary text-on-primary'
                         : 'text-on-surface-variant hover:bg-surface-container hover:text-on-surface'
                     }`}
                   >
-                    {q}
+                    {q.label}
                   </button>
                 ))}
               </div>
@@ -416,19 +478,29 @@ export function MentalHealthTab() {
                 htmlFor="primary-stressor"
                 className="block text-[11px] font-semibold text-on-surface-variant"
               >
-                Estresor principal del turno
+                {isEs ? 'Estresor principal del turno' : 'Primary shift stressor'}
               </label>
               <select
                 id="primary-stressor"
-                value={primaryStressor}
-                onChange={(e) => setPrimaryStressor(e.target.value)}
+                value={primaryStressorKey}
+                onChange={(e) => setPrimaryStressorKey(e.target.value as StressorKey)}
                 className="w-full cursor-pointer rounded-xl border border-outline bg-surface-container-low px-3 py-2 text-xs text-on-surface outline-none dt-transition focus:border-primary"
               >
-                <option value="Ninguno">Sin estresor relevante</option>
-                <option value="Aislamiento">Aislamiento / Distancia Tierra</option>
-                <option value="Desfase Circadiano">Desfase circadiano / Luz</option>
-                <option value="Carga Operativa">Carga operativa / EVA</option>
-                <option value="Ruido Cabina">Ruido / Confinamiento cabina</option>
+                <option value="none">
+                  {isEs ? 'Sin estresor relevante' : 'No relevant stressor'}
+                </option>
+                <option value="isolation">
+                  {isEs ? 'Aislamiento / Distancia Tierra' : 'Isolation / Earth distance'}
+                </option>
+                <option value="circadian">
+                  {isEs ? 'Desfase circadiano / Luz' : 'Circadian shift / Light'}
+                </option>
+                <option value="workload">
+                  {isEs ? 'Carga operativa / EVA' : 'Operational workload / EVA'}
+                </option>
+                <option value="noise">
+                  {isEs ? 'Ruido / Confinamiento cabina' : 'Cabin noise / Confinement'}
+                </option>
               </select>
             </div>
           </div>
@@ -437,7 +509,7 @@ export function MentalHealthTab() {
             type="submit"
             className="w-full cursor-pointer rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-on-primary dt-transition hover:-translate-y-0.5 hover:bg-primary-hover hover:shadow-[0_8px_18px_-8px_rgba(47,93,70,0.45)] active:translate-y-0 active:scale-[0.985] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35 font-display"
           >
-            Registrar Check-in del Día (+30 pts)
+            {isEs ? 'Registrar Check-in del Día (+30 pts)' : 'Log Daily Check-in (+30 pts)'}
           </button>
         </form>
 
@@ -446,10 +518,14 @@ export function MentalHealthTab() {
           <div className="border-b border-outline-variant pb-3">
             <h2 className="text-base font-bold text-on-surface flex items-center gap-2 font-display">
               <Wind className="h-5 w-5 text-primary" />
-              Regulación Autonómica e Higiene Circadiana
+              {isEs
+                ? 'Regulación Autonómica e Higiene Circadiana'
+                : 'Autonomic Regulation & Circadian Hygiene'}
             </h2>
             <p className="text-xs text-on-surface-variant">
-              Respiración guiada con auto-completado, espectro lumínico de cabina y contramedidas.
+              {isEs
+                ? 'Respiración guiada con auto-completado, espectro lumínico de cabina y contramedidas.'
+                : 'Guided breathing with auto-completion, cabin lighting spectrum, and countermeasures.'}
             </p>
           </div>
 
@@ -496,12 +572,16 @@ export function MentalHealthTab() {
 
                 <div>
                   <p className="text-xs font-bold text-on-primary-container font-display">
-                    Respiración Guiada Anti-Cortisol (4-4-4-4)
+                    {isEs
+                      ? 'Respiración Guiada Anti-Cortisol (4-4-4-4)'
+                      : 'Guided Anti-Cortisol Breathing (4-4-4-4)'}
                   </p>
                   <p className="mt-0.5 text-xs font-semibold text-primary">
                     {breathingActive
-                      ? `${breathPhase} · Ciclo ${currentBreathCycle}/${breathTargetCycles}`
-                      : 'Completa la sesión para registrar la rutina'}
+                      ? `${breathPhase} · ${isEs ? 'Ciclo' : 'Cycle'} ${currentBreathCycle}/${breathTargetCycles}`
+                      : isEs
+                        ? 'Completa la sesión para registrar la rutina'
+                        : 'Complete the session to log the routine'}
                   </p>
                 </div>
               </div>
@@ -510,7 +590,15 @@ export function MentalHealthTab() {
                 <button
                   type="button"
                   onClick={() => setBreathAudioCue((v) => !v)}
-                  title={breathAudioCue ? 'Silenciar tono guía' : 'Activar tono guía'}
+                  title={
+                    breathAudioCue
+                      ? isEs
+                        ? 'Silenciar tono guía'
+                        : 'Mute guide tone'
+                      : isEs
+                        ? 'Activar tono guía'
+                        : 'Enable guide tone'
+                  }
                   className="cursor-pointer rounded-xl border border-primary/25 bg-surface-container p-2 text-primary dt-transition hover:bg-surface-container-low active:scale-[0.97]"
                 >
                   {breathAudioCue ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
@@ -525,14 +613,14 @@ export function MentalHealthTab() {
                   className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl bg-primary px-3.5 py-2 text-xs font-semibold text-on-primary dt-transition hover:-translate-y-px hover:bg-primary-hover hover:shadow-[0_6px_14px_-6px_rgba(47,93,70,0.45)] active:translate-y-0 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35"
                 >
                   {breathingActive ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
-                  {breathingActive ? 'Detener' : 'Iniciar'}
+                  {breathingActive ? (isEs ? 'Detener' : 'Stop') : isEs ? 'Iniciar' : 'Start'}
                 </button>
               </div>
             </div>
 
             <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-on-primary-container">
               <div className="flex items-center gap-1.5">
-                <span>Duración:</span>
+                <span>{isEs ? 'Duración:' : 'Duration:'}</span>
                 {([2, 4] as const).map((c) => (
                   <button
                     key={c}
@@ -548,13 +636,21 @@ export function MentalHealthTab() {
                         : 'bg-surface-container text-on-surface hover:bg-surface-container-low'
                     }`}
                   >
-                    {c === 2 ? '32s (2 ciclos)' : '64s (4 ciclos)'}
+                    {c === 2
+                      ? isEs
+                        ? '32s (2 ciclos)'
+                        : '32s (2 cycles)'
+                      : isEs
+                        ? '64s (4 ciclos)'
+                        : '64s (4 cycles)'}
                   </button>
                 ))}
               </div>
               {breathCompletedBanner && (
                 <span className="dt-animate-panel font-bold text-primary">
-                  ¡Sesión completada! Rutina marcada ✓ (+20 pts)
+                  {isEs
+                    ? '¡Sesión completada! Rutina marcada ✓ (+20 pts)'
+                    : 'Session completed! Routine logged ✓ (+20 pts)'}
                 </span>
               )}
             </div>
@@ -565,21 +661,41 @@ export function MentalHealthTab() {
             <div className="flex items-center justify-between gap-2">
               <span className="text-xs font-bold text-on-surface flex items-center gap-1.5 font-display">
                 <Sun className="h-4 w-4 text-warning" />
-                Control Lumínico Circadiano de Cabina
+                {isEs
+                  ? 'Control Lumínico Circadiano de Cabina'
+                  : 'Cabin Circadian Light Control'}
               </span>
               <span className="font-mono text-[10px] font-semibold text-on-surface-variant">
                 {cabinLight === 'amber_1800'
-                  ? 'Modo Pre-Sueño Activo'
+                  ? isEs
+                    ? 'Modo Pre-Sueño Activo'
+                    : 'Pre-Sleep Mode Active'
                   : cabinLight === 'neutral_3500'
-                    ? 'Transición Tarde'
-                    : 'Turno Diurno'}
+                    ? isEs
+                      ? 'Transición Tarde'
+                      : 'Afternoon Transition'
+                    : isEs
+                      ? 'Turno Diurno'
+                      : 'Day Shift'}
               </span>
             </div>
             <div className="grid grid-cols-3 gap-1.5">
               {[
-                { id: 'day_480' as const, label: '480nm Alerta', desc: 'Suprime melatonina' },
-                { id: 'neutral_3500' as const, label: '3500K Neutro', desc: 'Trabajo en cabina' },
-                { id: 'amber_1800' as const, label: '1800K Ámbar', desc: 'Pre-sueño (-60m)' },
+                {
+                  id: 'day_480' as const,
+                  label: isEs ? '480nm Alerta' : '480nm Alert',
+                  desc: isEs ? 'Suprime melatonina' : 'Suppresses melatonin',
+                },
+                {
+                  id: 'neutral_3500' as const,
+                  label: isEs ? '3500K Neutro' : '3500K Neutral',
+                  desc: isEs ? 'Trabajo en cabina' : 'Cabin operations',
+                },
+                {
+                  id: 'amber_1800' as const,
+                  label: isEs ? '1800K Ámbar' : '1800K Amber',
+                  desc: isEs ? 'Pre-sueño (-60m)' : 'Pre-sleep (-60m)',
+                },
               ].map((opt) => (
                 <button
                   key={opt.id}
@@ -605,18 +721,30 @@ export function MentalHealthTab() {
             {[
               {
                 key: 'breathing' as const,
-                title: 'Diaria: Sesión de respiración guiada anti-cortisol',
-                desc: 'Se marca automáticamente al finalizar los ciclos guiados o manualmente.',
+                title: isEs
+                  ? 'Diaria: Sesión de respiración guiada anti-cortisol'
+                  : 'Daily: Guided anti-cortisol breathing session',
+                desc: isEs
+                  ? 'Se marca automáticamente al finalizar los ciclos guiados o manualmente.'
+                  : 'Automatically checked upon completing guided cycles or manually.',
               },
               {
                 key: 'circadianLight' as const,
-                title: 'Diaria: Ajuste de luz circadiana ámbar 1800K pre-sueño',
-                desc: 'Sincronizado con el controlador superior (vital en 16 amaneceres/día).',
+                title: isEs
+                  ? 'Diaria: Ajuste de luz circadiana ámbar 1800K pre-sueño'
+                  : 'Daily: Pre-sleep 1800K amber circadian light adjustment',
+                desc: isEs
+                  ? 'Sincronizado con el controlador superior (vital en 16 amaneceres/día).'
+                  : 'Synced with top controller (critical across 16 orbital sunrises/day).',
               },
               {
                 key: 'weeklyResilience' as const,
-                title: 'Semanal: Revisión de resiliencia "Tercer Cuarto de Misión"',
-                desc: 'Refuerza motivación y cohesión interpersonal al superar el 50% de tránsito.',
+                title: isEs
+                  ? 'Semanal: Revisión de resiliencia "Tercer Cuarto de Misión"'
+                  : 'Weekly: "Mission Third-Quarter" resilience review',
+                desc: isEs
+                  ? 'Refuerza motivación y cohesión interpersonal al superar el 50% de tránsito.'
+                  : 'Reinforces motivation and interpersonal cohesion past 50% transit.',
               },
             ].map((item) => {
               const checked = psychRoutinesChecked[item.key];
@@ -667,22 +795,28 @@ export function MentalHealthTab() {
           <div>
             <h2 className="text-base font-bold text-on-surface flex items-center gap-2 font-display">
               <Moon className="h-5 w-5 text-telemetry" />
-              Evolución de Salud Mental y Sueño en la Misión
+              {isEs
+                ? 'Evolución de Salud Mental y Sueño en la Misión'
+                : 'Mission Mental Health & Sleep Trajectory'}
             </h2>
             <p className="text-xs text-on-surface-variant">
-              Haz clic o pasa el cursor sobre cualquier día para inspeccionar ánimo, sueño (banda
-              óptima 7–8.5h) y estrés.
+              {isEs
+                ? 'Haz clic o pasa el cursor sobre cualquier día para inspeccionar ánimo, sueño (banda óptima 7–8.5h) y estrés.'
+                : 'Click or hover over any day to inspect mood, sleep (optimal 7–8.5h band), and stress.'}
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-3 text-xs font-semibold">
             <span className="inline-flex items-center gap-1.5 text-primary">
-              <span className="h-2.5 w-2.5 rounded-full bg-primary" /> Ánimo
+              <span className="h-2.5 w-2.5 rounded-full bg-primary" />{' '}
+              {isEs ? 'Ánimo' : 'Mood'}
             </span>
             <span className="inline-flex items-center gap-1.5 text-telemetry">
-              <span className="h-2.5 w-2.5 rounded-full bg-telemetry" /> Horas Sueño
+              <span className="h-2.5 w-2.5 rounded-full bg-telemetry" />{' '}
+              {isEs ? 'Horas Sueño' : 'Sleep Hours'}
             </span>
             <span className="inline-flex items-center gap-1.5 text-warning">
-              <span className="h-2.5 w-2.5 rounded-full bg-warning" /> Estrés
+              <span className="h-2.5 w-2.5 rounded-full bg-warning" />{' '}
+              {isEs ? 'Estrés' : 'Stress'}
             </span>
           </div>
         </div>
@@ -690,17 +824,17 @@ export function MentalHealthTab() {
         {activeDayPoint && (
           <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-outline bg-surface-container-low px-3.5 py-2 text-xs">
             <span className="font-mono font-bold text-on-surface">
-              Inspección Día {activeDayPoint.day}
+              {isEs ? 'Inspección Día' : 'Inspecting Day'} {activeDayPoint.day}
             </span>
             <div className="flex flex-wrap items-center gap-4 font-mono">
               <span className="text-primary font-semibold">
-                Ánimo: {activeDayPoint.moodScore}/10
+                {isEs ? 'Ánimo' : 'Mood'}: {activeDayPoint.moodScore}/10
               </span>
               <span className="text-telemetry font-semibold">
-                Sueño: {activeDayPoint.sleepHours} h
+                {isEs ? 'Sueño' : 'Sleep'}: {activeDayPoint.sleepHours} h
               </span>
               <span className="text-warning font-semibold">
-                Estrés: {activeDayPoint.stressLevel}/10
+                {isEs ? 'Estrés' : 'Stress'}: {activeDayPoint.stressLevel}/10
               </span>
             </div>
           </div>
@@ -711,7 +845,11 @@ export function MentalHealthTab() {
             viewBox={`0 0 ${chartW} ${chartH}`}
             className="w-full min-w-[460px] h-56"
             role="img"
-            aria-label="Gráfica histórica interactiva de evolución mental en la misión"
+            aria-label={
+              isEs
+                ? 'Gráfica histórica interactiva de evolución mental en la misión'
+                : 'Interactive mission mental health trajectory chart'
+            }
           >
             {/* Optimal sleep corridor (7h - 8.5h) */}
             <rect

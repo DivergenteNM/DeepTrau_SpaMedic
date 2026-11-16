@@ -2,9 +2,9 @@ import type { Metadata } from 'next';
 import React from 'react';
 
 export const metadata: Metadata = {
-  title: 'DeepTrau SOS: Consola de Emergencia Médica Espacial',
+  title: 'DeepTrau SOS: Space Medical Emergency Console',
   description:
-    'Consola médica de emergencia espacial con protocolos autónomos, cronómetro de episodio, mapa corporal interactivo y empaquetado de telemetría hacia Tierra.',
+    'Autonomous space medical emergency console featuring gravity-adapted protocols, episode stopwatch, interactive body map, and Earth telemetry downlink.',
 };
 
 export default function SosLayout({ children }: { children: React.ReactNode }) {

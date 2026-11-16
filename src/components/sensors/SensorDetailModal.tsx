@@ -25,7 +25,14 @@ import {
   Wind,
   X,
 } from 'lucide-react';
-import { DeviceConnection, DeviceId, useMission } from '@/context/MissionContext';
+import {
+  DeviceConnection,
+  DeviceId,
+  UltrasoundStatus,
+  localizeUltrasoundStatus,
+  useMission,
+} from '@/context/MissionContext';
+import { Language, formatNumberLocale } from '@/i18n/types';
 
 interface SensorDetailModalProps {
   device: DeviceConnection | null;
@@ -52,7 +59,220 @@ interface SensorGuideSpec {
   tests: DiagnosticTestSpec[];
 }
 
-const SENSOR_GUIDES: Record<DeviceId, SensorGuideSpec> = {
+const SENSOR_GUIDES_EN: Record<DeviceId, SensorGuideSpec> = {
+  vitals_cuff: {
+    steps: [
+      'Wrap the orbital cuff on the left upper arm at resting heart level.',
+      'Insert the index finger into the infrared oximeter sensor with clean, dry skin.',
+      'Remain still for 30 seconds without speaking during oscillometric inflation.',
+      'Confirm SpO₂%, blood pressure, and heart rate sync with your EHR baseline.',
+    ],
+    manualFallback:
+      'Count radial artery pulses for 30 s (×2), inspect nailbed/lip color, and check for dizziness when rising.',
+    ranges: {
+      nominal: 'SpO₂ ≥95% · BP <140/90 · HR 50–94 bpm',
+      warning: 'SpO₂ 92–94% · ΔBP ≥18 · HR 95–114 bpm',
+      critical: 'SpO₂ <92% · BP ≤90 or ≥150 · HR ≥115 bpm',
+    },
+    tests: [
+      {
+        id: 'cuff-baro',
+        title: 'Barometric cuff zero-calibration',
+        subtitle: 'Real-time cabin pressure compensation check',
+        passedMetric: '±1.1 mmHg · Zero verified',
+      },
+      {
+        id: 'cuff-led',
+        title: 'Red / Infrared LED optical test',
+        subtitle: 'Verifies photodiode gain for SpO₂% accuracy',
+        passedMetric: 'SNR 42 dB · Optimal',
+      },
+      {
+        id: 'cuff-ble',
+        title: 'Console telemetry link test',
+        subtitle: 'Latency and packet loss across medical bus',
+        passedMetric: '11 ms · 0% frame loss',
+      },
+    ],
+  },
+  dosimeter: {
+    steps: [
+      'Wear the personal dosimeter inside the uniform chest pocket or on the EVA vest.',
+      'Verify the silicon detector window is unobstructed by metallic armor plates.',
+      'After solar particle activity or orbital belt transit, hold unit near cabin reader.',
+      'Compare daily rate (mSv/day) against your cumulative mission radiation budget.',
+    ],
+    manualFallback:
+      'Log total hours outside shielded modules and monitor space weather advisories on navigation console.',
+    ranges: {
+      nominal: 'Rate <2.8 mSv/day · Cumul. under alert threshold',
+      warning: 'Rate ≥2.8 mSv/day or above caution threshold',
+      critical: 'Rate ≥5.0 mSv/day or mission limit exceeded',
+    },
+    tests: [
+      {
+        id: 'dos-silicon',
+        title: 'CSA silicon diode detector check',
+        subtitle: 'Background thermal noise check inside silicon chamber',
+        passedMetric: 'Floor 0.02 µSv/h · Steady',
+      },
+      {
+        id: 'dos-alarm',
+        title: 'Solar storm threshold self-test',
+        subtitle: 'Simulates particle pulse to verify alarm trigger',
+        passedMetric: '2.8 mSv/d trigger · Active',
+      },
+      {
+        id: 'dos-mem',
+        title: 'Local dosimetry memory integrity',
+        subtitle: 'CRC check of cumulative exposure time-series',
+        passedMetric: '100% blocks intact',
+      },
+    ],
+  },
+  glucometer: {
+    steps: [
+      'Clean the ring fingertip with a sterile swab and let air-dry for 15 seconds.',
+      'Insert the test strip into the thermal chamber until display reads "Ready".',
+      'Perform a lateral capillary lancet prick without squeezing hard to avoid dilution.',
+      'Log shift context (fasting, pre-EVA, post-meal) to compare with EHR baseline.',
+    ],
+    manualFallback:
+      'Assess fine hand tremor, cold sweats, blurred vision, or sudden cognitive fatigue prior to operations.',
+    ranges: {
+      nominal: '75 – 134 mg/dL (optimal baseline 75–125)',
+      warning: '65–74 mg/dL or 135–174 mg/dL',
+      critical: '<65 mg/dL (hypoglycemia) or ≥175 mg/dL',
+    },
+    tests: [
+      {
+        id: 'gluc-ctrl',
+        title: 'Control solution calibration',
+        subtitle: 'Standard enzymatic curve verification',
+        passedMetric: '1.4% deviation · Calibrated',
+      },
+      {
+        id: 'gluc-temp',
+        title: 'Reaction chamber thermal stability',
+        subtitle: 'Internal PID loop for 0g capillary accuracy',
+        passedMetric: '37.0 °C · Stable',
+      },
+      {
+        id: 'gluc-strip',
+        title: 'Optical strip batch scan',
+        subtitle: 'Checks cartridge humidity and expiration date',
+        passedMetric: 'Humidity 11% · Valid batch',
+      },
+    ],
+  },
+  hematology: {
+    steps: [
+      'Gently invert the microfluidic cartridge for 10 seconds to homogenize in 0g.',
+      'Load capillary microsample into the sealed port avoiding air bubbles.',
+      'Slide cartridge into optical bay until the magnetic latch clicks shut.',
+      'Wait 90 seconds while portable cytometry computes total leukocyte count.',
+    ],
+    manualFallback:
+      'Self-check cervical/axillary lymph nodes, oral mucosa, unusual fatigue, and record oral temperature.',
+    ranges: {
+      nominal: '>4,500 cells/µL (or >4,100 with normal EHR)',
+      warning: '3,601–4,500 cells/µL (immune watch)',
+      critical: '≤3,600 cells/µL (≤3,200 if normal EHR)',
+    },
+    tests: [
+      {
+        id: 'hem-laser',
+        title: 'Cytometry laser alignment',
+        subtitle: 'Verifies optical focus of cell-counting channel',
+        passedMetric: '0.4 µm focus · Aligned',
+      },
+      {
+        id: 'hem-bubble',
+        title: '0g acoustic microbubble purge',
+        subtitle: 'Ensures bubble-free laminar flow in microgravity',
+        passedMetric: '0 bubbles detected',
+      },
+      {
+        id: 'hem-reagent',
+        title: 'Immune reagent optical integrity',
+        subtitle: 'Reference cartridge optical transmittance check',
+        passedMetric: '99.4% stability · OK',
+      },
+    ],
+  },
+  ultrasound: {
+    steps: [
+      'Secure feet in cabin foot restraints to stabilize posture during scanning.',
+      'Apply water-soluble gel directly onto linear probe without cabin splatter.',
+      'Place probe gently on closed eyelid (SANS scan) or mid-quadriceps muscle.',
+      'Save transverse sweep and attach capture for onboard review or Earth link.',
+    ],
+    manualFallback:
+      'Run Amsler grid test for visual distortion, assess cranial fullness, and measure muscle tape girth.',
+    ranges: {
+      nominal: 'No neuro-ocular edema or muscle atrophy',
+      warning: 'Mild neuro-ocular edema or muscle loss',
+      critical: 'SANS progression with acute visual deficit',
+    },
+    tests: [
+      {
+        id: 'us-crystal',
+        title: 'Piezoelectric element array test',
+        subtitle: 'Diagnostic sweep across all 64 linear transducer channels',
+        passedMetric: '64/64 channels active',
+      },
+      {
+        id: 'us-doppler',
+        title: 'SANS Doppler depth calibration',
+        subtitle: 'Acoustic tuning for optic nerve sheath (3 mm)',
+        passedMetric: '0.12 mm resolution · Optimal',
+      },
+      {
+        id: 'us-dicom',
+        title: 'Local-first encrypted DICOM buffer',
+        subtitle: 'Verifies packaging for async downlink to Earth',
+        passedMetric: 'Queue ready · AES-256',
+      },
+    ],
+  },
+  eva_spirometer: {
+    steps: [
+      'Run test inside the airlock immediately after doffing the EVA helmet.',
+      'Attach antimicrobial mouthpiece and seal lips after maximal inhalation.',
+      'Exhale steadily for 6 seconds while IR sensor records core temperature.',
+      'If exposed to fine regolith dust, repeat scan after airlock air scrub.',
+    ],
+    manualFallback:
+      'Count resting breaths per minute, screen for dry cough or wheezing, and log oral temperature.',
+    ranges: {
+      nominal: '35.9–37.7 °C · SpO₂ ≥95% · Clear flow',
+      warning: '35.3–35.8 or 37.8–38.4 °C · SpO₂ 92–94%',
+      critical: '≤35.2 or ≥38.5 °C · SpO₂ <92% post-EVA',
+    },
+    tests: [
+      {
+        id: 'eva-flow',
+        title: 'Expiratory turbine zeroing',
+        subtitle: 'Calibrates flowmeter to current airlock pressure',
+        passedMetric: 'Zero ±0.01 L/s · Verified',
+      },
+      {
+        id: 'eva-ir',
+        title: 'Core IR thermometer test',
+        subtitle: 'Checks thermal accuracy against blackbody reference',
+        passedMetric: 'Accuracy ±0.1 °C · OK',
+      },
+      {
+        id: 'eva-dust',
+        title: 'Anti-regolith filter optical check',
+        subtitle: 'Detects clogging from lunar or Martian dust',
+        passedMetric: 'Clean filter · 98% flow',
+      },
+    ],
+  },
+};
+
+const SENSOR_GUIDES_ES: Record<DeviceId, SensorGuideSpec> = {
   vitals_cuff: {
     steps: [
       'Coloca el brazalete orbital en el brazo izquierdo a la altura del corazón en reposo.',
@@ -265,6 +485,10 @@ const SENSOR_GUIDES: Record<DeviceId, SensorGuideSpec> = {
   },
 };
 
+function getSensorGuides(lang: Language) {
+  return lang === 'es' ? SENSOR_GUIDES_ES : SENSOR_GUIDES_EN;
+}
+
 export function renderDeviceIcon(id: DeviceId, className = 'h-5 w-5') {
   switch (id) {
     case 'vitals_cuff':
@@ -284,6 +508,7 @@ export function renderDeviceIcon(id: DeviceId, className = 'h-5 w-5') {
 
 export function SensorDetailModal({ device, onClose }: SensorDetailModalProps) {
   const {
+    language,
     mission,
     astronaut,
     biomarkers,
@@ -299,7 +524,6 @@ export function SensorDetailModal({ device, onClose }: SensorDetailModalProps) {
   >({});
   const [scanFeedback, setScanFeedback] = useState<string | null>(null);
 
-  // Per-sensor telemetry simulator inputs
   const [glucoseInput, setGlucoseInput] = useState<number>(biomarkers.glucoseMgDl);
   const [wbcInput, setWbcInput] = useState<number>(biomarkers.wbcCount);
   const [spo2Input, setSpo2Input] = useState<number>(biomarkers.spo2Percent);
@@ -308,12 +532,11 @@ export function SensorDetailModal({ device, onClose }: SensorDetailModalProps) {
   const [hrInput, setHrInput] = useState<number>(biomarkers.heartRateBpm);
   const [dailyRadInput, setDailyRadInput] = useState<number>(biomarkers.dailyRadiationMsv);
   const [bodyTempInput, setBodyTempInput] = useState<number>(biomarkers.bodyTempC);
-  const [ultrasoundStatus, setUltrasoundStatus] = useState<
-    'Normal' | 'Edema Neuro-Ocular Leve' | 'Atrofia Muscular Leve'
-  >(biomarkers.ultrasoundStatus);
+  const [ultrasoundStatus, setUltrasoundStatus] = useState<UltrasoundStatus>(
+    biomarkers.ultrasoundStatus
+  );
   const [ultrasoundPreview, setUltrasoundPreview] = useState<string | null>(null);
 
-  // Sync local inputs and reset transient test states when opening another device
   useEffect(() => {
     if (!device) return;
     setSectionTab('all');
@@ -362,34 +585,46 @@ export function SensorDetailModal({ device, onClose }: SensorDetailModalProps) {
   const extendedMetrics = useMemo(() => {
     if (!device) return [];
     const isLowImmune = astronaut.clinicalHistory.immuneStatus !== 'Normal';
+    const formattedWbc = formatNumberLocale(biomarkers.wbcCount, language);
 
     switch (device.id) {
       case 'vitals_cuff':
         return [
-          { label: 'Saturación O₂', value: `${biomarkers.spo2Percent}%` },
-          { label: 'Presión Arterial', value: `${biomarkers.systolicBP}/${biomarkers.diastolicBP} mmHg` },
-          { label: 'Frecuencia Cardíaca', value: `${biomarkers.heartRateBpm} bpm` },
           {
-            label: 'Base EHR en Tierra',
+            label: language === 'es' ? 'Saturación O₂' : 'O₂ Saturation',
+            value: `${biomarkers.spo2Percent}%`,
+          },
+          {
+            label: language === 'es' ? 'Presión Arterial' : 'Blood Pressure',
+            value: `${biomarkers.systolicBP}/${biomarkers.diastolicBP} mmHg`,
+          },
+          {
+            label: language === 'es' ? 'Frecuencia Cardíaca' : 'Heart Rate',
+            value: `${biomarkers.heartRateBpm} bpm`,
+          },
+          {
+            label: language === 'es' ? 'Base EHR en Tierra' : 'Earth EHR Baseline',
             value: `${astronaut.clinicalHistory.baselineBP} · ${astronaut.clinicalHistory.baselineHR} bpm`,
           },
         ];
       case 'dosimeter':
         return [
           {
-            label: 'Dosis Acumulada',
+            label: language === 'es' ? 'Dosis Acumulada' : 'Cumulative Dose',
             value: `${biomarkers.cumulativeRadiationMsv.toFixed(1)} mSv`,
           },
           {
-            label: 'Tasa Diaria',
-            value: `${biomarkers.dailyRadiationMsv.toFixed(2)} mSv/día`,
+            label: language === 'es' ? 'Tasa Diaria' : 'Daily Rate',
+            value: `${biomarkers.dailyRadiationMsv.toFixed(2)} ${
+              language === 'es' ? 'mSv/día' : 'mSv/day'
+            }`,
           },
           {
-            label: 'Umbral Alerta / Límite',
+            label: language === 'es' ? 'Umbral Alerta / Límite' : 'Alert / Limit',
             value: `${mission.warningLimitMsv} / ${mission.missionLimitMsv} mSv`,
           },
           {
-            label: 'Margen Restante',
+            label: language === 'es' ? 'Margen Restante' : 'Remaining Margin',
             value: `${Math.max(
               0,
               mission.missionLimitMsv - biomarkers.cumulativeRadiationMsv
@@ -398,107 +633,161 @@ export function SensorDetailModal({ device, onClose }: SensorDetailModalProps) {
         ];
       case 'glucometer':
         return [
-          { label: 'Glucemia Actual', value: `${biomarkers.glucoseMgDl} mg/dL` },
           {
-            label: 'Línea Base EHR',
+            label: language === 'es' ? 'Glucemia Actual' : 'Current Glucose',
+            value: `${biomarkers.glucoseMgDl} mg/dL`,
+          },
+          {
+            label: language === 'es' ? 'Línea Base EHR' : 'EHR Baseline',
             value: `${astronaut.clinicalHistory.baselineGlucose} mg/dL`,
           },
           {
-            label: 'Desviación vs Base',
+            label: language === 'es' ? 'Desviación vs Base' : 'Delta vs Baseline',
             value: `${biomarkers.glucoseMgDl - astronaut.clinicalHistory.baselineGlucose >= 0 ? '+' : ''}${
               biomarkers.glucoseMgDl - astronaut.clinicalHistory.baselineGlucose
             } mg/dL`,
           },
           {
-            label: 'Perfil Metabólico',
-            value: mission.id === 'planetary-habitat' ? 'Alta demanda EVA' : 'Nominal en cabina',
+            label: language === 'es' ? 'Perfil Metabólico' : 'Metabolic Profile',
+            value:
+              mission.id === 'planetary-habitat'
+                ? language === 'es'
+                  ? 'Alta demanda EVA'
+                  : 'High EVA demand'
+                : language === 'es'
+                  ? 'Nominal en cabina'
+                  : 'Cabin nominal',
           },
         ];
       case 'hematology':
         return [
           {
-            label: 'Leucocitos Actuales',
-            value: `${biomarkers.wbcCount.toLocaleString('es-ES')} cél/µL`,
+            label: language === 'es' ? 'Leucocitos Actuales' : 'Current Leukocytes',
+            value: `${formattedWbc} ${language === 'es' ? 'cél/µL' : 'cells/µL'}`,
           },
           {
-            label: 'Inmunidad Pre-Misión',
-            value: isLowImmune ? 'Defensas Bajas (EHR)' : 'Normal (EHR)',
+            label: language === 'es' ? 'Inmunidad Pre-Misión' : 'Pre-Flight Immunity',
+            value: isLowImmune
+              ? language === 'es'
+                ? 'Defensas Bajas (EHR)'
+                : 'Low Defenses (EHR)'
+              : 'Normal (EHR)',
           },
-          { label: 'Grupo Sanguíneo', value: astronaut.bloodType },
           {
-            label: 'Umbral de Alerta',
-            value: isLowImmune ? '<4,500 cél/µL' : '<4,100 cél/µL',
+            label: language === 'es' ? 'Grupo Sanguíneo' : 'Blood Type',
+            value: astronaut.bloodType,
+          },
+          {
+            label: language === 'es' ? 'Umbral de Alerta' : 'Alert Threshold',
+            value: isLowImmune
+              ? `<4,500 ${language === 'es' ? 'cél/µL' : 'cells/µL'}`
+              : `<4,100 ${language === 'es' ? 'cél/µL' : 'cells/µL'}`,
           },
         ];
       case 'ultrasound':
         return [
-          { label: 'Hallazgo Actual', value: biomarkers.ultrasoundStatus },
           {
-            label: 'Masa Muscular',
-            value: `${biomarkers.muscleMassRetentionPercent}% retención`,
+            label: language === 'es' ? 'Hallazgo Actual' : 'Current Finding',
+            value: biomarkers.ultrasoundStatus,
           },
           {
-            label: 'Densidad Ósea',
-            value: `${biomarkers.boneDensityRetentionPercent}% retención`,
+            label: language === 'es' ? 'Masa Muscular' : 'Muscle Mass',
+            value: `${biomarkers.muscleMassRetentionPercent}% ${
+              language === 'es' ? 'retención' : 'retained'
+            }`,
           },
-          { label: 'Enlace con Tierra', value: mission.commDelay },
+          {
+            label: language === 'es' ? 'Densidad Ósea' : 'Bone Density',
+            value: `${biomarkers.boneDensityRetentionPercent}% ${
+              language === 'es' ? 'retención' : 'retained'
+            }`,
+          },
+          {
+            label: language === 'es' ? 'Enlace con Tierra' : 'Earth Link',
+            value: mission.commDelay,
+          },
         ];
       case 'eva_spirometer':
         return [
-          { label: 'Temperatura Central', value: `${biomarkers.bodyTempC.toFixed(1)} °C` },
-          { label: 'Saturación Post-EVA', value: `${biomarkers.spo2Percent}% SpO₂` },
-          { label: 'Gravedad Superficie', value: mission.gravityLabel },
-          { label: 'Riesgo Respiratorio', value: mission.primaryHazards[0] ?? 'Control nominal' },
+          {
+            label: language === 'es' ? 'Temperatura Central' : 'Core Temperature',
+            value: `${biomarkers.bodyTempC.toFixed(1)} °C`,
+          },
+          {
+            label: language === 'es' ? 'Saturación Post-EVA' : 'Post-EVA SpO₂',
+            value: `${biomarkers.spo2Percent}% SpO₂`,
+          },
+          {
+            label: language === 'es' ? 'Gravedad Superficie' : 'Surface Gravity',
+            value: mission.gravityLabel,
+          },
+          {
+            label: language === 'es' ? 'Riesgo Respiratorio' : 'Respiratory Hazard',
+            value:
+              mission.primaryHazards[0] ??
+              (language === 'es' ? 'Control nominal' : 'Nominal control'),
+          },
         ];
     }
-  }, [device, astronaut, biomarkers, mission]);
+  }, [device, astronaut, biomarkers, mission, language]);
 
   const recentHistoryRows = useMemo(() => {
     if (!device) return [];
     const slice = history.slice(-6);
+    const dayPrefix = language === 'es' ? 'Día' : 'Day';
     switch (device.id) {
       case 'dosimeter':
         return slice.map((pt) => ({
-          dayLabel: `Día ${pt.day}`,
+          dayLabel: `${dayPrefix} ${pt.day}`,
           valueLabel: `${pt.radiationMsv.toFixed(1)} mSv`,
           ratio: Math.min(1, pt.radiationMsv / Math.max(1, mission.missionLimitMsv)),
         }));
       case 'glucometer':
         return slice.map((pt) => ({
-          dayLabel: `Día ${pt.day}`,
+          dayLabel: `${dayPrefix} ${pt.day}`,
           valueLabel: `${pt.glucoseMgDl} mg/dL`,
           ratio: Math.min(1, Math.max(0.1, (pt.glucoseMgDl - 50) / 150)),
         }));
       case 'hematology':
         return slice.map((pt) => ({
-          dayLabel: `Día ${pt.day}`,
-          valueLabel: `${pt.wbcCount.toLocaleString('es-ES')}/µL`,
+          dayLabel: `${dayPrefix} ${pt.day}`,
+          valueLabel: `${formatNumberLocale(pt.wbcCount, language)}/µL`,
           ratio: Math.min(1, Math.max(0.1, pt.wbcCount / 10500)),
         }));
       case 'ultrasound':
         return slice.map((pt) => ({
-          dayLabel: `Día ${pt.day}`,
-          valueLabel: `Músculo ${pt.muscleRetention}% · Óseo ${pt.boneRetention}%`,
+          dayLabel: `${dayPrefix} ${pt.day}`,
+          valueLabel:
+            language === 'es'
+              ? `Músculo ${pt.muscleRetention}% · Óseo ${pt.boneRetention}%`
+              : `Muscle ${pt.muscleRetention}% · Bone ${pt.boneRetention}%`,
           ratio: Math.min(1, Math.max(0.1, (pt.muscleRetention - 90) / 10)),
         }));
       case 'vitals_cuff':
         return slice.map((pt) => ({
-          dayLabel: `Día ${pt.day}`,
-          valueLabel: `Sueño ${pt.sleepHours}h · Estrés ${pt.stressLevel}/10`,
+          dayLabel: `${dayPrefix} ${pt.day}`,
+          valueLabel:
+            language === 'es'
+              ? `Sueño ${pt.sleepHours}h · Estrés ${pt.stressLevel}/10`
+              : `Sleep ${pt.sleepHours}h · Stress ${pt.stressLevel}/10`,
           ratio: Math.min(1, Math.max(0.15, 1 - pt.stressLevel / 10)),
         }));
       case 'eva_spirometer':
         return slice.map((pt) => ({
-          dayLabel: `Día ${pt.day}`,
-          valueLabel: `${pt.radiationMsv.toFixed(1)} mSv acum. · Ánimo ${pt.moodScore}/10`,
+          dayLabel: `${dayPrefix} ${pt.day}`,
+          valueLabel:
+            language === 'es'
+              ? `${pt.radiationMsv.toFixed(1)} mSv acum. · Ánimo ${pt.moodScore}/10`
+              : `${pt.radiationMsv.toFixed(1)} mSv cum. · Mood ${pt.moodScore}/10`,
           ratio: Math.min(1, Math.max(0.15, pt.moodScore / 10)),
         }));
     }
-  }, [device, history, mission.missionLimitMsv]);
+  }, [device, history, mission.missionLimitMsv, language]);
 
   if (!device || typeof document === 'undefined') return null;
 
-  const guide = SENSOR_GUIDES[device.id];
+  const guides = getSensorGuides(language);
+  const guide = guides[device.id];
   const isAvailable = device.availableInMission;
   const isConnected = isAvailable && device.connected;
 
@@ -556,13 +845,20 @@ export function SensorDetailModal({ device, onClose }: SensorDetailModalProps) {
         cumulativeRadiationMsv: nextCumulative,
       });
     } else if (device.id === 'ultrasound') {
+      const localized = localizeUltrasoundStatus(ultrasoundStatus, language);
       const note =
-        ultrasoundStatus === 'Normal'
-          ? 'Escaneo de ultrasonido portátil sin hallazgos patológicos.'
-          : ultrasoundStatus === 'Edema Neuro-Ocular Leve'
-            ? 'Leve aplanamiento del polo posterior ocular (SANS). Requiere seguimiento.'
-            : 'Disminución discreta de espesor muscular en cuádriceps; reforzar ARED.';
-      recordTelemetryScan({ ultrasoundStatus }, note);
+        localized === 'Normal'
+          ? language === 'es'
+            ? 'Escaneo de ultrasonido portátil sin hallazgos patológicos.'
+            : 'Portable ultrasound scan with no pathological findings.'
+          : localized === 'Edema Neuro-Ocular Leve' || localized === 'Mild Neuro-Ocular Edema'
+            ? language === 'es'
+              ? 'Leve aplanamiento del polo posterior ocular (SANS). Requiere seguimiento.'
+              : 'Mild posterior ocular globe flattening (SANS). Follow-up required.'
+            : language === 'es'
+              ? 'Disminución discreta de espesor muscular en cuádriceps; reforzar ARED.'
+              : 'Mild quadriceps muscle thickness reduction; reinforce ARED.';
+      recordTelemetryScan({ ultrasoundStatus: localized }, note);
     } else if (device.id === 'eva_spirometer') {
       recordTelemetryScan({
         bodyTempC: bodyTempInput,
@@ -571,35 +867,42 @@ export function SensorDetailModal({ device, onClose }: SensorDetailModalProps) {
     }
 
     setScanFeedback(
-      'Lectura registrada en telemetría (+25 pts). El Mapa Corporal y las alertas se actualizaron.'
+      language === 'es'
+        ? 'Lectura registrada en telemetría (+25 pts). El Mapa Corporal y las alertas se actualizaron.'
+        : 'Reading logged to telemetry (+25 pts). Body Map and alerts updated.'
     );
     window.setTimeout(() => setScanFeedback(null), 4000);
   };
 
   const connectionBadge = !isAvailable
     ? {
-        label: 'No disponible en esta misión',
+        label:
+          language === 'es'
+            ? 'No disponible en esta misión'
+            : 'Unavailable in this mission',
         classes: 'border-outline bg-surface-container-high text-on-surface-variant',
       }
     : isConnected
       ? {
-          label: 'Conectado · Lectura activa',
+          label:
+            language === 'es' ? 'Conectado · Lectura activa' : 'Connected · Active stream',
           classes: 'border-primary/35 bg-primary-container text-on-primary-container',
         }
       : {
-          label: 'Desconectado · En espera',
+          label:
+            language === 'es' ? 'Desconectado · En espera' : 'Disconnected · Standby',
           classes: 'border-outline bg-surface-container-low text-on-surface-variant',
         };
 
   const triageBadge =
     device.status === 'critical'
       ? {
-          label: 'Crítico',
+          label: language === 'es' ? 'Crítico' : 'Critical',
           classes: 'border-danger/40 bg-danger-container text-on-danger-container',
         }
       : device.status === 'warning'
         ? {
-            label: 'Precaución',
+            label: language === 'es' ? 'Precaución' : 'Caution',
             classes: 'border-warning/35 bg-warning-container text-on-warning-container',
           }
         : {
@@ -610,6 +913,10 @@ export function SensorDetailModal({ device, onClose }: SensorDetailModalProps) {
   const showGuide = sectionTab === 'all' || sectionTab === 'guide';
   const showTests = sectionTab === 'all' || sectionTab === 'tests';
   const showExtended = sectionTab === 'all' || sectionTab === 'extended';
+
+  const currentLocalizedUs = localizeUltrasoundStatus(ultrasoundStatus, language);
+  const sansValue = language === 'es' ? 'Edema Neuro-Ocular Leve' : 'Mild Neuro-Ocular Edema';
+  const atrophyValue = language === 'es' ? 'Atrofia Muscular Leve' : 'Mild Muscle Atrophy';
 
   return createPortal(
     <div
@@ -662,7 +969,7 @@ export function SensorDetailModal({ device, onClose }: SensorDetailModalProps) {
             <button
               type="button"
               onClick={onClose}
-              aria-label="Cerrar detalle del sensor"
+              aria-label={language === 'es' ? 'Cerrar detalle del sensor' : 'Close sensor details'}
               className="inline-flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-xl border border-outline bg-surface-container text-on-surface-variant dt-transition hover:-translate-y-px hover:border-primary/45 hover:bg-surface-container-low hover:text-on-surface active:translate-y-0 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35"
             >
               <X className="h-4 w-4" />
@@ -674,17 +981,23 @@ export function SensorDetailModal({ device, onClose }: SensorDetailModalProps) {
             <div>
               <span className="block text-[10px] font-medium uppercase tracking-[0.05em] text-on-surface-variant font-display">
                 {!isAvailable
-                  ? `Equipamiento en ${mission.shortName}`
+                  ? language === 'es'
+                    ? `Equipamiento en ${mission.shortName}`
+                    : `Equipment in ${mission.shortName}`
                   : isConnected
-                    ? `Lectura Principal · ${device.lastUpdated}`
-                    : `Estado del Hardware · ${device.lastUpdated}`}
+                    ? `${language === 'es' ? 'Lectura Principal' : 'Primary Reading'} · ${device.lastUpdated}`
+                    : `${language === 'es' ? 'Estado del Hardware' : 'Hardware Status'} · ${device.lastUpdated}`}
               </span>
               <span className="mt-0.5 block font-mono text-base font-bold text-on-surface">
                 {!isAvailable
-                  ? 'Sensor no embarcado en esta misión'
+                  ? language === 'es'
+                    ? 'Sensor no embarcado en esta misión'
+                    : 'Sensor not onboarded in this mission'
                   : isConnected
                     ? device.lastReading
-                    : 'Pausado · Protocolo manual activo'}
+                    : language === 'es'
+                      ? 'Pausado · Protocolo manual activo'
+                      : 'Paused · Manual protocol active'}
               </span>
             </div>
 
@@ -699,12 +1012,22 @@ export function SensorDetailModal({ device, onClose }: SensorDetailModalProps) {
                 }`}
               >
                 <Power className="h-3.5 w-3.5" />
-                <span>{isConnected ? 'Desconectar sensor' : 'Conectar sensor'}</span>
+                <span>
+                  {isConnected
+                    ? language === 'es'
+                      ? 'Desconectar sensor'
+                      : 'Disconnect sensor'
+                    : language === 'es'
+                      ? 'Conectar sensor'
+                      : 'Connect sensor'}
+                </span>
               </button>
             ) : (
               <span className="inline-flex items-center gap-1.5 rounded-xl border border-outline bg-surface-container-low px-3 py-1.5 text-xs font-medium text-on-surface-variant">
                 <Ban className="h-3.5 w-3.5" />
-                <span>{device.unavailableReason ?? 'No disponible'}</span>
+                <span>
+                  {device.unavailableReason ?? (language === 'es' ? 'No disponible' : 'Unavailable')}
+                </span>
               </span>
             )}
           </div>
@@ -713,10 +1036,13 @@ export function SensorDetailModal({ device, onClose }: SensorDetailModalProps) {
           <div className="flex flex-wrap items-center gap-1.5" role="tablist">
             {(
               [
-                { id: 'all', label: 'Vista completa' },
-                { id: 'guide', label: 'Cómo tomar la medida' },
-                { id: 'tests', label: 'Pruebas y diagnósticos' },
-                { id: 'extended', label: 'Datos extendidos' },
+                { id: 'all', label: language === 'es' ? 'Vista completa' : 'Full view' },
+                { id: 'guide', label: language === 'es' ? 'Cómo tomar la medida' : 'How to measure' },
+                {
+                  id: 'tests',
+                  label: language === 'es' ? 'Pruebas y diagnósticos' : 'Tests & diagnostics',
+                },
+                { id: 'extended', label: language === 'es' ? 'Datos extendidos' : 'Extended data' },
               ] as const
             ).map((tab) => {
               const active = sectionTab === tab.id;
@@ -748,7 +1074,9 @@ export function SensorDetailModal({ device, onClose }: SensorDetailModalProps) {
               <div className="flex items-center justify-between gap-2">
                 <h3 className="flex items-center gap-2 text-sm font-bold text-on-surface font-display">
                   <Stethoscope className="h-4 w-4 text-primary" />
-                  Cómo tomar la medida · Protocolo del Astronauta
+                  {language === 'es'
+                    ? 'Cómo tomar la medida · Protocolo del Astronauta'
+                    : 'How to Measure · Astronaut Protocol'}
                 </h3>
                 <span className="font-mono text-[10px] font-semibold text-on-surface-variant">
                   {mission.gravityLabel}
@@ -773,7 +1101,9 @@ export function SensorDetailModal({ device, onClose }: SensorDetailModalProps) {
                 <ClipboardCheck className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
                 <div>
                   <span className="font-bold font-display">
-                    Protocolo clínico manual (sin sensor):{' '}
+                    {language === 'es'
+                      ? 'Protocolo clínico manual (sin sensor): '
+                      : 'Manual clinical fallback (no hardware): '}
                   </span>
                   <span>{guide.manualFallback}</span>
                 </div>
@@ -787,7 +1117,9 @@ export function SensorDetailModal({ device, onClose }: SensorDetailModalProps) {
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <h3 className="flex items-center gap-2 text-sm font-bold text-on-surface font-display">
                   <FlaskConical className="h-4 w-4 text-telemetry" />
-                  Pruebas y Diagnósticos del Sensor
+                  {language === 'es'
+                    ? 'Pruebas y Diagnósticos del Sensor'
+                    : 'Sensor Tests & Diagnostics'}
                 </h3>
 
                 {isConnected && (
@@ -797,26 +1129,43 @@ export function SensorDetailModal({ device, onClose }: SensorDetailModalProps) {
                     className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-primary/35 bg-primary-container px-2.5 py-1 text-[11px] font-bold text-on-primary-container font-display dt-transition hover:-translate-y-px hover:bg-primary hover:text-on-primary active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35"
                   >
                     <Play className="h-3 w-3" />
-                    <span>Ejecutar diagnóstico completo</span>
+                    <span>
+                      {language === 'es'
+                        ? 'Ejecutar diagnóstico completo'
+                        : 'Run full diagnostics'}
+                    </span>
                   </button>
                 )}
               </div>
 
               {!isAvailable ? (
                 <div className="rounded-xl border border-outline bg-surface-container-low p-4 text-xs text-on-surface-variant">
-                  Las pruebas de hardware están deshabilitadas porque este sensor no está embarcado
-                  en <span className="font-semibold text-on-surface">{mission.name}</span>. Utiliza
-                  el protocolo clínico manual detallado arriba.
+                  {language === 'es' ? (
+                    <>
+                      Las pruebas de hardware están deshabilitadas porque este sensor no está embarcado
+                      en <span className="font-semibold text-on-surface">{mission.name}</span>. Utiliza
+                      el protocolo clínico manual detallado arriba.
+                    </>
+                  ) : (
+                    <>
+                      Hardware tests are disabled because this sensor is not onboarded in{' '}
+                      <span className="font-semibold text-on-surface">{mission.name}</span>. Use
+                      the manual clinical fallback protocol listed above.
+                    </>
+                  )}
                 </div>
               ) : !isConnected ? (
                 <div className="flex flex-col gap-3 rounded-xl border border-outline bg-surface-container-low p-4 sm:flex-row sm:items-center sm:justify-between">
                   <div className="text-xs text-on-surface-variant">
                     <p className="font-semibold text-on-surface font-display">
-                      Sensor desconectado actualmente
+                      {language === 'es'
+                        ? 'Sensor desconectado actualmente'
+                        : 'Sensor currently disconnected'}
                     </p>
                     <p className="mt-0.5">
-                      Conéctalo para ejecutar autodiagnósticos de calibración o registrar nuevas
-                      lecturas automáticas.
+                      {language === 'es'
+                        ? 'Conéctalo para ejecutar autodiagnósticos de calibración o registrar nuevas lecturas automáticas.'
+                        : 'Connect it to run calibration self-tests or log automated readings.'}
                     </p>
                   </div>
                   <button
@@ -825,7 +1174,7 @@ export function SensorDetailModal({ device, onClose }: SensorDetailModalProps) {
                     className="inline-flex shrink-0 cursor-pointer items-center gap-1.5 rounded-xl bg-primary px-3.5 py-2 text-xs font-bold text-on-primary font-display dt-transition hover:-translate-y-px hover:bg-primary-hover active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35"
                   >
                     <Power className="h-3.5 w-3.5" />
-                    <span>Conectar ahora</span>
+                    <span>{language === 'es' ? 'Conectar ahora' : 'Connect now'}</span>
                   </button>
                 </div>
               ) : (
@@ -861,12 +1210,22 @@ export function SensorDetailModal({ device, onClose }: SensorDetailModalProps) {
                               {state === 'running' ? (
                                 <>
                                   <Clock className="h-3 w-3 animate-spin text-primary" />
-                                  <span>Probando...</span>
+                                  <span>
+                                    {language === 'es' ? 'Probando...' : 'Testing...'}
+                                  </span>
                                 </>
                               ) : (
                                 <>
                                   <Play className="h-3 w-3 text-primary" />
-                                  <span>{state === 'passed' ? 'Repetir' : 'Probar'}</span>
+                                  <span>
+                                    {state === 'passed'
+                                      ? language === 'es'
+                                        ? 'Repetir'
+                                        : 'Retest'
+                                      : language === 'es'
+                                        ? 'Probar'
+                                        : 'Run test'}
+                                  </span>
                                 </>
                               )}
                             </button>
@@ -884,10 +1243,14 @@ export function SensorDetailModal({ device, onClose }: SensorDetailModalProps) {
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <span className="flex items-center gap-1.5 text-xs font-bold text-on-surface font-display">
                         <Sparkles className="h-3.5 w-3.5 text-primary" />
-                        Simular o Registrar Medición de este Sensor
+                        {language === 'es'
+                          ? 'Simular o Registrar Medición de este Sensor'
+                          : 'Simulate or Log Reading from this Sensor'}
                       </span>
                       <span className="font-mono text-[10px] text-on-surface-variant">
-                        Actualiza Mapa Corporal y Alertas
+                        {language === 'es'
+                          ? 'Actualiza Mapa Corporal y Alertas'
+                          : 'Updates Body Map & Alerts'}
                       </span>
                     </div>
 
@@ -901,7 +1264,9 @@ export function SensorDetailModal({ device, onClose }: SensorDetailModalProps) {
                     {device.id === 'glucometer' && (
                       <div className="space-y-1.5">
                         <div className="flex justify-between text-xs">
-                          <label className="font-medium text-on-surface">Glucosa Capilar</label>
+                          <label className="font-medium text-on-surface">
+                            {language === 'es' ? 'Glucosa Capilar' : 'Capillary Glucose'}
+                          </label>
                           <span className="font-mono font-bold text-telemetry">
                             {glucoseInput} mg/dL
                           </span>
@@ -921,10 +1286,11 @@ export function SensorDetailModal({ device, onClose }: SensorDetailModalProps) {
                       <div className="space-y-1.5">
                         <div className="flex justify-between text-xs">
                           <label className="font-medium text-on-surface">
-                            Conteo de Leucocitos
+                            {language === 'es' ? 'Conteo de Leucocitos' : 'Leukocyte Count'}
                           </label>
                           <span className="font-mono font-bold text-danger">
-                            {wbcInput.toLocaleString('es-ES')} cél/µL
+                            {formatNumberLocale(wbcInput, language)}{' '}
+                            {language === 'es' ? 'cél/µL' : 'cells/µL'}
                           </span>
                         </div>
                         <input
@@ -943,10 +1309,13 @@ export function SensorDetailModal({ device, onClose }: SensorDetailModalProps) {
                       <div className="space-y-1.5">
                         <div className="flex justify-between text-xs">
                           <label className="font-medium text-on-surface">
-                            Dosis Diaria de Radiación
+                            {language === 'es'
+                              ? 'Dosis Diaria de Radiación'
+                              : 'Daily Radiation Dose'}
                           </label>
                           <span className="font-mono font-bold text-warning">
-                            {dailyRadInput.toFixed(1)} mSv/día
+                            {dailyRadInput.toFixed(1)}{' '}
+                            {language === 'es' ? 'mSv/día' : 'mSv/day'}
                           </span>
                         </div>
                         <input
@@ -966,7 +1335,9 @@ export function SensorDetailModal({ device, onClose }: SensorDetailModalProps) {
                         <div className="space-y-1.5">
                           <div className="flex justify-between text-xs">
                             <label className="font-medium text-on-surface">
-                              Saturación de Oxígeno (SpO₂)
+                              {language === 'es'
+                                ? 'Saturación de Oxígeno (SpO₂)'
+                                : 'Oxygen Saturation (SpO₂)'}
                             </label>
                             <span className="font-mono font-bold text-primary">{spo2Input}%</span>
                           </div>
@@ -981,7 +1352,9 @@ export function SensorDetailModal({ device, onClose }: SensorDetailModalProps) {
                         </div>
                         <div className="grid grid-cols-3 gap-2">
                           <div>
-                            <span className="text-[10px] text-on-surface-variant">Sistólica</span>
+                            <span className="text-[10px] text-on-surface-variant">
+                              {language === 'es' ? 'Sistólica' : 'Systolic'}
+                            </span>
                             <input
                               type="number"
                               min={80}
@@ -992,7 +1365,9 @@ export function SensorDetailModal({ device, onClose }: SensorDetailModalProps) {
                             />
                           </div>
                           <div>
-                            <span className="text-[10px] text-on-surface-variant">Diastólica</span>
+                            <span className="text-[10px] text-on-surface-variant">
+                              {language === 'es' ? 'Diastólica' : 'Diastolic'}
+                            </span>
                             <input
                               type="number"
                               min={50}
@@ -1003,7 +1378,9 @@ export function SensorDetailModal({ device, onClose }: SensorDetailModalProps) {
                             />
                           </div>
                           <div>
-                            <span className="text-[10px] text-on-surface-variant">Pulso bpm</span>
+                            <span className="text-[10px] text-on-surface-variant">
+                              {language === 'es' ? 'Pulso bpm' : 'Pulse bpm'}
+                            </span>
                             <input
                               type="number"
                               min={40}
@@ -1020,29 +1397,36 @@ export function SensorDetailModal({ device, onClose }: SensorDetailModalProps) {
                     {device.id === 'ultrasound' && (
                       <div className="space-y-2.5">
                         <select
-                          value={ultrasoundStatus}
+                          value={currentLocalizedUs}
                           onChange={(e) =>
-                            setUltrasoundStatus(
-                              e.target.value as
-                                | 'Normal'
-                                | 'Edema Neuro-Ocular Leve'
-                                | 'Atrofia Muscular Leve'
-                            )
+                            setUltrasoundStatus(e.target.value as UltrasoundStatus)
                           }
                           className="w-full cursor-pointer rounded-lg border border-outline bg-surface-container px-2.5 py-2 text-xs text-on-surface outline-none dt-transition hover:border-primary/50 focus:border-primary focus:ring-2 focus:ring-primary/15"
                         >
-                          <option value="Normal">Normal (Sin hallazgos)</option>
-                          <option value="Edema Neuro-Ocular Leve">
-                            Edema Neuro-Ocular Leve (SANS)
+                          <option value="Normal">
+                            {language === 'es'
+                              ? 'Normal (Sin hallazgos)'
+                              : 'Normal (No findings)'}
                           </option>
-                          <option value="Atrofia Muscular Leve">
-                            Atrofia Muscular Leve en Cuádriceps
+                          <option value={sansValue}>
+                            {language === 'es'
+                              ? 'Edema Neuro-Ocular Leve (SANS)'
+                              : 'Mild Neuro-Ocular Edema (SANS)'}
+                          </option>
+                          <option value={atrophyValue}>
+                            {language === 'es'
+                              ? 'Atrofia Muscular Leve en Cuádriceps'
+                              : 'Mild Quadriceps Muscle Atrophy'}
                           </option>
                         </select>
 
                         <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-outline bg-surface-container px-2.5 py-1.5 text-[11px] font-medium text-primary dt-transition hover:-translate-y-px hover:border-primary hover:bg-primary-container/35 active:scale-[0.98]">
                           <ImagePlus className="h-3.5 w-3.5" />
-                          <span>Cargar captura de ultrasonido</span>
+                          <span>
+                            {language === 'es'
+                              ? 'Cargar captura de ultrasonido'
+                              : 'Upload ultrasound capture'}
+                          </span>
                           <input
                             type="file"
                             accept="image/*"
@@ -1054,7 +1438,11 @@ export function SensorDetailModal({ device, onClose }: SensorDetailModalProps) {
                           <div className="dt-animate-panel overflow-hidden rounded-lg border border-outline">
                             <img
                               src={ultrasoundPreview}
-                              alt="Vista previa de ultrasonido"
+                              alt={
+                                language === 'es'
+                                  ? 'Vista previa de ultrasonido'
+                                  : 'Ultrasound preview'
+                              }
                               className="h-24 w-full object-cover"
                             />
                           </div>
@@ -1067,7 +1455,7 @@ export function SensorDetailModal({ device, onClose }: SensorDetailModalProps) {
                         <div className="space-y-1.5">
                           <div className="flex justify-between text-xs">
                             <label className="font-medium text-on-surface">
-                              Temperatura Central
+                              {language === 'es' ? 'Temperatura Central' : 'Core Temperature'}
                             </label>
                             <span className="font-mono font-bold text-warning">
                               {bodyTempInput.toFixed(1)} °C
@@ -1085,7 +1473,9 @@ export function SensorDetailModal({ device, onClose }: SensorDetailModalProps) {
                         </div>
                         <div className="space-y-1.5">
                           <div className="flex justify-between text-xs">
-                            <label className="font-medium text-on-surface">SpO₂ Post-EVA</label>
+                            <label className="font-medium text-on-surface">
+                              {language === 'es' ? 'SpO₂ Post-EVA' : 'Post-EVA SpO₂'}
+                            </label>
                             <span className="font-mono font-bold text-primary">{spo2Input}%</span>
                           </div>
                           <input
@@ -1106,7 +1496,11 @@ export function SensorDetailModal({ device, onClose }: SensorDetailModalProps) {
                         className="group inline-flex cursor-pointer items-center gap-1.5 rounded-xl bg-primary px-4 py-2 text-xs font-bold text-on-primary font-display dt-transition hover:-translate-y-0.5 hover:bg-primary-hover hover:shadow-[0_8px_18px_-8px_rgba(47,93,70,0.45)] active:translate-y-0 active:scale-[0.985] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35"
                       >
                         <Send className="h-3.5 w-3.5 dt-transition group-hover:translate-x-0.5" />
-                        <span>Registrar Nueva Lectura (+25 pts)</span>
+                        <span>
+                          {language === 'es'
+                            ? 'Registrar Nueva Lectura (+25 pts)'
+                            : 'Log New Reading (+25 pts)'}
+                        </span>
                       </button>
                     </div>
                   </form>
@@ -1120,7 +1514,9 @@ export function SensorDetailModal({ device, onClose }: SensorDetailModalProps) {
             <section className="dt-animate-panel space-y-4">
               <h3 className="flex items-center gap-2 text-sm font-bold text-on-surface font-display">
                 <LineChart className="h-4 w-4 text-primary" />
-                Datos Extendidos, Rangos e Historial Reciente
+                {language === 'es'
+                  ? 'Datos Extendidos, Rangos e Historial Reciente'
+                  : 'Extended Data, Thresholds & Recent History'}
               </h3>
 
               {/* Secondary Readouts */}
@@ -1145,7 +1541,7 @@ export function SensorDetailModal({ device, onClose }: SensorDetailModalProps) {
                 <div className="rounded-xl border border-primary/30 bg-primary-container/50 p-3">
                   <span className="inline-flex items-center gap-1 font-bold text-on-primary-container font-display">
                     <CheckCircle2 className="h-3.5 w-3.5 text-primary" />
-                    Rango Nominal
+                    {language === 'es' ? 'Rango Nominal' : 'Nominal Range'}
                   </span>
                   <p className="mt-1 font-mono text-[11px] text-on-primary-container">
                     {guide.ranges.nominal}
@@ -1154,7 +1550,7 @@ export function SensorDetailModal({ device, onClose }: SensorDetailModalProps) {
                 <div className="rounded-xl border border-warning/35 bg-warning-container/60 p-3">
                   <span className="inline-flex items-center gap-1 font-bold text-on-warning-container font-display">
                     <AlertTriangle className="h-3.5 w-3.5 text-warning" />
-                    Precaución
+                    {language === 'es' ? 'Precaución' : 'Caution'}
                   </span>
                   <p className="mt-1 font-mono text-[11px] text-on-warning-container">
                     {guide.ranges.warning}
@@ -1163,7 +1559,7 @@ export function SensorDetailModal({ device, onClose }: SensorDetailModalProps) {
                 <div className="rounded-xl border border-danger/35 bg-danger-container/60 p-3">
                   <span className="inline-flex items-center gap-1 font-bold text-on-danger-container font-display">
                     <ShieldAlert className="h-3.5 w-3.5 text-danger" />
-                    Umbral Crítico
+                    {language === 'es' ? 'Umbral Crítico' : 'Critical Threshold'}
                   </span>
                   <p className="mt-1 font-mono text-[11px] text-on-danger-container">
                     {guide.ranges.critical}
@@ -1175,11 +1571,13 @@ export function SensorDetailModal({ device, onClose }: SensorDetailModalProps) {
               <div className="rounded-xl border border-outline bg-surface-container-low p-3.5 space-y-2.5">
                 <div className="flex items-center justify-between text-xs">
                   <span className="font-semibold text-on-surface font-display">
-                    Historial Reciente en Misión ({recentHistoryRows.length} registros)
+                    {language === 'es'
+                      ? `Historial Reciente en Misión (${recentHistoryRows.length} registros)`
+                      : `Recent Mission History (${recentHistoryRows.length} logs)`}
                   </span>
                   {device.id === 'ultrasound' && (
                     <span className="text-[11px] text-on-surface-variant">
-                      Nota: {biomarkers.ultrasoundNotes}
+                      {language === 'es' ? 'Nota:' : 'Note:'} {biomarkers.ultrasoundNotes}
                     </span>
                   )}
                 </div>

@@ -19,10 +19,15 @@ import {
   Timer,
   X,
 } from 'lucide-react';
-import { useMission } from '@/context/MissionContext';
-import { BODY_SYSTEM_GUIDES, MEDICAL_TOOLTIPS } from '@/data/medicalKnowledge';
+import {
+  isMildMuscleAtrophy,
+  useMission,
+} from '@/context/MissionContext';
+import { hasPriorSurgeries } from '@/data/astronautsData';
+import { getBodySystemGuides, getMedicalTooltips } from '@/data/medicalKnowledge';
+import { isDailyFrequency, isHighImpactLoad } from '@/data/missionsData';
 
-type ExerciseFilter = 'all' | 'Diaria' | 'Semanal';
+type ExerciseFilter = 'all' | 'daily' | 'weekly';
 
 function formatTimerClock(totalSeconds: number): string {
   const safe = Math.max(0, totalSeconds);
@@ -33,6 +38,7 @@ function formatTimerClock(totalSeconds: number): string {
 
 export function BoneMuscleTab() {
   const {
+    language,
     mission,
     astronaut,
     biomarkers,
@@ -53,12 +59,10 @@ export function BoneMuscleTab() {
   const [sessionCompletedBanner, setSessionCompletedBanner] = useState<string | null>(null);
   const [inspectedDayIdx, setInspectedDayIdx] = useState<number | null>(null);
 
+  const hasSurgeries = hasPriorSurgeries(astronaut.clinicalHistory.priorSurgeries);
   const realPriorSurgeries = useMemo(
-    () =>
-      astronaut.clinicalHistory.priorSurgeries.filter(
-        (s) => !s.toLowerCase().includes('sin cirug')
-      ),
-    [astronaut.clinicalHistory.priorSurgeries]
+    () => (hasSurgeries ? astronaut.clinicalHistory.priorSurgeries : []),
+    [hasSurgeries, astronaut.clinicalHistory.priorSurgeries]
   );
 
   const adaptedCount = exercises.filter((e) => e.isAdaptedForSurgery).length;
@@ -70,14 +74,15 @@ export function BoneMuscleTab() {
   const exerciseProgressPct =
     totalMinutes > 0 ? Math.round((completedMinutes / totalMinutes) * 100) : 0;
 
-  const dailyExercises = exercises.filter((e) => e.frequency === 'Diaria');
-  const weeklyExercises = exercises.filter((e) => e.frequency === 'Semanal');
+  const dailyExercises = exercises.filter((e) => isDailyFrequency(e.frequency));
+  const weeklyExercises = exercises.filter((e) => !isDailyFrequency(e.frequency));
   const allDailyDone =
     dailyExercises.length > 0 && dailyExercises.every((e) => e.completed);
 
   const filteredExercises = useMemo(() => {
     if (frequencyFilter === 'all') return exercises;
-    return exercises.filter((ex) => ex.frequency === frequencyFilter);
+    if (frequencyFilter === 'daily') return exercises.filter((ex) => isDailyFrequency(ex.frequency));
+    return exercises.filter((ex) => !isDailyFrequency(ex.frequency));
   }, [exercises, frequencyFilter]);
 
   const activeTimerExercise = useMemo(
@@ -85,7 +90,6 @@ export function BoneMuscleTab() {
     [exercises, activeTimerExId]
   );
 
-  // Reset timer cleanly if mission changes and exercise ID is no longer present
   useEffect(() => {
     if (activeTimerExId && !exercises.some((ex) => ex.id === activeTimerExId)) {
       setActiveTimerExId(null);
@@ -132,7 +136,9 @@ export function BoneMuscleTab() {
     setActiveTimerExId(null);
     setRemainingSeconds(0);
     setSessionCompletedBanner(
-      `Bloque completado: ${displayName} (+0.2% retención · +30 pts)`
+      language === 'es'
+        ? `Bloque completado: ${displayName} (+0.2% retención · +30 pts)`
+        : `Block completed: ${displayName} (+0.2% retention · +30 pts)`
     );
     window.setTimeout(() => setSessionCompletedBanner(null), 4500);
   };
@@ -146,21 +152,22 @@ export function BoneMuscleTab() {
 
   const ultrasoundDevice = devices.find((d) => d.id === 'ultrasound');
   const musculoStatus = systemStatuses.musculoskeletal;
-  const musculoGuide = BODY_SYSTEM_GUIDES.musculoskeletal;
+  const musculoGuide = getBodySystemGuides(language).musculoskeletal;
+  const tooltips = getMedicalTooltips(language);
 
   const statusBadge =
     musculoStatus === 'critical'
       ? {
-          label: 'Crítico',
+          label: language === 'es' ? 'Crítico' : 'Critical',
           classes: 'border-danger/40 bg-danger-container text-on-danger-container',
         }
       : musculoStatus === 'warning'
         ? {
-            label: 'Precaución',
+            label: language === 'es' ? 'Precaución' : 'Caution',
             classes: 'border-warning/35 bg-warning-container text-on-warning-container',
           }
         : {
-            label: 'Óptimo',
+            label: language === 'es' ? 'Óptimo' : 'Optimal',
             classes: 'border-primary/30 bg-primary-container text-on-primary-container',
           };
 
@@ -217,7 +224,6 @@ export function BoneMuscleTab() {
   const safeBottomY = toY(98);
   const criticalThresholdY = toY(95.5);
 
-  // Active timer derived metrics
   const timerTotalSec = activeTimerExercise ? activeTimerExercise.durationMin * 60 : 1;
   const timerElapsedSec = activeTimerExercise ? Math.max(0, timerTotalSec - remainingSeconds) : 0;
   const timerPct = activeTimerExercise
@@ -225,12 +231,20 @@ export function BoneMuscleTab() {
     : 0;
   const timerPhaseLabel =
     remainingSeconds === 0
-      ? 'Bloque finalizado · Listo para registrar'
+      ? language === 'es'
+        ? 'Bloque finalizado · Listo para registrar'
+        : 'Block complete · Ready to log'
       : timerPct < 15
-        ? 'Fase 1: Calentamiento y movilidad articular'
+        ? language === 'es'
+          ? 'Fase 1: Calentamiento y movilidad articular'
+          : 'Phase 1: Warm-up & joint mobility'
         : timerPct < 85
-          ? 'Fase 2: Carga mecánica ósea y resistencia'
-          : 'Fase 3: Enfriamiento y descarga lumbar';
+          ? language === 'es'
+            ? 'Fase 2: Carga mecánica ósea y resistencia'
+            : 'Phase 2: Mechanical bone loading & resistance'
+          : language === 'es'
+            ? 'Fase 3: Enfriamiento y descarga lumbar'
+            : 'Phase 3: Cool-down & lumbar decompression';
 
   return (
     <div className="space-y-6">
@@ -240,29 +254,44 @@ export function BoneMuscleTab() {
           <div>
             <div className="flex flex-wrap items-center gap-2">
               <p className="text-xs font-semibold uppercase tracking-[0.06em] text-primary font-display">
-                Contramedida Gravitatoria · {mission.gravityLabel}
+                {language === 'es' ? 'Contramedida Gravitatoria' : 'Gravitational Countermeasure'} ·{' '}
+                {mission.gravityLabel}
               </p>
               <span
                 className={`rounded-full border px-2.5 py-0.5 text-[10px] font-bold font-display ${statusBadge.classes}`}
               >
-                Estado: {statusBadge.label}
+                {language === 'es' ? 'Estado' : 'Status'}: {statusBadge.label}
               </span>
             </div>
             <h2 className="mt-1 text-[22px] leading-[28px] font-bold text-on-surface flex items-center gap-2 font-display">
               <Dumbbell className="h-5 w-5 text-primary" />
-              Densidad Ósea, Masa Muscular y Plan de Ejercicio
+              {language === 'es'
+                ? 'Densidad Ósea, Masa Muscular y Plan de Ejercicio'
+                : 'Bone Density, Muscle Mass & Exercise Plan'}
             </h2>
             <p className="mt-1 text-xs text-on-surface-variant">
-              Rutinas diarias y semanales adaptadas a la gravedad de{' '}
-              <span className="text-on-surface font-semibold">{mission.name}</span> y al historial
-              quirúrgico de <span className="font-semibold text-primary">{astronaut.name}</span>.
+              {language === 'es' ? (
+                <>
+                  Rutinas diarias y semanales adaptadas a la gravedad de{' '}
+                  <span className="text-on-surface font-semibold">{mission.name}</span> y al
+                  historial quirúrgico de{' '}
+                  <span className="font-semibold text-primary">{astronaut.name}</span>.
+                </>
+              ) : (
+                <>
+                  Daily and weekly regimens tailored to{' '}
+                  <span className="text-on-surface font-semibold">{mission.name}</span> gravity and{' '}
+                  <span className="font-semibold text-primary">{astronaut.name}</span>&apos;s
+                  surgical history.
+                </>
+              )}
             </p>
           </div>
 
           <div className="flex flex-wrap gap-2.5">
             <div className="rounded-xl border border-primary/25 bg-primary-container px-4 py-2 text-center">
               <span className="block text-[10px] font-medium text-on-primary-container">
-                Retención Ósea (BMD)
+                {language === 'es' ? 'Retención Ósea (BMD)' : 'Bone Retention (BMD)'}
               </span>
               <span className="font-mono text-lg font-bold text-on-primary-container">
                 {biomarkers.boneDensityRetentionPercent}%
@@ -270,7 +299,7 @@ export function BoneMuscleTab() {
             </div>
             <div className="rounded-xl border border-telemetry/25 bg-telemetry-container px-4 py-2 text-center">
               <span className="block text-[10px] font-medium text-on-telemetry-container">
-                Masa Muscular
+                {language === 'es' ? 'Masa Muscular' : 'Muscle Mass'}
               </span>
               <span className="font-mono text-lg font-bold text-on-telemetry-container">
                 {biomarkers.muscleMassRetentionPercent}%
@@ -278,7 +307,7 @@ export function BoneMuscleTab() {
             </div>
             <div className="rounded-xl border border-outline bg-surface-container-low px-4 py-2 text-center">
               <span className="block text-[10px] font-medium text-on-surface-variant">
-                Carga Completada
+                {language === 'es' ? 'Carga Completada' : 'Completed Load'}
               </span>
               <span className="font-mono text-lg font-bold text-on-surface">
                 {completedMinutes}/{totalMinutes}m
@@ -305,10 +334,16 @@ export function BoneMuscleTab() {
               <div>
                 <p className="font-bold font-display">
                   {musculoStatus === 'critical'
-                    ? 'Alerta Crítica de Desmineralización o Pérdida Muscular'
-                    : 'Precaución Musculoesquelética Activa'}
-                  {biomarkers.ultrasoundStatus === 'Atrofia Muscular Leve'
-                    ? ' · Hallazgo: Atrofia Muscular Leve (Eco)'
+                    ? language === 'es'
+                      ? 'Alerta Crítica de Desmineralización o Pérdida Muscular'
+                      : 'Critical Demineralization or Muscle Loss Alert'
+                    : language === 'es'
+                      ? 'Precaución Musculoesquelética Activa'
+                      : 'Active Musculoskeletal Caution'}
+                  {isMildMuscleAtrophy(biomarkers.ultrasoundStatus)
+                    ? language === 'es'
+                      ? ' · Hallazgo: Atrofia Muscular Leve (Eco)'
+                      : ' · Finding: Mild Muscle Atrophy (US)'
                     : ''}
                 </p>
                 <p className="mt-0.5 leading-relaxed">
@@ -324,7 +359,7 @@ export function BoneMuscleTab() {
                 onClick={() => setActiveTab('sensors')}
                 className="shrink-0 cursor-pointer rounded-lg border border-outline bg-surface-container px-3 py-1.5 text-[11px] font-bold text-on-surface font-display dt-transition hover:-translate-y-px hover:border-primary/45 hover:bg-surface-container-low active:translate-y-0 active:scale-[0.985] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35"
               >
-                Verificar Ultrasonido →
+                {language === 'es' ? 'Verificar Ultrasonido →' : 'Verify Ultrasound →'}
               </button>
             )}
           </div>
@@ -336,13 +371,18 @@ export function BoneMuscleTab() {
             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
             <div>
               <p className="font-bold font-display">
-                Adaptación Automática por Cirugías Previas Activa ({adaptedCount} ejercicio
-                {adaptedCount > 1 ? 's' : ''} ajustado{adaptedCount > 1 ? 's' : ''})
+                {language === 'es'
+                  ? `Adaptación Automática por Cirugías Previas Activa (${adaptedCount} ejercicio${
+                      adaptedCount > 1 ? 's' : ''
+                    } ajustado${adaptedCount > 1 ? 's' : ''})`
+                  : `Automatic Prior Surgery Adaptation Active (${adaptedCount} exercise${
+                      adaptedCount > 1 ? 's' : ''
+                    } adjusted)`}
               </p>
               <p className="mt-0.5">
-                Debido al antecedente registrado ({realPriorSurgeries.join(', ')}), DeepTrau
-                reemplazó las cargas de alto impacto articular por alternativas seguras sin perder
-                estímulo óseo.
+                {language === 'es'
+                  ? `Debido al antecedente registrado (${realPriorSurgeries.join(', ')}), DeepTrau reemplazó las cargas de alto impacto articular por alternativas seguras sin perder estímulo óseo.`
+                  : `Due to recorded clinical history (${realPriorSurgeries.join(', ')}), DeepTrau replaced high-impact joint loads with safe alternatives preserving bone stimulus.`}
               </p>
             </div>
           </div>
@@ -351,19 +391,23 @@ export function BoneMuscleTab() {
             <Info className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
             <div>
               <p className="font-bold font-display">
-                Antecedente Quirúrgico en Expediente ({realPriorSurgeries.join(', ')})
+                {language === 'es'
+                  ? `Antecedente Quirúrgico en Expediente (${realPriorSurgeries.join(', ')})`
+                  : `Surgical History on Record (${realPriorSurgeries.join(', ')})`}
               </p>
               <p className="mt-0.5">
-                Los equipos asignados en {mission.shortName} no generan choque directo sobre la zona
-                operada; mantén control de rango articular y evita sobrecarga por encima de la cabeza.
+                {language === 'es'
+                  ? `Los equipos asignados en ${mission.shortName} no generan choque directo sobre la zona operada; mantén control de rango articular y evita sobrecarga por encima de la cabeza.`
+                  : `Equipment onboard ${mission.shortName} avoids direct shock on the operated joint; control range of motion and avoid overhead overload.`}
               </p>
             </div>
           </div>
         ) : (
           <div className="flex items-center gap-2 rounded-xl border border-primary/30 bg-primary-container p-3 text-xs font-medium text-on-primary-container">
             <ShieldCheck className="h-4 w-4 shrink-0 text-primary" />
-            Sin cirugías previas ni restricciones articulares para la gravedad actual (
-            {mission.gravityLabel}). Protocolo completo habilitado.
+            {language === 'es'
+              ? `Sin cirugías previas ni restricciones articulares para la gravedad actual (${mission.gravityLabel}). Protocolo completo habilitado.`
+              : `No prior surgeries or joint restrictions for current gravity (${mission.gravityLabel}). Full protocol cleared.`}
           </div>
         )}
       </div>
@@ -375,20 +419,25 @@ export function BoneMuscleTab() {
           <div className="flex flex-wrap items-start justify-between gap-3 border-b border-outline-variant pb-3">
             <div>
               <h3 className="text-base font-bold text-on-surface font-display">
-                Rutina de Ejercicio Diaria y Semanal
+                {language === 'es'
+                  ? 'Rutina de Ejercicio Diaria y Semanal'
+                  : 'Daily & Weekly Exercise Routine'}
               </h3>
               <p className="text-xs text-on-surface-variant">
-                Completa tus bloques para sumar +0.2% de conservación proyectada y +30 pts.
+                {language === 'es'
+                  ? 'Completa tus bloques para sumar +0.2% de conservación proyectada y +30 pts.'
+                  : 'Complete blocks to add +0.2% projected bone/muscle retention and +30 pts.'}
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-1.5">
               {allDailyDone && (
                 <span className="dt-animate-panel rounded-full border border-primary/30 bg-primary-container px-2.5 py-1 text-[10px] font-bold text-on-primary-container font-display">
-                  Rutina diaria sincronizada ✓
+                  {language === 'es' ? 'Rutina diaria sincronizada ✓' : 'Daily routine synced ✓'}
                 </span>
               )}
               <span className="rounded-full border border-primary/25 bg-primary-container px-2.5 py-1 text-xs font-semibold text-on-primary-container font-mono">
-                {completedCount}/{exercises.length} completados
+                {completedCount}/{exercises.length}{' '}
+                {language === 'es' ? 'completados' : 'completed'}
               </span>
             </div>
           </div>
@@ -398,7 +447,9 @@ export function BoneMuscleTab() {
             <div className="space-y-1.5">
               <div className="flex items-center justify-between text-[11px]">
                 <span className="font-medium text-on-surface-variant">
-                  Progreso de carga física ({completedMinutes} de {totalMinutes} min)
+                  {language === 'es'
+                    ? `Progreso de carga física (${completedMinutes} de ${totalMinutes} min)`
+                    : `Physical workload progress (${completedMinutes} of ${totalMinutes} min)`}
                 </span>
                 <span className="font-mono font-bold text-primary">{exerciseProgressPct}%</span>
               </div>
@@ -413,9 +464,27 @@ export function BoneMuscleTab() {
             <div className="flex flex-wrap items-center gap-1.5">
               {(
                 [
-                  { id: 'all', label: `Todas (${exercises.length})` },
-                  { id: 'Diaria', label: `Diarias (${dailyExercises.length})` },
-                  { id: 'Semanal', label: `Semanales (${weeklyExercises.length})` },
+                  {
+                    id: 'all',
+                    label:
+                      language === 'es'
+                        ? `Todas (${exercises.length})`
+                        : `All (${exercises.length})`,
+                  },
+                  {
+                    id: 'daily',
+                    label:
+                      language === 'es'
+                        ? `Diarias (${dailyExercises.length})`
+                        : `Daily (${dailyExercises.length})`,
+                  },
+                  {
+                    id: 'weekly',
+                    label:
+                      language === 'es'
+                        ? `Semanales (${weeklyExercises.length})`
+                        : `Weekly (${weeklyExercises.length})`,
+                  },
                 ] as const
               ).map((tab) => {
                 const isActive = frequencyFilter === tab.id;
@@ -454,7 +523,8 @@ export function BoneMuscleTab() {
                 <div className="min-w-0">
                   <p className="text-[10px] font-bold uppercase tracking-[0.06em] text-primary font-display flex items-center gap-1.5">
                     <Timer className="h-3.5 w-3.5" />
-                    Sesión Activa · {activeTimerExercise.machine}
+                    {language === 'es' ? 'Sesión Activa' : 'Active Session'} ·{' '}
+                    {activeTimerExercise.machine}
                   </p>
                   <p className="mt-0.5 text-sm font-bold text-on-surface font-display truncate">
                     {activeTimerExercise.isAdaptedForSurgery
@@ -474,7 +544,11 @@ export function BoneMuscleTab() {
                       setTimerRunning(false);
                       setActiveTimerExId(null);
                     }}
-                    aria-label="Cerrar temporizador de sesión"
+                    aria-label={
+                      language === 'es'
+                        ? 'Cerrar temporizador de sesión'
+                        : 'Close session timer'
+                    }
                     className="cursor-pointer rounded-lg border border-outline bg-surface-container p-1.5 text-on-surface-variant dt-transition hover:border-primary/45 hover:text-on-surface active:scale-[0.96] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35"
                   >
                     <X className="h-3.5 w-3.5" />
@@ -499,12 +573,18 @@ export function BoneMuscleTab() {
                     {timerRunning ? (
                       <>
                         <Pause className="h-3.5 w-3.5 text-warning" />
-                        Pausar
+                        {language === 'es' ? 'Pausar' : 'Pause'}
                       </>
                     ) : (
                       <>
                         <Play className="h-3.5 w-3.5 text-primary" />
-                        {remainingSeconds === 0 ? 'Reiniciar' : 'Reanudar'}
+                        {remainingSeconds === 0
+                          ? language === 'es'
+                            ? 'Reiniciar'
+                            : 'Restart'
+                          : language === 'es'
+                            ? 'Reanudar'
+                            : 'Resume'}
                       </>
                     )}
                   </button>
@@ -514,10 +594,10 @@ export function BoneMuscleTab() {
                       setTimerRunning(false);
                       setRemainingSeconds(activeTimerExercise.durationMin * 60);
                     }}
-                    className="inline-flex cursor-pointer items-center gap-1 rounded-lg border border-outline bg-surface-container px-2.5 py-1.5 text-xs font-semibold text-on-surface-variant font-display dt-transition hover:-translate-y-px hover:border-primary/45 hover:text-on-surface active:translate-y-0 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35"
+                    className="inline-flex cursor-pointer items-center gap-1 rounded-lg border border-outline bg-surface-container px-2.5 py-1.5 text-xs font-semibold text-on-surface-variant font-display dt-transition hover:-translate-y-px hover:border-primary/45 hover:text-on-surface active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35"
                   >
                     <RotateCcw className="h-3.5 w-3.5" />
-                    Reiniciar
+                    {language === 'es' ? 'Reiniciar' : 'Reset'}
                   </button>
                 </div>
 
@@ -527,7 +607,9 @@ export function BoneMuscleTab() {
                   className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-bold text-on-primary font-display dt-transition hover:-translate-y-px hover:bg-primary-hover active:translate-y-0 active:scale-[0.985] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35"
                 >
                   <CheckCircle2 className="h-3.5 w-3.5" />
-                  Finalizar y completar (+30 pts)
+                  {language === 'es'
+                    ? 'Finalizar y completar (+30 pts)'
+                    : 'Finish & complete (+30 pts)'}
                 </button>
               </div>
             </div>
@@ -538,11 +620,13 @@ export function BoneMuscleTab() {
             {filteredExercises.map((ex) => {
               const isTimerActive = activeTimerExId === ex.id;
               const loadBadgeLabel = ex.isAdaptedForSurgery
-                ? 'Impacto adaptado · Seguro'
+                ? language === 'es'
+                  ? 'Impacto adaptado · Seguro'
+                  : 'Adapted impact · Safe'
                 : ex.jointLoad;
               const loadBadgeClass = ex.isAdaptedForSurgery
                 ? 'border-warning/35 bg-warning-container text-on-warning-container'
-                : ex.jointLoad === 'Alto impacto'
+                : isHighImpactLoad(ex.jointLoad)
                   ? 'border-telemetry/30 bg-telemetry-container text-on-telemetry-container'
                   : 'border-outline bg-surface-container text-on-surface-variant';
 
@@ -563,8 +647,12 @@ export function BoneMuscleTab() {
                       onClick={() => toggleExerciseTask(ex.id)}
                       aria-label={
                         ex.completed
-                          ? `Desmarcar ${ex.isAdaptedForSurgery ? ex.alternativeName : ex.name}`
-                          : `Marcar como completado ${ex.isAdaptedForSurgery ? ex.alternativeName : ex.name}`
+                          ? `${language === 'es' ? 'Desmarcar' : 'Uncheck'} ${
+                              ex.isAdaptedForSurgery ? ex.alternativeName : ex.name
+                            }`
+                          : `${language === 'es' ? 'Marcar como completado' : 'Mark completed'} ${
+                              ex.isAdaptedForSurgery ? ex.alternativeName : ex.name
+                            }`
                       }
                       className="group mt-0.5 shrink-0 cursor-pointer rounded-full p-0.5 dt-transition hover:scale-110 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35"
                     >
@@ -603,20 +691,32 @@ export function BoneMuscleTab() {
                       </div>
 
                       <p className="text-xs text-on-surface-variant">
-                        Equipo: <span className="font-semibold text-on-surface">{ex.machine}</span> ·
-                        Objetivo: {ex.targetSystem}
+                        {language === 'es' ? 'Equipo:' : 'Equipment:'}{' '}
+                        <span className="font-semibold text-on-surface">{ex.machine}</span> ·{' '}
+                        {language === 'es' ? 'Objetivo:' : 'Target:'} {ex.targetSystem}
                       </p>
 
                       {ex.isAdaptedForSurgery && (
                         <div className="rounded-lg border border-warning/30 bg-warning-container p-2.5 text-[11px] text-on-warning-container">
-                          <span className="font-bold">Adaptado por {ex.matchedSurgery}:</span>{' '}
-                          {ex.alternativeDescription} (Reemplaza a: <em>{ex.name}</em>)
+                          <span className="font-bold">
+                            {language === 'es'
+                              ? `Adaptado por ${ex.matchedSurgery}:`
+                              : `Adapted for ${ex.matchedSurgery}:`}
+                          </span>{' '}
+                          {ex.alternativeDescription} (
+                          {language === 'es' ? 'Reemplaza a:' : 'Replaces:'} <em>{ex.name}</em>)
                         </div>
                       )}
 
                       <div className="flex flex-wrap items-center justify-between gap-2 pt-0.5">
                         <span className="text-[11px] font-mono text-on-surface-variant">
-                          {ex.completed ? 'Registrado hoy (+0.2% BMD/Músculo)' : 'Pendiente (+30 pts)'}
+                          {ex.completed
+                            ? language === 'es'
+                              ? 'Registrado hoy (+0.2% BMD/Músculo)'
+                              : 'Logged today (+0.2% BMD/Muscle)'
+                            : language === 'es'
+                              ? 'Pendiente (+30 pts)'
+                              : 'Pending (+30 pts)'}
                         </span>
                         <button
                           type="button"
@@ -630,17 +730,23 @@ export function BoneMuscleTab() {
                           {isTimerActive && timerRunning ? (
                             <>
                               <Pause className="h-3 w-3" />
-                              Pausar ({formatTimerClock(remainingSeconds)})
+                              {language === 'es' ? 'Pausar' : 'Pause'} ({formatTimerClock(remainingSeconds)})
                             </>
                           ) : isTimerActive ? (
                             <>
                               <Play className="h-3 w-3" />
-                              Reanudar ({formatTimerClock(remainingSeconds)})
+                              {language === 'es' ? 'Reanudar' : 'Resume'} ({formatTimerClock(remainingSeconds)})
                             </>
                           ) : (
                             <>
                               <Timer className="h-3 w-3 text-primary" />
-                              {ex.completed ? 'Repetir sesión' : `Iniciar bloque (${ex.durationMin}m)`}
+                              {ex.completed
+                                ? language === 'es'
+                                  ? 'Repetir sesión'
+                                  : 'Repeat session'
+                                : language === 'es'
+                                  ? `Iniciar bloque (${ex.durationMin}m)`
+                                  : `Start block (${ex.durationMin}m)`}
                             </>
                           )}
                         </button>
@@ -659,7 +765,9 @@ export function BoneMuscleTab() {
             <div className="flex items-center justify-between gap-2 border-b border-outline-variant pb-3">
               <h3 className="text-base font-bold text-on-surface flex items-center gap-2 font-display">
                 <Pill className="h-5 w-5 text-primary" />
-                Suplementación Ósea e Hidratación
+                {language === 'es'
+                  ? 'Suplementación Ósea e Hidratación'
+                  : 'Bone Supplementation & Hydration'}
               </h3>
               <span className="rounded-full border border-primary/25 bg-primary-container px-2.5 py-0.5 text-xs font-semibold text-on-primary-container font-mono">
                 {supCheckedCount}/3
@@ -675,7 +783,9 @@ export function BoneMuscleTab() {
               </div>
               {supCheckedCount === 3 && (
                 <p className="dt-animate-panel text-[11px] font-semibold text-primary">
-                  Soporte mineral completo · Sincronizado con rutina diaria ✓
+                  {language === 'es'
+                    ? 'Soporte mineral completo · Sincronizado con rutina diaria ✓'
+                    : 'Full mineral support · Synced with daily routine ✓'}
                 </p>
               )}
             </div>
@@ -684,20 +794,38 @@ export function BoneMuscleTab() {
               {[
                 {
                   key: 'vitaminD' as const,
-                  title: 'Vitamina D3 (800 – 1,000 UI/día)',
-                  desc: 'Esencial sin luz solar directa para absorber calcio en cabina.',
+                  title:
+                    language === 'es'
+                      ? 'Vitamina D3 (800 – 1,000 UI/día)'
+                      : 'Vitamin D3 (800 – 1,000 IU/day)',
+                  desc:
+                    language === 'es'
+                      ? 'Esencial sin luz solar directa para absorber calcio en cabina.'
+                      : 'Essential without direct sunlight to support calcium absorption in cabin.',
                   icon: <Bone className="h-4 w-4 text-warning" />,
                 },
                 {
                   key: 'calcium' as const,
-                  title: 'Calcio Biodisponible (1,000 mg)',
-                  desc: 'Compensa la reabsorción ósea inducida por microgravedad.',
+                  title:
+                    language === 'es'
+                      ? 'Calcio Biodisponible (1,000 mg)'
+                      : 'Bioavailable Calcium (1,000 mg)',
+                  desc:
+                    language === 'es'
+                      ? 'Compensa la reabsorción ósea inducida por microgravedad.'
+                      : 'Counterbalances bone resorption induced by microgravity.',
                   icon: <Pill className="h-4 w-4 text-primary" />,
                 },
                 {
                   key: 'hydration' as const,
-                  title: 'Hidratación Post-Ejercicio (600 ml + Electrolitos)',
-                  desc: 'Previene cálculos renales por liberación de calcio óseo a la sangre.',
+                  title:
+                    language === 'es'
+                      ? 'Hidratación Post-Ejercicio (600 ml + Electrolitos)'
+                      : 'Post-Exercise Hydration (600 ml + Electrolytes)',
+                  desc:
+                    language === 'es'
+                      ? 'Previene cálculos renales por liberación de calcio óseo a la sangre.'
+                      : 'Prevents renal stones caused by bone calcium mobilization into blood.',
                   icon: <Droplets className="h-4 w-4 text-telemetry" />,
                 },
               ].map((sup) => {
@@ -747,30 +875,41 @@ export function BoneMuscleTab() {
           <div className="rounded-2xl border border-outline bg-surface-container p-5 space-y-3 text-xs">
             <p className="font-bold text-primary flex items-center gap-1.5 font-display">
               <Sparkles className="h-4 w-4" />
-              ¿Por qué importa en {mission.shortName} ({mission.gravityLabel})?
+              {language === 'es'
+                ? `¿Por qué importa en ${mission.shortName} (${mission.gravityLabel})?`
+                : `Why does this matter in ${mission.shortName} (${mission.gravityLabel})?`}
             </p>
             <p className="leading-relaxed text-on-surface-variant">
               {mission.gravityG === 0
-                ? 'En microgravedad continua (0g), el esqueleto y los músculos posturales dejan de recibir carga axial terrestre. '
-                : `En gravedad parcial (${mission.gravityLabel}), la carga mecánica es insuficiente frente a 1g terrestre y las caminatas EVA exigen resistencia articular. `}
-              {MEDICAL_TOOLTIPS.boneMuscle.why}
+                ? language === 'es'
+                  ? 'En microgravedad continua (0g), el esqueleto y los músculos posturales dejan de recibir carga axial terrestre. '
+                  : 'In continuous microgravity (0g), the skeleton and postural muscles lose terrestrial axial loading. '
+                : language === 'es'
+                  ? `En gravedad parcial (${mission.gravityLabel}), la carga mecánica es insuficiente frente a 1g terrestre y las caminatas EVA exigen resistencia articular. `
+                  : `In partial gravity (${mission.gravityLabel}), mechanical load remains below 1g Earth gravity and EVAs demand joint resilience. `}
+              {tooltips.boneMuscle.why}
             </p>
             <div className="rounded-xl border border-outline bg-surface-container-low p-3 space-y-1">
               <p className="font-semibold text-on-surface font-display">
-                Ultrasonido / Seguimiento Muscular: {biomarkers.ultrasoundStatus}
+                {language === 'es'
+                  ? 'Ultrasonido / Seguimiento Muscular:'
+                  : 'Ultrasound / Muscle Follow-up:'}{' '}
+                {biomarkers.ultrasoundStatus}
               </p>
               <p className="text-[11px] text-on-surface-variant leading-relaxed">
                 {biomarkers.ultrasoundNotes}
               </p>
             </div>
             <div>
-              <p className="font-semibold text-on-surface font-display">Qué hacer ahora:</p>
+              <p className="font-semibold text-on-surface font-display">
+                {language === 'es' ? 'Qué hacer ahora:' : 'Recommended action:'}
+              </p>
               <p className="mt-0.5 leading-relaxed text-on-surface-variant">
                 {musculoStatus === 'critical'
                   ? musculoGuide.criticalAction
                   : musculoStatus === 'warning'
                     ? musculoGuide.warningAction
-                    : MEDICAL_TOOLTIPS.boneMuscle.how}
+                    : tooltips.boneMuscle.how}
               </p>
             </div>
           </div>
@@ -782,22 +921,28 @@ export function BoneMuscleTab() {
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
             <h3 className="text-base font-bold text-on-surface font-display">
-              Curva de Conservación Ósea y Muscular vs. Deterioro sin Ejercicio
+              {language === 'es'
+                ? 'Curva de Conservación Ósea y Muscular vs. Deterioro sin Ejercicio'
+                : 'Bone & Muscle Retention Curve vs. Unmitigated Loss'}
             </h3>
             <p className="text-xs text-on-surface-variant">
-              Haz clic o pasa el cursor sobre cualquier día para comparar tu retención real frente a
-              la pérdida sin contramedidas (-1.5%/mes).
+              {language === 'es'
+                ? 'Haz clic o pasa el cursor sobre cualquier día para comparar tu retención real frente a la pérdida sin contramedidas (-1.5%/mes).'
+                : 'Click or hover any mission day to compare real retention against unmitigated microgravity decay (-1.5%/mo).'}
             </p>
           </div>
           <div className="flex flex-wrap gap-3 text-xs font-semibold">
             <span className="inline-flex items-center gap-1.5 text-primary">
-              <span className="h-2.5 w-2.5 rounded-full bg-primary" /> Densidad Ósea (BMD %)
+              <span className="h-2.5 w-2.5 rounded-full bg-primary" />{' '}
+              {language === 'es' ? 'Densidad Ósea (BMD %)' : 'Bone Density (BMD %)'}
             </span>
             <span className="inline-flex items-center gap-1.5 text-telemetry">
-              <span className="h-2.5 w-2.5 rounded-full bg-telemetry" /> Masa Muscular (%)
+              <span className="h-2.5 w-2.5 rounded-full bg-telemetry" />{' '}
+              {language === 'es' ? 'Masa Muscular (%)' : 'Muscle Mass (%)'}
             </span>
             <span className="inline-flex items-center gap-1.5 text-danger">
-              <span className="h-2.5 w-2.5 rounded-full bg-danger" /> Sin Ejercicio (Riesgo)
+              <span className="h-2.5 w-2.5 rounded-full bg-danger" />{' '}
+              {language === 'es' ? 'Sin Ejercicio (Riesgo)' : 'No Exercise (Risk)'}
             </span>
           </div>
         </div>
@@ -805,20 +950,23 @@ export function BoneMuscleTab() {
         {activeDayPoint && activeUnmitigated !== null && activeNetSaved !== null && (
           <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-outline bg-surface-container-low px-3.5 py-2 text-xs">
             <span className="font-mono font-bold text-on-surface">
-              Inspección Día {activeDayPoint.day}
+              {language === 'es'
+                ? `Inspección Día ${activeDayPoint.day}`
+                : `Day ${activeDayPoint.day} Inspection`}
             </span>
             <div className="flex flex-wrap items-center gap-4 font-mono">
               <span className="text-primary font-semibold">
-                Ósea (BMD): {activeDayPoint.boneRetention}%
+                {language === 'es' ? 'Ósea (BMD):' : 'Bone (BMD):'} {activeDayPoint.boneRetention}%
               </span>
               <span className="text-telemetry font-semibold">
-                Músculo: {activeDayPoint.muscleRetention}%
+                {language === 'es' ? 'Músculo:' : 'Muscle:'} {activeDayPoint.muscleRetention}%
               </span>
               <span className="text-danger font-semibold">
-                Sin ejercicio: {activeUnmitigated}%
+                {language === 'es' ? 'Sin ejercicio:' : 'No exercise:'} {activeUnmitigated}%
               </span>
               <span className="rounded-md border border-primary/25 bg-primary-container px-2 py-0.5 text-[11px] font-bold text-on-primary-container">
-                Protección neta: {activeNetSaved >= 0 ? `+${activeNetSaved}` : activeNetSaved}%
+                {language === 'es' ? 'Protección neta:' : 'Net saved:'}{' '}
+                {activeNetSaved >= 0 ? `+${activeNetSaved}` : activeNetSaved}%
               </span>
             </div>
           </div>
@@ -829,9 +977,12 @@ export function BoneMuscleTab() {
             viewBox={`0 0 ${chartW} ${chartH}`}
             className="w-full min-w-[460px] h-56"
             role="img"
-            aria-label="Gráfica interactiva de conservación de densidad ósea y masa muscular"
+            aria-label={
+              language === 'es'
+                ? 'Gráfica interactiva de conservación de densidad ósea y masa muscular'
+                : 'Interactive bone density and muscle mass retention chart'
+            }
           >
-            {/* Safe Corridor >= 98% */}
             <rect
               x={padL}
               y={safeTopY}
@@ -859,7 +1010,6 @@ export function BoneMuscleTab() {
               );
             })}
 
-            {/* Warning (98%) & Critical (95.5%) reference lines */}
             <line
               x1={padL}
               y1={safeBottomY}
@@ -900,7 +1050,11 @@ export function BoneMuscleTab() {
                   key={pt.day}
                   role="button"
                   tabIndex={0}
-                  aria-label={`Inspeccionar Día ${pt.day}: Ósea ${pt.boneRetention}%, Músculo ${pt.muscleRetention}%`}
+                  aria-label={
+                    language === 'es'
+                      ? `Inspeccionar Día ${pt.day}: Ósea ${pt.boneRetention}%, Músculo ${pt.muscleRetention}%`
+                      : `Inspect Day ${pt.day}: Bone ${pt.boneRetention}%, Muscle ${pt.muscleRetention}%`
+                  }
                   onMouseEnter={() => setInspectedDayIdx(i)}
                   onClick={() => setInspectedDayIdx(i)}
                   onFocus={() => setInspectedDayIdx(i)}

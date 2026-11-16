@@ -1,13 +1,29 @@
 'use client';
 
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
-import { MISSIONS_DATA, MissionExercisePreset, MissionId, MissionType } from '@/data/missionsData';
-import { AstronautProfile, PRELOADED_ASTRONAUTS } from '@/data/astronautsData';
+import {
+  MISSIONS_DATA_EN,
+  MissionExercisePreset,
+  MissionId,
+  MissionType,
+  getMissionsData,
+  isDailyFrequency,
+  isExtremeRadiation,
+  isHighRadiation,
+} from '@/data/missionsData';
+import {
+  AstronautProfile,
+  PRELOADED_ASTRONAUTS_EN,
+  getPreloadedAstronauts,
+  hasPriorSurgeries,
+  isLowImmuneStatus,
+  localizeAstronautProfile,
+} from '@/data/astronautsData';
 import { sanitizeAstronautProfile } from '@/utils/astronautValidation';
 import {
   BodySystemId,
-  DEFAULT_INSPIRATION_ITEMS,
   TriageLevel,
+  getDefaultInspirationItems,
 } from '@/data/medicalKnowledge';
 import { EmergencyProtocolId } from '@/data/emergencyProtocolsData';
 import {
@@ -15,9 +31,13 @@ import {
   MissionRiskItem,
 } from '@/utils/missionRiskAnalysis';
 import {
-  analyzeDiaryEntryLocally,
+  ConfinementStressLevel,
   PvtSessionResult,
+  analyzeDiaryEntryLocally,
+  localizePvtStatus,
+  localizeStressLevel,
 } from '@/utils/psychologyAnalysis';
+import { Language, formatNumberLocale } from '@/i18n/types';
 
 export type AppTabId = 'dashboard' | 'sensors' | 'psychology' | 'musculoskeletal' | 'survival';
 
@@ -28,6 +48,31 @@ export type DeviceId =
   | 'hematology'
   | 'ultrasound'
   | 'eva_spirometer';
+
+export type UltrasoundStatus =
+  | 'Normal'
+  | 'Mild Neuro-Ocular Edema'
+  | 'Mild Muscle Atrophy'
+  | 'Edema Neuro-Ocular Leve'
+  | 'Atrofia Muscular Leve';
+
+export function isMildSansEdema(status: string): boolean {
+  return status === 'Mild Neuro-Ocular Edema' || status === 'Edema Neuro-Ocular Leve';
+}
+
+export function isMildMuscleAtrophy(status: string): boolean {
+  return status === 'Mild Muscle Atrophy' || status === 'Atrofia Muscular Leve';
+}
+
+export function localizeUltrasoundStatus(status: UltrasoundStatus, lang: Language): UltrasoundStatus {
+  if (isMildSansEdema(status)) {
+    return lang === 'es' ? 'Edema Neuro-Ocular Leve' : 'Mild Neuro-Ocular Edema';
+  }
+  if (isMildMuscleAtrophy(status)) {
+    return lang === 'es' ? 'Atrofia Muscular Leve' : 'Mild Muscle Atrophy';
+  }
+  return 'Normal';
+}
 
 export interface DeviceConnection {
   id: DeviceId;
@@ -46,7 +91,7 @@ export interface DeviceConnection {
 
 export interface TelemetryBiomarkers {
   glucoseMgDl: number;
-  wbcCount: number; // células/µL (normal 4500 - 10500)
+  wbcCount: number; // cells/µL (normal 4500 - 10500)
   spo2Percent: number;
   systolicBP: number;
   diastolicBP: number;
@@ -60,7 +105,7 @@ export interface TelemetryBiomarkers {
   sleepHours: number;
   stressLevel: number; // 1 - 10
   crewCohesion: number; // 1 - 10
-  ultrasoundStatus: 'Normal' | 'Edema Neuro-Ocular Leve' | 'Atrofia Muscular Leve';
+  ultrasoundStatus: UltrasoundStatus;
   ultrasoundNotes: string;
 }
 
@@ -94,7 +139,16 @@ export interface StartupModalProgress {
 export interface DailyRoutineItem {
   id: string;
   title: string;
-  category: 'Escaneo' | 'Psicología' | 'Ejercicio' | 'Nutrición' | 'Manual';
+  category:
+    | 'Scan'
+    | 'Psychology'
+    | 'Exercise'
+    | 'Nutrition'
+    | 'Manual'
+    | 'Escaneo'
+    | 'Psicología'
+    | 'Ejercicio'
+    | 'Nutrición';
   linkedDeviceId?: DeviceId;
   usesManualFallback: boolean;
   reason: string;
@@ -120,7 +174,7 @@ export interface VideoDiaryEntry {
   aiIndicators: {
     emotionalTone: string;
     vocalFatigue: string;
-    confinementStress: 'Bajo' | 'Moderado' | 'Elevado';
+    confinementStress: ConfinementStressLevel;
     earthSyncStatus: string;
     detectedThemes?: string[];
     clinicalRecommendation?: string;
@@ -133,7 +187,7 @@ export interface InspirationItem {
   id: string;
   title: string;
   subtitle: string;
-  category: 'Familia' | 'Tierra' | 'Mensaje de Voz';
+  category: 'Family' | 'Earth' | 'Voice Message' | 'Familia' | 'Tierra' | 'Mensaje de Voz';
   durationOrDate: string;
   quote: string;
   imageUrl?: string;
@@ -158,6 +212,7 @@ export interface CrisisAlertBanner {
 }
 
 interface StoredState {
+  language: Language;
   hasCompletedWelcome: boolean;
   isOnboarded: boolean;
   missionId: MissionId;
@@ -182,6 +237,8 @@ interface StoredState {
 }
 
 interface MissionContextValue {
+  language: Language;
+  setLanguage: (lang: Language) => void;
   isHydrated: boolean;
   hasCompletedWelcome: boolean;
   isOnboarded: boolean;
@@ -237,7 +294,7 @@ interface MissionContextValue {
     sleepHours: number;
     stressLevel: number;
     crewCohesion: number;
-    sleepQuality?: 'Reparador' | 'Fragmentado' | 'Insomnio';
+    sleepQuality?: 'Restorative' | 'Fragmented' | 'Insomnia' | 'Reparador' | 'Fragmentado' | 'Insomnio';
     primaryStressor?: string;
   }) => void;
   addVideoDiaryEntry: (payload: {
@@ -268,15 +325,17 @@ interface MissionContextValue {
   clearAutoStartTimerFlag: () => void;
 }
 
-const STORAGE_KEY = 'deeptrau_mvp_state_v2';
+const STORAGE_KEY = 'deeptrau_mvp_state_v3_en';
 
 const MissionContext = createContext<MissionContextValue | null>(null);
 
 interface MissionDeviceConfig {
   availableInMission: boolean;
   defaultConnected: boolean;
-  defaultLastUpdated: string;
-  unavailableReason?: string;
+  defaultLastUpdatedEn: string;
+  defaultLastUpdatedEs: string;
+  unavailableReasonEn?: string;
+  unavailableReasonEs?: string;
 }
 
 const MISSION_DEVICE_CONFIG: Record<MissionId, Record<DeviceId, MissionDeviceConfig>> = {
@@ -284,33 +343,41 @@ const MISSION_DEVICE_CONFIG: Record<MissionId, Record<DeviceId, MissionDeviceCon
     dosimeter: {
       availableInMission: true,
       defaultConnected: true,
-      defaultLastUpdated: 'En vivo',
+      defaultLastUpdatedEn: 'Live',
+      defaultLastUpdatedEs: 'En vivo',
     },
     vitals_cuff: {
       availableInMission: true,
       defaultConnected: true,
-      defaultLastUpdated: 'En vivo',
+      defaultLastUpdatedEn: 'Live',
+      defaultLastUpdatedEs: 'En vivo',
     },
     glucometer: {
       availableInMission: true,
       defaultConnected: true,
-      defaultLastUpdated: 'Hoy · 08:15 UTC',
+      defaultLastUpdatedEn: 'Today · 08:15 UTC',
+      defaultLastUpdatedEs: 'Hoy · 08:15 UTC',
     },
     hematology: {
       availableInMission: true,
       defaultConnected: true,
-      defaultLastUpdated: 'Hoy · 08:20 UTC',
+      defaultLastUpdatedEn: 'Today · 08:20 UTC',
+      defaultLastUpdatedEs: 'Hoy · 08:20 UTC',
     },
     ultrasound: {
       availableInMission: true,
       defaultConnected: false,
-      defaultLastUpdated: 'En espera · Último control hace 2 días',
+      defaultLastUpdatedEn: 'Standby · Last check 2 days ago',
+      defaultLastUpdatedEs: 'En espera · Último control hace 2 días',
     },
     eva_spirometer: {
       availableInMission: false,
       defaultConnected: false,
-      defaultLastUpdated: 'No embarcado',
-      unavailableReason:
+      defaultLastUpdatedEn: 'Not onboarded',
+      defaultLastUpdatedEs: 'No embarcado',
+      unavailableReasonEn:
+        'Exclusive to surface missions with EVA airlocks and regolith dust exposure',
+      unavailableReasonEs:
         'Exclusivo para misiones de superficie con esclusas EVA y exposición a regolito',
     },
   },
@@ -318,188 +385,313 @@ const MISSION_DEVICE_CONFIG: Record<MissionId, Record<DeviceId, MissionDeviceCon
     vitals_cuff: {
       availableInMission: true,
       defaultConnected: true,
-      defaultLastUpdated: 'En vivo',
+      defaultLastUpdatedEn: 'Live',
+      defaultLastUpdatedEs: 'En vivo',
     },
     glucometer: {
       availableInMission: true,
       defaultConnected: true,
-      defaultLastUpdated: 'Hoy · 07:50 UTC',
+      defaultLastUpdatedEn: 'Today · 07:50 UTC',
+      defaultLastUpdatedEs: 'Hoy · 07:50 UTC',
     },
     dosimeter: {
       availableInMission: true,
       defaultConnected: true,
-      defaultLastUpdated: 'En vivo',
+      defaultLastUpdatedEn: 'Live',
+      defaultLastUpdatedEs: 'En vivo',
     },
     hematology: {
       availableInMission: true,
       defaultConnected: true,
-      defaultLastUpdated: 'Hoy · 08:05 UTC',
+      defaultLastUpdatedEn: 'Today · 08:05 UTC',
+      defaultLastUpdatedEs: 'Hoy · 08:05 UTC',
     },
     eva_spirometer: {
       availableInMission: true,
       defaultConnected: false,
-      defaultLastUpdated: 'En espera · Activar tras caminata EVA',
+      defaultLastUpdatedEn: 'Standby · Activate after EVA walk',
+      defaultLastUpdatedEs: 'En espera · Activar tras caminata EVA',
     },
     ultrasound: {
       availableInMission: false,
       defaultConnected: false,
-      defaultLastUpdated: 'No embarcado',
-      unavailableReason:
-        'Módulo de imagenología SANS asignado a misiones orbitales 0g',
+      defaultLastUpdatedEn: 'Not onboarded',
+      defaultLastUpdatedEs: 'No embarcado',
+      unavailableReasonEn: 'SANS imaging module assigned to 0g orbital missions',
+      unavailableReasonEs: 'Módulo de imagenología SANS asignado a misiones orbitales 0g',
     },
   },
   'space-station': {
     vitals_cuff: {
       availableInMission: true,
       defaultConnected: true,
-      defaultLastUpdated: 'En vivo',
+      defaultLastUpdatedEn: 'Live',
+      defaultLastUpdatedEs: 'En vivo',
     },
     ultrasound: {
       availableInMission: true,
       defaultConnected: true,
-      defaultLastUpdated: 'En vivo · Enlace Tierra',
+      defaultLastUpdatedEn: 'Live · Earth Link',
+      defaultLastUpdatedEs: 'En vivo · Enlace Tierra',
     },
     hematology: {
       availableInMission: true,
       defaultConnected: true,
-      defaultLastUpdated: 'Hoy · 08:20 UTC',
+      defaultLastUpdatedEn: 'Today · 08:20 UTC',
+      defaultLastUpdatedEs: 'Hoy · 08:20 UTC',
     },
     dosimeter: {
       availableInMission: true,
       defaultConnected: true,
-      defaultLastUpdated: 'En vivo',
+      defaultLastUpdatedEn: 'Live',
+      defaultLastUpdatedEs: 'En vivo',
     },
     glucometer: {
       availableInMission: true,
       defaultConnected: false,
-      defaultLastUpdated: 'En espera · Control capilar en ayunas',
+      defaultLastUpdatedEn: 'Standby · Fasting capillary check',
+      defaultLastUpdatedEs: 'En espera · Control capilar en ayunas',
     },
     eva_spirometer: {
       availableInMission: false,
       defaultConnected: false,
-      defaultLastUpdated: 'No embarcado',
-      unavailableReason:
-        'Exclusivo para operaciones EVA en superficie planetaria',
+      defaultLastUpdatedEn: 'Not onboarded',
+      defaultLastUpdatedEs: 'No embarcado',
+      unavailableReasonEn: 'Exclusive to planetary surface EVA operations',
+      unavailableReasonEs: 'Exclusivo para operaciones EVA en superficie planetaria',
     },
   },
   'surface-rover': {
     vitals_cuff: {
       availableInMission: true,
       defaultConnected: true,
-      defaultLastUpdated: 'En vivo',
+      defaultLastUpdatedEn: 'Live',
+      defaultLastUpdatedEs: 'En vivo',
     },
     dosimeter: {
       availableInMission: true,
       defaultConnected: true,
-      defaultLastUpdated: 'En vivo',
+      defaultLastUpdatedEn: 'Live',
+      defaultLastUpdatedEs: 'En vivo',
     },
     glucometer: {
       availableInMission: true,
       defaultConnected: true,
-      defaultLastUpdated: 'Hoy · 07:40 UTC',
+      defaultLastUpdatedEn: 'Today · 07:40 UTC',
+      defaultLastUpdatedEs: 'Hoy · 07:40 UTC',
     },
     eva_spirometer: {
       availableInMission: true,
       defaultConnected: false,
-      defaultLastUpdated: 'En espera · Control de aire y filtros de cabina',
+      defaultLastUpdatedEn: 'Standby · Cabin air and filter check',
+      defaultLastUpdatedEs: 'En espera · Control de aire y filtros de cabina',
     },
     hematology: {
       availableInMission: false,
       defaultConnected: false,
-      defaultLastUpdated: 'No embarcado',
-      unavailableReason:
-        'Analizador óptico excluido por vibración y volumen en cabina del Rover',
+      defaultLastUpdatedEn: 'Not onboarded',
+      defaultLastUpdatedEs: 'No embarcado',
+      unavailableReasonEn: 'Optical analyzer excluded due to Rover cabin vibration and volume',
+      unavailableReasonEs: 'Analizador óptico excluido por vibración y volumen en cabina del Rover',
     },
     ultrasound: {
       availableInMission: false,
       defaultConnected: false,
-      defaultLastUpdated: 'No embarcado',
-      unavailableReason:
-        'Escáner multi-órgano permanece en la base principal',
+      defaultLastUpdatedEn: 'Not onboarded',
+      defaultLastUpdatedEs: 'No embarcado',
+      unavailableReasonEn: 'Multi-organ scanner remains at the main habitat base',
+      unavailableReasonEs: 'Escáner multi-órgano permanece en la base principal',
     },
   },
 };
 
-function createInitialDevices(
-  biomarkers: TelemetryBiomarkers,
-  mission: MissionType
-): DeviceConnection[] {
-  const cfg = MISSION_DEVICE_CONFIG[mission.id];
+function getDeviceTemplates(biomarkers: TelemetryBiomarkers, lang: Language) {
+  const formattedWbc = formatNumberLocale(biomarkers.wbcCount, lang);
+  const localizedUsStatus = localizeUltrasoundStatus(biomarkers.ultrasoundStatus, lang);
 
-  const templates: Omit<
-    DeviceConnection,
-    'availableInMission' | 'unavailableReason' | 'connected' | 'lastUpdated'
-  >[] = [
+  if (lang === 'es') {
+    return [
+      {
+        id: 'vitals_cuff' as DeviceId,
+        name: 'Oxímetro de Pulso y Tensiómetro Orbital',
+        shortName: 'Oxígeno y Presión',
+        categoryLabel: 'Cardio y O₂',
+        description: 'Registra SpO₂%, presión arterial (mmHg) y frecuencia cardíaca (bpm).',
+        unit: 'SpO₂% · mmHg',
+        lastReading: `${biomarkers.spo2Percent}% SpO₂ · ${biomarkers.systolicBP}/${biomarkers.diastolicBP}`,
+        status: 'nominal' as TriageLevel,
+      },
+      {
+        id: 'dosimeter' as DeviceId,
+        name: 'Dosímetro Personal de Radiación (Tecnología CSA)',
+        shortName: 'Dosímetro CSA',
+        categoryLabel: 'Radiación',
+        description: 'Mide tasa diaria y dosis acumulada de radiación ionizante en mSv.',
+        unit: 'mSv',
+        lastReading: `${biomarkers.cumulativeRadiationMsv.toFixed(1)} mSv`,
+        status: 'nominal' as TriageLevel,
+      },
+      {
+        id: 'glucometer' as DeviceId,
+        name: 'Glucómetro y Analizador Metabólico Capilar',
+        shortName: 'Glucómetro',
+        categoryLabel: 'Metabolismo',
+        description: 'Mide glucosa en sangre (mg/dL) para prevenir hipoglucemia o resistencia insulínica.',
+        unit: 'mg/dL',
+        lastReading: `${biomarkers.glucoseMgDl} mg/dL`,
+        status: 'nominal' as TriageLevel,
+      },
+      {
+        id: 'hematology' as DeviceId,
+        name: 'Analizador Hematológico e Inmune Portátil',
+        shortName: 'Sangre / Defensas',
+        categoryLabel: 'Inmunidad',
+        description: 'Evalúa leucocitos (células/µL) y biomarcadores de respuesta inmunológica.',
+        unit: 'células/µL',
+        lastReading: `${formattedWbc} cél/µL`,
+        status: 'nominal' as TriageLevel,
+      },
+      {
+        id: 'ultrasound' as DeviceId,
+        name: 'Escáner de Ultrasonido Portátil Multi-Órgano',
+        shortName: 'Ultrasonido',
+        categoryLabel: 'Imagen SANS',
+        description: 'Inspección óptica neuro-ocular (SANS), flujo vascular y masa muscular profunda.',
+        unit: 'Imagen / Doppler',
+        lastReading: localizedUsStatus,
+        status: 'nominal' as TriageLevel,
+      },
+      {
+        id: 'eva_spirometer' as DeviceId,
+        name: 'Monitor Respiratorio y Térmico de Esclusa EVA',
+        shortName: 'Monitor EVA / Aire',
+        categoryLabel: 'Respiratorio EVA',
+        description: 'Controla temperatura central (°C) y oxigenación tras exposición a regolito.',
+        unit: '°C · SpO₂%',
+        lastReading: `${biomarkers.bodyTempC.toFixed(1)} °C · ${biomarkers.spo2Percent}% O₂`,
+        status: 'nominal' as TriageLevel,
+      },
+    ];
+  }
+
+  return [
     {
-      id: 'vitals_cuff',
-      name: 'Oxímetro de Pulso y Tensiómetro Orbital',
-      shortName: 'Oxígeno y Presión',
-      categoryLabel: 'Cardio y O₂',
-      description: 'Registra SpO₂%, presión arterial (mmHg) y frecuencia cardíaca (bpm).',
+      id: 'vitals_cuff' as DeviceId,
+      name: 'Pulse Oximeter & Orbital Blood Pressure Cuff',
+      shortName: 'Oxygen & BP',
+      categoryLabel: 'Cardio & O₂',
+      description: 'Tracks SpO₂%, arterial blood pressure (mmHg), and heart rate (bpm).',
       unit: 'SpO₂% · mmHg',
       lastReading: `${biomarkers.spo2Percent}% SpO₂ · ${biomarkers.systolicBP}/${biomarkers.diastolicBP}`,
-      status: 'nominal',
+      status: 'nominal' as TriageLevel,
     },
     {
-      id: 'dosimeter',
-      name: 'Dosímetro Personal de Radiación (Tecnología CSA)',
-      shortName: 'Dosímetro CSA',
-      categoryLabel: 'Radiación',
-      description: 'Mide tasa diaria y dosis acumulada de radiación ionizante en mSv.',
+      id: 'dosimeter' as DeviceId,
+      name: 'Personal Radiation Dosimeter (CSA Tech)',
+      shortName: 'CSA Dosimeter',
+      categoryLabel: 'Radiation',
+      description: 'Measures daily exposure rate and cumulative ionizing radiation dose in mSv.',
       unit: 'mSv',
       lastReading: `${biomarkers.cumulativeRadiationMsv.toFixed(1)} mSv`,
-      status: 'nominal',
+      status: 'nominal' as TriageLevel,
     },
     {
-      id: 'glucometer',
-      name: 'Glucómetro y Analizador Metabólico Capilar',
-      shortName: 'Glucómetro',
-      categoryLabel: 'Metabolismo',
-      description: 'Mide glucosa en sangre (mg/dL) para prevenir hipoglucemia o resistencia insulínica.',
+      id: 'glucometer' as DeviceId,
+      name: 'Capillary Glucometer & Metabolic Analyzer',
+      shortName: 'Glucometer',
+      categoryLabel: 'Metabolism',
+      description: 'Measures blood glucose (mg/dL) to prevent hypoglycemia or insulin resistance.',
       unit: 'mg/dL',
       lastReading: `${biomarkers.glucoseMgDl} mg/dL`,
-      status: 'nominal',
+      status: 'nominal' as TriageLevel,
     },
     {
-      id: 'hematology',
-      name: 'Analizador Hematológico e Inmune Portátil',
-      shortName: 'Sangre / Defensas',
-      categoryLabel: 'Inmunidad',
-      description: 'Evalúa leucocitos (células/µL) y biomarcadores de respuesta inmunológica.',
-      unit: 'células/µL',
-      lastReading: `${biomarkers.wbcCount.toLocaleString('es-ES')} cél/µL`,
-      status: 'nominal',
+      id: 'hematology' as DeviceId,
+      name: 'Portable Hematology & Immune Analyzer',
+      shortName: 'Blood / Defenses',
+      categoryLabel: 'Immunity',
+      description: 'Evaluates white blood cells (cells/µL) and immune response biomarkers.',
+      unit: 'cells/µL',
+      lastReading: `${formattedWbc} cells/µL`,
+      status: 'nominal' as TriageLevel,
     },
     {
-      id: 'ultrasound',
-      name: 'Escáner de Ultrasonido Portátil Multi-Órgano',
-      shortName: 'Ultrasonido',
-      categoryLabel: 'Imagen SANS',
-      description: 'Inspección óptica neuro-ocular (SANS), flujo vascular y masa muscular profunda.',
-      unit: 'Imagen / Doppler',
-      lastReading: biomarkers.ultrasoundStatus,
-      status: 'nominal',
+      id: 'ultrasound' as DeviceId,
+      name: 'Portable Multi-Organ Ultrasound Scanner',
+      shortName: 'Ultrasound',
+      categoryLabel: 'SANS Imaging',
+      description: 'Optical neuro-ocular inspection (SANS), vascular flow, and deep muscle mass.',
+      unit: 'Imaging / Doppler',
+      lastReading: localizedUsStatus,
+      status: 'nominal' as TriageLevel,
     },
     {
-      id: 'eva_spirometer',
-      name: 'Monitor Respiratorio y Térmico de Esclusa EVA',
-      shortName: 'Monitor EVA / Aire',
-      categoryLabel: 'Respiratorio EVA',
-      description: 'Controla temperatura central (°C) y oxigenación tras exposición a regolito.',
+      id: 'eva_spirometer' as DeviceId,
+      name: 'EVA Airlock Respiratory & Thermal Monitor',
+      shortName: 'EVA / Air Monitor',
+      categoryLabel: 'EVA Respiratory',
+      description: 'Monitors core temperature (°C) and oxygenation after regolith exposure.',
       unit: '°C · SpO₂%',
       lastReading: `${biomarkers.bodyTempC.toFixed(1)} °C · ${biomarkers.spo2Percent}% O₂`,
-      status: 'nominal',
+      status: 'nominal' as TriageLevel,
     },
   ];
+}
+
+function translateLastUpdated(raw: string, lang: Language): string {
+  if (lang === 'en') {
+    if (raw === 'En vivo') return 'Live';
+    if (raw === 'En vivo · Enlace Tierra') return 'Live · Earth Link';
+    if (raw === 'No embarcado') return 'Not onboarded';
+    if (raw === 'Conectado ahora') return 'Connected now';
+    if (raw === 'En espera (manual)') return 'Standby (manual)';
+    if (raw.startsWith('Hoy · ')) return raw.replace('Hoy · ', 'Today · ');
+    if (raw === 'En espera · Último control hace 2 días') return 'Standby · Last check 2 days ago';
+    if (raw === 'En espera · Activar tras caminata EVA') return 'Standby · Activate after EVA walk';
+    if (raw === 'En espera · Control capilar en ayunas') return 'Standby · Fasting capillary check';
+    if (raw === 'En espera · Control de aire y filtros de cabina')
+      return 'Standby · Cabin air and filter check';
+    if (raw.includes('Recién medido')) {
+      return raw.replace('Día ', 'Day ').replace('Recién medido', 'Just measured');
+    }
+    return raw;
+  }
+
+  if (raw === 'Live') return 'En vivo';
+  if (raw === 'Live · Earth Link') return 'En vivo · Enlace Tierra';
+  if (raw === 'Not onboarded') return 'No embarcado';
+  if (raw === 'Connected now') return 'Conectado ahora';
+  if (raw === 'Standby (manual)') return 'En espera (manual)';
+  if (raw.startsWith('Today · ')) return raw.replace('Today · ', 'Hoy · ');
+  if (raw === 'Standby · Last check 2 days ago') return 'En espera · Último control hace 2 días';
+  if (raw === 'Standby · Activate after EVA walk') return 'En espera · Activar tras caminata EVA';
+  if (raw === 'Standby · Fasting capillary check') return 'En espera · Control capilar en ayunas';
+  if (raw === 'Standby · Cabin air and filter check')
+    return 'En espera · Control de aire y filtros de cabina';
+  if (raw.includes('Just measured')) {
+    return raw.replace('Day ', 'Día ').replace('Just measured', 'Recién medido');
+  }
+  return raw;
+}
+
+function createInitialDevices(
+  biomarkers: TelemetryBiomarkers,
+  mission: MissionType,
+  lang: Language = 'en'
+): DeviceConnection[] {
+  const cfg = MISSION_DEVICE_CONFIG[mission.id];
+  const templates = getDeviceTemplates(biomarkers, lang);
 
   return templates.map((tpl) => {
     const devCfg = cfg[tpl.id];
     return {
       ...tpl,
       availableInMission: devCfg.availableInMission,
-      unavailableReason: devCfg.unavailableReason,
+      unavailableReason:
+        lang === 'es' ? devCfg.unavailableReasonEs : devCfg.unavailableReasonEn,
       connected: devCfg.availableInMission ? devCfg.defaultConnected : false,
-      lastUpdated: devCfg.defaultLastUpdated,
+      lastUpdated:
+        lang === 'es' ? devCfg.defaultLastUpdatedEs : devCfg.defaultLastUpdatedEn,
     };
   });
 }
@@ -507,9 +699,10 @@ function createInitialDevices(
 function reconcileDevicesForMission(
   storedDevices: DeviceConnection[] | undefined,
   mission: MissionType,
-  biomarkers: TelemetryBiomarkers
+  biomarkers: TelemetryBiomarkers,
+  lang: Language
 ): DeviceConnection[] {
-  const base = createInitialDevices(biomarkers, mission);
+  const base = createInitialDevices(biomarkers, mission, lang);
   if (!Array.isArray(storedDevices)) return base;
 
   const storedMap = new Map(storedDevices.map((d) => [d.id, d]));
@@ -525,7 +718,9 @@ function reconcileDevicesForMission(
     return {
       ...template,
       connected: Boolean(existing.connected),
-      lastUpdated: existing.lastUpdated || template.lastUpdated,
+      lastUpdated: existing.lastUpdated
+        ? translateLastUpdated(existing.lastUpdated, lang)
+        : template.lastUpdated,
     };
   });
 }
@@ -534,12 +729,43 @@ function getInitialMissionDay(mission: MissionType): number {
   return mission.id === 'surface-rover' ? 8 : 45;
 }
 
+const DEFAULT_US_NOTES_EN = 'No optic nerve edema or jugular venous stasis detected.';
+const DEFAULT_US_NOTES_ES = 'Sin edema del nervio óptico ni estasis venosa yugular detectada.';
+const ISOLATION_US_NOTES_EN =
+  'Mild posterior globe flattening compatible with microgravity cephalad fluid shift.';
+const ISOLATION_US_NOTES_ES =
+  'Aplanamiento posterior ocular leve compatible con desplazamiento de fluidos en microgravedad.';
+
+function localizeUltrasoundNotes(notes: string, lang: Language): string {
+  if (lang === 'en') {
+    if (notes === DEFAULT_US_NOTES_ES) return DEFAULT_US_NOTES_EN;
+    if (notes === ISOLATION_US_NOTES_ES) return ISOLATION_US_NOTES_EN;
+    if (notes === 'Escaneo de ultrasonido portátil sin hallazgos patológicos.')
+      return 'Portable ultrasound scan with no pathological findings.';
+    if (notes === 'Leve aplanamiento del polo posterior ocular (SANS). Requiere seguimiento.')
+      return 'Mild posterior ocular globe flattening (SANS). Follow-up required.';
+    if (notes === 'Disminución discreta de espesor muscular en cuádriceps; reforzar ARED.')
+      return 'Mild quadriceps muscle thickness reduction; reinforce ARED.';
+    return notes;
+  }
+  if (notes === DEFAULT_US_NOTES_EN) return DEFAULT_US_NOTES_ES;
+  if (notes === ISOLATION_US_NOTES_EN) return ISOLATION_US_NOTES_ES;
+  if (notes === 'Portable ultrasound scan with no pathological findings.')
+    return 'Escaneo de ultrasonido portátil sin hallazgos patológicos.';
+  if (notes === 'Mild posterior ocular globe flattening (SANS). Follow-up required.')
+    return 'Leve aplanamiento del polo posterior ocular (SANS). Requiere seguimiento.';
+  if (notes === 'Mild quadriceps muscle thickness reduction; reinforce ARED.')
+    return 'Disminución discreta de espesor muscular en cuádriceps; reforzar ARED.';
+  return notes;
+}
+
 function createInitialBiomarkers(
   mission: MissionType,
   astronaut: AstronautProfile,
-  missionDay = getInitialMissionDay(mission)
+  missionDay = getInitialMissionDay(mission),
+  lang: Language = 'en'
 ): TelemetryBiomarkers {
-  const isLowImmune = astronaut.clinicalHistory.immuneStatus !== 'Normal';
+  const isLowImmune = isLowImmuneStatus(astronaut.clinicalHistory.immuneStatus);
   const hasCircadianNote = astronaut.clinicalHistory.notes.toLowerCase().includes('circadian');
   const hasLowGlucoseBase = astronaut.clinicalHistory.baselineGlucose < 85;
   const isEvaMission = mission.id === 'planetary-habitat' || mission.id === 'surface-rover';
@@ -579,7 +805,7 @@ function createInitialBiomarkers(
     stressLevel: hasCircadianNote ? 4 : 3,
     crewCohesion: 9,
     ultrasoundStatus: 'Normal',
-    ultrasoundNotes: 'Sin edema del nervio óptico ni estasis venosa yugular detectada.',
+    ultrasoundNotes: lang === 'es' ? DEFAULT_US_NOTES_ES : DEFAULT_US_NOTES_EN,
   };
 }
 
@@ -594,7 +820,7 @@ function generateInitialHistory(
       ? Array.from({ length: missionDay }, (_, i) => i + 1)
       : [1, 5, 10, 15, 20, 25, 30, 35, 40, missionDay];
   const baseGlucose = astronaut.clinicalHistory.baselineGlucose;
-  const isLowImmune = astronaut.clinicalHistory.immuneStatus !== 'Normal';
+  const isLowImmune = isLowImmuneStatus(astronaut.clinicalHistory.immuneStatus);
   const hasCircadianNote = astronaut.clinicalHistory.notes.toLowerCase().includes('circadian');
   const boneDecay = mission.gravityG === 0 ? 0.032 : 0.018;
   const muscleDecay = mission.gravityG === 0 ? 0.045 : 0.025;
@@ -695,86 +921,165 @@ function playCabinAlertTone(scenario: EmergencyCrisisScenario) {
 function createInitialVideoLogs(
   mission: MissionType,
   astronaut: AstronautProfile,
-  missionDay = getInitialMissionDay(mission)
+  missionDay = getInitialMissionDay(mission),
+  lang: Language = 'en'
 ): VideoDiaryEntry[] {
   const day1 = Math.max(1, missionDay - 3);
   const day2 = Math.max(1, missionDay - 1);
   const hasCircadianNote = astronaut.clinicalHistory.notes.toLowerCase().includes('circadian');
   const hasLowGlucoseBase = astronaut.clinicalHistory.baselineGlucose < 85;
-  const isLowImmune = astronaut.clinicalHistory.immuneStatus !== 'Normal';
+  const isLowImmune = isLowImmuneStatus(astronaut.clinicalHistory.immuneStatus);
+
+  if (lang === 'es') {
+    const firstTitle =
+      mission.id === 'surface-rover'
+        ? 'Balance de travesía táctica y cohesión en Rover'
+        : mission.id === 'space-station'
+          ? 'Adaptación a ciclos orbitales y cohesión de cabina'
+          : 'Reflexión de tránsito y cohesión de cabina';
+
+    const firstNotes =
+      mission.id === 'surface-rover'
+        ? 'Turno exigente de exploración en ruta abierta. Un poco de nostalgia al ver fotos familiares, pero la rutina de movilidad en asiento despejó la tensión.'
+        : 'Jornada exigente revisando sellos y telemetría de módulo. Un poco de nostalgia al ver fotos familiares, pero la rutina física diaria despejó la mente.';
+
+    const secondTitle = hasCircadianNote
+      ? 'Bitácora circadiana: ajuste lumínico y hombro adaptado'
+      : hasLowGlucoseBase
+        ? 'Control glucémico pre-EVA y bitácora de descanso'
+        : isLowImmune
+          ? 'Seguimiento de descanso e higiene inmune en cabina'
+          : 'Bitácora de sueño y ejercicio adaptado';
+
+    const secondNotes = hasCircadianNote
+      ? 'Activé luz ámbar 1800K 60 minutos antes de dormir; noté sueño algo fragmentado por el ritmo de turno, aunque sin molestias en el hombro tras la sesión.'
+      : hasLowGlucoseBase
+        ? 'Reforcé colación de carbohidratos complejos antes de las maniobras y mantuve energía estable durante toda la jornada.'
+        : 'Ajusté la luz ámbar 60 minutos antes de dormir. Dormí de corrido y sin molestias articulares tras la sesión de resistencia.';
+
+    return [
+      {
+        id: 'vlog-1',
+        day: day1,
+        timestamp: `Día ${day1} · 20:10 UTC`,
+        mode: 'video',
+        title: firstTitle,
+        notes: firstNotes,
+        moodRating: 8,
+        durationSeconds: 38,
+        aiIndicators: {
+          emotionalTone: 'Estable y resiliente',
+          vocalFatigue: 'Leve · prosodia estable (fin de turno)',
+          confinementStress: 'Bajo',
+          earthSyncStatus: `Empaquetado para envío asíncrono (${mission.commDelay})`,
+          detectedThemes: ['Vínculo Terrestre / Nostalgia', 'Regulación Positiva'],
+          clinicalRecommendation:
+            'Mantener anclaje visual con familia y sostener bloque de ejercicio diario.',
+          syncState: 'queued',
+        },
+      },
+      {
+        id: 'vlog-2',
+        day: day2,
+        timestamp: `Día ${day2} · 19:45 UTC`,
+        mode: 'texto',
+        title: secondTitle,
+        notes: secondNotes,
+        moodRating: hasCircadianNote ? 7 : 8,
+        aiIndicators: {
+          emotionalTone: hasCircadianNote
+            ? 'Enfocado con ligera presión circadiana'
+            : 'Positivo / Enfocado',
+          vocalFatigue: 'N/A (Bitácora escrita)',
+          confinementStress: hasCircadianNote ? 'Moderado' : 'Bajo',
+          earthSyncStatus: 'Confirmado por Psicología de Tierra (Houston/CSA)',
+          detectedThemes: hasLowGlucoseBase
+            ? ['Carga Operativa', 'Regulación Positiva']
+            : ['Higiene Circadiana / Sueño', 'Regulación Positiva'],
+          clinicalRecommendation: hasCircadianNote
+            ? 'Sostener protocolo de luz ámbar 1800K y completar Test PVT de control.'
+            : 'Continuar protocolo de luz ámbar 1800K pre-sueño.',
+          syncState: 'acknowledged',
+          earthFeedback: hasCircadianNote
+            ? 'Psicología de Vuelo: Atentos a tu sensibilidad circadiana. Prioriza 1800K antes de dormir y sesión de respiración 4-4-4-4.'
+            : 'Psicología de Vuelo: Excelente respuesta circadiana y adherencia. Sin signos de fatiga de tercer cuarto.',
+        },
+      },
+    ];
+  }
 
   const firstTitle =
     mission.id === 'surface-rover'
-      ? 'Balance de travesía táctica y cohesión en Rover'
+      ? 'Tactical excursion review & Rover cohesion'
       : mission.id === 'space-station'
-        ? 'Adaptación a ciclos orbitales y cohesión de cabina'
-        : 'Reflexión de tránsito y cohesión de cabina';
+        ? 'Orbital cycle adaptation & cabin cohesion'
+        : 'Deep-space transit reflection & crew cohesion';
 
   const firstNotes =
     mission.id === 'surface-rover'
-      ? 'Turno exigente de exploración en ruta abierta. Un poco de nostalgia al ver fotos familiares, pero la rutina de movilidad en asiento despejó la tensión.'
-      : 'Jornada exigente revisando sellos y telemetría de módulo. Un poco de nostalgia al ver fotos familiares, pero la rutina física diaria despejó la mente.';
+      ? 'Demanding open-route exploration shift. Felt a bit homesick looking at family photos, though seated mobility drills cleared the tension.'
+      : 'Demanding shift inspecting module seals and telemetry. Felt a bit nostalgic viewing family photos, though daily resistance workout cleared my mind.';
 
   const secondTitle = hasCircadianNote
-    ? 'Bitácora circadiana: ajuste lumínico y hombro adaptado'
+    ? 'Circadian log: lighting adjustment & adapted shoulder'
     : hasLowGlucoseBase
-      ? 'Control glucémico pre-EVA y bitácora de descanso'
+      ? 'Pre-EVA glycemic control & rest log'
       : isLowImmune
-        ? 'Seguimiento de descanso e higiene inmune en cabina'
-        : 'Bitácora de sueño y ejercicio adaptado';
+        ? 'Rest & cabin immune hygiene follow-up'
+        : 'Sleep log & adapted exercise routine';
 
   const secondNotes = hasCircadianNote
-    ? 'Activé luz ámbar 1800K 60 minutos antes de dormir; noté sueño algo fragmentado por el ritmo de turno, aunque sin molestias en el hombro tras la sesión.'
+    ? 'Switched to 1800K amber light 60 minutes before sleep; noticed slightly fragmented sleep from shift rhythm, with zero shoulder discomfort after training.'
     : hasLowGlucoseBase
-      ? 'Reforcé colación de carbohidratos complejos antes de las maniobras y mantuve energía estable durante toda la jornada.'
-      : 'Ajusté la luz ámbar 60 minutos antes de dormir. Dormí de corrido y sin molestias articulares tras la sesión de resistencia.';
+      ? 'Reinforced complex carbohydrate intake prior to maneuvers and maintained steady energy throughout the entire shift.'
+      : 'Adjusted cabin lighting to 1800K amber 60 minutes before bed. Slept solidly without joint soreness after resistance workout.';
 
   return [
     {
       id: 'vlog-1',
       day: day1,
-      timestamp: `Día ${day1} · 20:10 UTC`,
+      timestamp: `Day ${day1} · 20:10 UTC`,
       mode: 'video',
       title: firstTitle,
       notes: firstNotes,
       moodRating: 8,
       durationSeconds: 38,
       aiIndicators: {
-        emotionalTone: 'Estable y resiliente',
-        vocalFatigue: 'Leve · prosodia estable (fin de turno)',
-        confinementStress: 'Bajo',
-        earthSyncStatus: `Empaquetado para envío asíncrono (${mission.commDelay})`,
-        detectedThemes: ['Vínculo Terrestre / Nostalgia', 'Regulación Positiva'],
+        emotionalTone: 'Steady and resilient',
+        vocalFatigue: 'Mild · stable prosody (end of shift)',
+        confinementStress: 'Low',
+        earthSyncStatus: `Queued for asynchronous downlink (${mission.commDelay})`,
+        detectedThemes: ['Earth Bond / Nostalgia', 'Positive Regulation'],
         clinicalRecommendation:
-          'Mantener anclaje visual con familia y sostener bloque de ejercicio diario.',
+          'Maintain visual family anchoring and keep daily exercise block consistent.',
         syncState: 'queued',
       },
     },
     {
       id: 'vlog-2',
       day: day2,
-      timestamp: `Día ${day2} · 19:45 UTC`,
+      timestamp: `Day ${day2} · 19:45 UTC`,
       mode: 'texto',
       title: secondTitle,
       notes: secondNotes,
       moodRating: hasCircadianNote ? 7 : 8,
       aiIndicators: {
         emotionalTone: hasCircadianNote
-          ? 'Enfocado con ligera presión circadiana'
-          : 'Positivo / Enfocado',
-        vocalFatigue: 'N/A (Bitácora escrita)',
-        confinementStress: hasCircadianNote ? 'Moderado' : 'Bajo',
-        earthSyncStatus: 'Confirmado por Psicología de Tierra (Houston/CSA)',
+          ? 'Focused with mild circadian strain'
+          : 'Positive / Focused',
+        vocalFatigue: 'N/A (Written log)',
+        confinementStress: hasCircadianNote ? 'Moderate' : 'Low',
+        earthSyncStatus: 'Acknowledged by Earth Psychology (Houston/CSA)',
         detectedThemes: hasLowGlucoseBase
-          ? ['Carga Operativa', 'Regulación Positiva']
-          : ['Higiene Circadiana / Sueño', 'Regulación Positiva'],
+          ? ['Operational Workload', 'Positive Regulation']
+          : ['Circadian Hygiene / Sleep', 'Positive Regulation'],
         clinicalRecommendation: hasCircadianNote
-          ? 'Sostener protocolo de luz ámbar 1800K y completar Test PVT de control.'
-          : 'Continuar protocolo de luz ámbar 1800K pre-sueño.',
+          ? 'Maintain 1800K amber light protocol and complete follow-up PVT test.'
+          : 'Continue pre-sleep 1800K amber lighting protocol.',
         syncState: 'acknowledged',
         earthFeedback: hasCircadianNote
-          ? 'Psicología de Vuelo: Atentos a tu sensibilidad circadiana. Prioriza 1800K antes de dormir y sesión de respiración 4-4-4-4.'
-          : 'Psicología de Vuelo: Excelente respuesta circadiana y adherencia. Sin signos de fatiga de tercer cuarto.',
+          ? 'Flight Psychology: Monitoring your circadian sensitivity. Prioritize 1800K before bed and 4-4-4-4 box breathing.'
+          : 'Flight Psychology: Excellent circadian response and adherence. No signs of Third-Quarter fatigue.',
       },
     },
   ];
@@ -783,24 +1088,26 @@ function createInitialVideoLogs(
 function createInitialPvtHistory(
   astronaut: AstronautProfile,
   mission: MissionType,
-  missionDay = getInitialMissionDay(mission)
+  missionDay = getInitialMissionDay(mission),
+  lang: Language = 'en'
 ): PvtSessionResult[] {
   const pvtDay = Math.max(1, missionDay - 2);
   const hasCircadianNote = astronaut.clinicalHistory.notes.toLowerCase().includes('circadian');
+  const dayStr = lang === 'es' ? `Día ${pvtDay} · 08:30 UTC` : `Day ${pvtDay} · 08:30 UTC`;
 
   if (hasCircadianNote && mission.id === 'space-station') {
     return [
       {
         id: 'pvt-seed-1',
         day: pvtDay,
-        timestamp: `Día ${pvtDay} · 08:30 UTC`,
+        timestamp: dayStr,
         trialsMs: [378, 412, 515, 392, 405],
         meanRtMs: 420,
         fastestRtMs: 378,
         lapses: 1,
         falseStarts: 0,
         alertnessScore: 65,
-        statusLabel: 'Fatiga Leve',
+        statusLabel: localizePvtStatus('Mild Fatigue', lang),
       },
     ];
   }
@@ -810,14 +1117,14 @@ function createInitialPvtHistory(
       {
         id: 'pvt-seed-1',
         day: pvtDay,
-        timestamp: `Día ${pvtDay} · 08:30 UTC`,
+        timestamp: dayStr,
         trialsMs: [304, 318, 296, 325, 311],
         meanRtMs: 311,
         fastestRtMs: 296,
         lapses: 0,
         falseStarts: 0,
         alertnessScore: 94,
-        statusLabel: 'Óptima',
+        statusLabel: localizePvtStatus('Optimal', lang),
       },
     ];
   }
@@ -826,14 +1133,14 @@ function createInitialPvtHistory(
     {
       id: 'pvt-seed-1',
       day: pvtDay,
-      timestamp: `Día ${pvtDay} · 08:30 UTC`,
+      timestamp: dayStr,
       trialsMs: [264, 279, 255, 288, 271],
       meanRtMs: 271,
       fastestRtMs: 255,
       lapses: 0,
       falseStarts: 0,
       alertnessScore: 98,
-      statusLabel: 'Óptima',
+      statusLabel: localizePvtStatus('Optimal', lang),
     },
   ];
 }
@@ -849,12 +1156,11 @@ function getLocalCalendarDateKey(): string {
 function computeInitialOverdueMeta(
   mission: MissionType,
   astronaut: AstronautProfile,
-  missionDay: number
+  missionDay: number,
+  lang: Language = 'en'
 ): Record<string, OverdueRoutineEntry> {
-  const isLowImmune = astronaut.clinicalHistory.immuneStatus !== 'Normal';
-  const hasSurgeries = astronaut.clinicalHistory.priorSurgeries.some(
-    (s) => !s.toLowerCase().includes('sin cirug')
-  );
+  const isLowImmune = isLowImmuneStatus(astronaut.clinicalHistory.immuneStatus);
+  const hasSurgeries = hasPriorSurgeries(astronaut.clinicalHistory.priorSurgeries);
   const hasCircadianNote = astronaut.clinicalHistory.notes.toLowerCase().includes('circadian');
   const hasLowGlucoseBase = astronaut.clinicalHistory.baselineGlucose < 85;
   const isHealthyNominalProfile =
@@ -870,48 +1176,90 @@ function computeInitialOverdueMeta(
     meta[ultrasoundScan.id] = {
       fromDay: Math.max(1, missionDay - 2),
       daysLate: 2,
-      reasonLabel: 'Último ultrasonido hace 2 días (control SANS pendiente)',
+      reasonLabel:
+        lang === 'es'
+          ? 'Último ultrasonido hace 2 días (control SANS pendiente)'
+          : 'Last ultrasound 2 days ago (SANS check pending)',
     };
   } else if (mission.id === 'planetary-habitat') {
     meta['scan-blood-hab'] = {
       fromDay: Math.max(1, missionDay - 1),
       daysLate: 1,
-      reasonLabel: 'Panel inmune pendiente tras excursión EVA del turno anterior',
+      reasonLabel:
+        lang === 'es'
+          ? 'Panel inmune pendiente tras excursión EVA del turno anterior'
+          : 'Immune panel pending after previous shift EVA excursion',
     };
   }
 
   meta['nutrition-calcium-daily'] = {
     fromDay: Math.max(1, missionDay - 1),
     daysLate: 1,
-    reasonLabel: 'Suplementación de Calcio y Vitamina D pendiente de ayer',
+    reasonLabel:
+      lang === 'es'
+        ? 'Suplementación de Calcio y Vitamina D pendiente de ayer'
+        : 'Calcium & Vitamin D supplementation pending from yesterday',
   };
 
   return meta;
 }
 
+function localizeOverdueMeta(
+  meta: Record<string, OverdueRoutineEntry>,
+  lang: Language
+): Record<string, OverdueRoutineEntry> {
+  const next: Record<string, OverdueRoutineEntry> = {};
+  for (const [key, entry] of Object.entries(meta)) {
+    let reasonLabel = entry.reasonLabel;
+    if (lang === 'en') {
+      if (reasonLabel === 'Último ultrasonido hace 2 días (control SANS pendiente)') {
+        reasonLabel = 'Last ultrasound 2 days ago (SANS check pending)';
+      } else if (reasonLabel === 'Panel inmune pendiente tras excursión EVA del turno anterior') {
+        reasonLabel = 'Immune panel pending after previous shift EVA excursion';
+      } else if (reasonLabel === 'Suplementación de Calcio y Vitamina D pendiente de ayer') {
+        reasonLabel = 'Calcium & Vitamin D supplementation pending from yesterday';
+      }
+    } else {
+      if (reasonLabel === 'Last ultrasound 2 days ago (SANS check pending)') {
+        reasonLabel = 'Último ultrasonido hace 2 días (control SANS pendiente)';
+      } else if (reasonLabel === 'Immune panel pending after previous shift EVA excursion') {
+        reasonLabel = 'Panel inmune pendiente tras excursión EVA del turno anterior';
+      } else if (reasonLabel === 'Calcium & Vitamin D supplementation pending from yesterday') {
+        reasonLabel = 'Suplementación de Calcio y Vitamina D pendiente de ayer';
+      }
+    }
+    next[key] = { ...entry, reasonLabel };
+  }
+  return next;
+}
+
 function buildDefaultState(
   missionId: MissionId = 'deep-space-transit',
-  astronaut: AstronautProfile = PRELOADED_ASTRONAUTS[0],
+  astronaut: AstronautProfile = PRELOADED_ASTRONAUTS_EN[0],
   isOnboarded = false,
   hasCompletedWelcome = false,
-  startupSessionEpoch = 1
+  startupSessionEpoch = 1,
+  language: Language = 'en'
 ): StoredState {
-  const mission = MISSIONS_DATA.find((m) => m.id === missionId) ?? MISSIONS_DATA[0];
+  const missions = getMissionsData(language);
+  const mission = missions.find((m) => m.id === missionId) ?? missions[0];
+  const localizedAstro = localizeAstronautProfile(astronaut, language);
   const missionDay = getInitialMissionDay(mission);
-  const biomarkers = createInitialBiomarkers(mission, astronaut, missionDay);
-  const hasCircadianNote = astronaut.clinicalHistory.notes.toLowerCase().includes('circadian');
+  const biomarkers = createInitialBiomarkers(mission, localizedAstro, missionDay, language);
+  const hasCircadianNote = localizedAstro.clinicalHistory.notes.toLowerCase().includes('circadian');
   return {
+    language,
     hasCompletedWelcome,
     isOnboarded,
     missionId: mission.id,
-    astronaut,
+    astronaut: localizedAstro,
     missionDay,
     activeTab: 'dashboard',
-    devices: createInitialDevices(biomarkers, mission),
+    devices: createInitialDevices(biomarkers, mission, language),
     biomarkers,
-    history: generateInitialHistory(mission, astronaut, missionDay, biomarkers),
+    history: generateInitialHistory(mission, localizedAstro, missionDay, biomarkers),
     completedRoutineIds: hasCircadianNote ? [] : ['psych-checkin-daily'],
-    overdueRoutineMeta: computeInitialOverdueMeta(mission, astronaut, missionDay),
+    overdueRoutineMeta: computeInitialOverdueMeta(mission, localizedAstro, missionDay, language),
     startupSessionEpoch,
     startupProgress: {
       dateKey: '',
@@ -928,9 +1276,9 @@ function buildDefaultState(
     },
     streakDays: 12,
     healthPoints: 1480,
-    videoLogs: createInitialVideoLogs(mission, astronaut, missionDay),
-    inspirationItems: DEFAULT_INSPIRATION_ITEMS,
-    pvtHistory: createInitialPvtHistory(astronaut, mission, missionDay),
+    videoLogs: createInitialVideoLogs(mission, localizedAstro, missionDay, language),
+    inspirationItems: getDefaultInspirationItems(language),
+    pvtHistory: createInitialPvtHistory(localizedAstro, mission, missionDay, language),
   };
 }
 
@@ -940,7 +1288,7 @@ function evaluateSystemStatuses(
   astronaut: AstronautProfile,
   activeCrisisScenario: EmergencyCrisisScenario | null = null
 ): Record<BodySystemId, TriageLevel> {
-  const isLowImmune = astronaut.clinicalHistory.immuneStatus !== 'Normal';
+  const isLowImmune = isLowImmuneStatus(astronaut.clinicalHistory.immuneStatus);
 
   // 1. Brain & Mental Health
   let brain: TriageLevel = 'nominal';
@@ -949,7 +1297,7 @@ function evaluateSystemStatuses(
     biomarkers.moodScore <= 4 ||
     biomarkers.sleepHours < 5.5 ||
     biomarkers.stressLevel >= 8 ||
-    biomarkers.ultrasoundStatus === 'Edema Neuro-Ocular Leve'
+    isMildSansEdema(biomarkers.ultrasoundStatus)
   ) {
     brain = 'critical';
   } else if (biomarkers.moodScore <= 6 || biomarkers.sleepHours < 6.5 || biomarkers.stressLevel >= 6) {
@@ -1025,7 +1373,7 @@ function evaluateSystemStatuses(
   } else if (
     biomarkers.boneDensityRetentionPercent < 98.0 ||
     biomarkers.muscleMassRetentionPercent < 97.5 ||
-    biomarkers.ultrasoundStatus === 'Atrofia Muscular Leve'
+    isMildMuscleAtrophy(biomarkers.ultrasoundStatus)
   ) {
     musculoskeletal = 'warning';
   }
@@ -1036,8 +1384,13 @@ function evaluateSystemStatuses(
 function syncDeviceStatuses(
   devices: DeviceConnection[],
   biomarkers: TelemetryBiomarkers,
-  statuses: Record<BodySystemId, TriageLevel>
+  statuses: Record<BodySystemId, TriageLevel>,
+  lang: Language
 ): DeviceConnection[] {
+  const formattedWbc = formatNumberLocale(biomarkers.wbcCount, lang);
+  const wbcUnitSuffix = lang === 'es' ? 'cél/µL' : 'cells/µL';
+  const localizedUs = localizeUltrasoundStatus(biomarkers.ultrasoundStatus, lang);
+
   return devices.map((dev) => {
     const safeConnected = dev.availableInMission ? dev.connected : false;
     if (!dev.availableInMission) {
@@ -1060,7 +1413,7 @@ function syncDeviceStatuses(
       return {
         ...dev,
         connected: safeConnected,
-        lastReading: `${biomarkers.wbcCount.toLocaleString('es-ES')} cél/µL`,
+        lastReading: `${formattedWbc} ${wbcUnitSuffix}`,
         status: statuses.immune,
       };
     }
@@ -1097,13 +1450,8 @@ function syncDeviceStatuses(
     return {
       ...dev,
       connected: safeConnected,
-      lastReading: biomarkers.ultrasoundStatus,
-      status:
-        biomarkers.ultrasoundStatus === 'Normal'
-          ? 'nominal'
-          : biomarkers.ultrasoundStatus === 'Edema Neuro-Ocular Leve'
-            ? 'warning'
-            : 'warning',
+      lastReading: localizedUs,
+      status: localizedUs === 'Normal' ? 'nominal' : 'warning',
     };
   });
 }
@@ -1116,7 +1464,6 @@ export function MissionProvider({ children }: { children: React.ReactNode }) {
     useState<EmergencyProtocolId>('syncope');
   const [activeCrisisScenario, setActiveCrisisScenario] =
     useState<EmergencyCrisisScenario | null>(null);
-  const [crisisAlertBanner, setCrisisAlertBanner] = useState<CrisisAlertBanner | null>(null);
   const [shouldAutoStartTimer, setShouldAutoStartTimer] = useState(false);
   const [videoMediaUrls, setVideoMediaUrls] = useState<Record<string, string>>({});
 
@@ -1126,9 +1473,11 @@ export function MissionProvider({ children }: { children: React.ReactNode }) {
       if (raw) {
         const parsed = JSON.parse(raw) as StoredState;
         if (parsed && parsed.missionId && parsed.astronaut) {
-          const safeAstro = sanitizeAstronautProfile(parsed.astronaut);
+          const lang: Language = parsed.language === 'es' ? 'es' : 'en';
+          const safeAstro = sanitizeAstronautProfile(parsed.astronaut, lang);
+          const missions = getMissionsData(lang);
           const parsedMission =
-            MISSIONS_DATA.find((m) => m.id === parsed.missionId) ?? MISSIONS_DATA[0];
+            missions.find((m) => m.id === parsed.missionId) ?? missions[0];
           const defaultMissionDay = getInitialMissionDay(parsedMission);
           const isLegacyRoverOverflow =
             parsedMission.id === 'surface-rover' &&
@@ -1147,7 +1496,8 @@ export function MissionProvider({ children }: { children: React.ReactNode }) {
                 Boolean(parsed.hasCompletedWelcome),
                 typeof parsed.startupSessionEpoch === 'number' && parsed.startupSessionEpoch >= 1
                   ? parsed.startupSessionEpoch
-                  : 1
+                  : 1,
+                lang
               )
             );
             return;
@@ -1164,7 +1514,7 @@ export function MissionProvider({ children }: { children: React.ReactNode }) {
           const safeOverdueMeta =
             parsed.overdueRoutineMeta && typeof parsed.overdueRoutineMeta === 'object'
               ? parsed.overdueRoutineMeta
-              : computeInitialOverdueMeta(parsedMission, safeAstro, safeMissionDay);
+              : computeInitialOverdueMeta(parsedMission, safeAstro, safeMissionDay, lang);
           const safeStartupProgress: StartupModalProgress =
             parsed.startupProgress && typeof parsed.startupProgress.dateKey === 'string'
               ? {
@@ -1183,20 +1533,21 @@ export function MissionProvider({ children }: { children: React.ReactNode }) {
                   routineModalDone: false,
                 };
 
-          const fallbackBio = createInitialBiomarkers(parsedMission, safeAstro, safeMissionDay);
+          const fallbackBio = createInitialBiomarkers(parsedMission, safeAstro, safeMissionDay, lang);
           const safeBiomarkers: TelemetryBiomarkers = {
             ...fallbackBio,
             ...parsed.biomarkers,
             bodyTempC: parsed.biomarkers?.bodyTempC ?? fallbackBio.bodyTempC,
           };
 
-          const defaultMap = new Map(DEFAULT_INSPIRATION_ITEMS.map((d) => [d.id, d]));
+          const defaultItems = getDefaultInspirationItems(lang);
+          const defaultMap = new Map(defaultItems.map((d) => [d.id, d]));
           const reconciledInspiration = Array.isArray(parsed.inspirationItems)
             ? parsed.inspirationItems.map((item) => {
                 const preset = defaultMap.get(item.id);
                 return preset ? { ...item, ...preset, imageUrl: item.imageUrl } : item;
               })
-            : DEFAULT_INSPIRATION_ITEMS;
+            : defaultItems;
 
           const fallbackHistory = generateInitialHistory(
             parsedMission,
@@ -1251,6 +1602,7 @@ export function MissionProvider({ children }: { children: React.ReactNode }) {
                     sleepHours: safeBiomarkers.sleepHours,
                     stressLevel: safeBiomarkers.stressLevel,
                     durationSeconds: log.durationSeconds,
+                    lang,
                   });
                   const isSeedAcknowledged = log.id === 'vlog-2';
                   return {
@@ -1268,25 +1620,28 @@ export function MissionProvider({ children }: { children: React.ReactNode }) {
                       earthFeedback:
                         log.aiIndicators?.earthFeedback ??
                         (isSeedAcknowledged
-                          ? 'Psicología de Vuelo: Registro revisado. Sin signos de fatiga de tercer cuarto.'
+                          ? lang === 'es'
+                            ? 'Psicología de Vuelo: Registro revisado. Sin signos de fatiga de tercer cuarto.'
+                            : 'Flight Psychology: Log reviewed. No signs of Third-Quarter fatigue.'
                           : undefined),
                     },
                   };
                 })
-              : createInitialVideoLogs(parsedMission, safeAstro, safeMissionDay);
+              : createInitialVideoLogs(parsedMission, safeAstro, safeMissionDay, lang);
 
           const reconciledPvt =
             Array.isArray(parsed.pvtHistory) && parsed.pvtHistory.length > 0
               ? parsed.pvtHistory
-              : createInitialPvtHistory(safeAstro, parsedMission, safeMissionDay);
+              : createInitialPvtHistory(safeAstro, parsedMission, safeMissionDay, lang);
 
           setState({
             ...parsed,
+            language: lang,
             missionDay: safeMissionDay,
             astronaut: safeAstro,
             biomarkers: safeBiomarkers,
             history: reconciledHistory,
-            devices: reconcileDevicesForMission(parsed.devices, parsedMission, safeBiomarkers),
+            devices: reconcileDevicesForMission(parsed.devices, parsedMission, safeBiomarkers, lang),
             hasCompletedWelcome: Boolean(parsed.hasCompletedWelcome),
             overdueRoutineMeta: safeOverdueMeta,
             startupSessionEpoch: safeEpoch,
@@ -1305,9 +1660,15 @@ export function MissionProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
+    if (typeof document !== 'undefined') {
+      document.documentElement.lang = state.language;
+    }
+  }, [state.language]);
+
+  useEffect(() => {
     if (!isHydrated) return;
     try {
-      if (!state.hasCompletedWelcome && !state.isOnboarded) {
+      if (!state.hasCompletedWelcome && !state.isOnboarded && state.language === 'en') {
         window.localStorage.removeItem(STORAGE_KEY);
       } else {
         window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
@@ -1317,14 +1678,40 @@ export function MissionProvider({ children }: { children: React.ReactNode }) {
     }
   }, [state, isHydrated]);
 
-  const mission = useMemo(
-    () => MISSIONS_DATA.find((m) => m.id === state.missionId) ?? MISSIONS_DATA[0],
-    [state.missionId]
+  const language = state.language;
+
+  const setLanguage = (lang: Language) => {
+    setState((prev) => {
+      if (prev.language === lang) return prev;
+      return {
+        ...prev,
+        language: lang,
+      };
+    });
+  };
+
+  const mission = useMemo(() => {
+    const missions = getMissionsData(language);
+    return missions.find((m) => m.id === state.missionId) ?? missions[0];
+  }, [state.missionId, language]);
+
+  const astronaut = useMemo(
+    () => localizeAstronautProfile(state.astronaut, language),
+    [state.astronaut, language]
+  );
+
+  const biomarkers = useMemo<TelemetryBiomarkers>(
+    () => ({
+      ...state.biomarkers,
+      ultrasoundStatus: localizeUltrasoundStatus(state.biomarkers.ultrasoundStatus, language),
+      ultrasoundNotes: localizeUltrasoundNotes(state.biomarkers.ultrasoundNotes, language),
+    }),
+    [state.biomarkers, language]
   );
 
   const systemStatuses = useMemo(
-    () => evaluateSystemStatuses(state.biomarkers, mission, state.astronaut, activeCrisisScenario),
-    [state.biomarkers, mission, state.astronaut, activeCrisisScenario]
+    () => evaluateSystemStatuses(biomarkers, mission, astronaut, activeCrisisScenario),
+    [biomarkers, mission, astronaut, activeCrisisScenario]
   );
 
   const globalTriage: TriageLevel = useMemo(() => {
@@ -1334,20 +1721,24 @@ export function MissionProvider({ children }: { children: React.ReactNode }) {
     return 'nominal';
   }, [systemStatuses]);
 
-  const devicesWithStatus = useMemo(
-    () => syncDeviceStatuses(state.devices, state.biomarkers, systemStatuses),
-    [state.devices, state.biomarkers, systemStatuses]
+  const devicesWithStatus = useMemo(() => {
+    const localizedBase = reconcileDevicesForMission(state.devices, mission, biomarkers, language);
+    return syncDeviceStatuses(localizedBase, biomarkers, systemStatuses, language);
+  }, [state.devices, mission, biomarkers, systemStatuses, language]);
+
+  const localizedOverdueMeta = useMemo(
+    () => localizeOverdueMeta(state.overdueRoutineMeta, language),
+    [state.overdueRoutineMeta, language]
   );
 
   const routines: DailyRoutineItem[] = useMemo(() => {
     const connectedMap = new Map(state.devices.map((d) => [d.id, d.connected]));
-    const isLowImmune = state.astronaut.clinicalHistory.immuneStatus !== 'Normal';
-    const hasPriorSurgery = state.astronaut.clinicalHistory.priorSurgeries.some(
-      (s) => !s.toLowerCase().includes('sin cirug')
-    );
-    const hasCircadianNote = state.astronaut.clinicalHistory.notes
-      .toLowerCase()
-      .includes('circadian');
+    const isLowImmune = isLowImmuneStatus(astronaut.clinicalHistory.immuneStatus);
+    const hasSurgery = hasPriorSurgeries(astronaut.clinicalHistory.priorSurgeries);
+    const hasCircadianNote = astronaut.clinicalHistory.notes.toLowerCase().includes('circadian');
+
+    const urgentLabel = language === 'es' ? 'Urgente hoy' : 'Urgent today';
+    const scheduledLabel = language === 'es' ? 'Programada' : 'Scheduled';
 
     const resolvePriority = (
       id: string,
@@ -1357,14 +1748,15 @@ export function MissionProvider({ children }: { children: React.ReactNode }) {
       DailyRoutineItem,
       'priority' | 'isOverdue' | 'overdueFromDay' | 'overdueDays' | 'priorityLabel' | 'urgencyContext'
     > => {
-      const overdue = state.overdueRoutineMeta?.[id];
+      const overdue = localizedOverdueMeta?.[id];
       if (overdue) {
         return {
           priority: 'overdue',
           isOverdue: true,
           overdueFromDay: overdue.fromDay,
           overdueDays: overdue.daysLate,
-          priorityLabel: `Atrasada · Día ${overdue.fromDay}`,
+          priorityLabel:
+            language === 'es' ? `Atrasada · Día ${overdue.fromDay}` : `Overdue · Day ${overdue.fromDay}`,
           urgencyContext: overdue.reasonLabel,
         };
       }
@@ -1373,25 +1765,32 @@ export function MissionProvider({ children }: { children: React.ReactNode }) {
         return {
           priority: 'urgent',
           isOverdue: false,
-          priorityLabel: 'Urgente hoy',
-          urgencyContext: 'Sensor offline · Requiere protocolo clínico manual',
+          priorityLabel: urgentLabel,
+          urgencyContext:
+            language === 'es'
+              ? 'Sensor offline · Requiere protocolo clínico manual'
+              : 'Sensor offline · Manual clinical protocol required',
         };
       }
 
       if (
         linkedDeviceId === 'dosimeter' &&
         (systemStatuses.immune !== 'nominal' ||
-          mission.radiationRiskLevel === 'Extremo' ||
-          mission.radiationRiskLevel === 'Alto')
+          isExtremeRadiation(mission.radiationRiskLevel) ||
+          isHighRadiation(mission.radiationRiskLevel))
       ) {
         return {
           priority: 'urgent',
           isOverdue: false,
-          priorityLabel: 'Urgente hoy',
+          priorityLabel: urgentLabel,
           urgencyContext:
             systemStatuses.immune !== 'nominal'
-              ? 'Alerta de radiación o inmunidad activa'
-              : `Misión con radiación ${mission.radiationRiskLevel.toLowerCase()}`,
+              ? language === 'es'
+                ? 'Alerta de radiación o inmunidad activa'
+                : 'Active radiation or immunity alert'
+              : language === 'es'
+                ? `Misión con radiación ${mission.radiationRiskLevel.toLowerCase()}`
+                : `${mission.radiationRiskLevel} radiation mission environment`,
         };
       }
 
@@ -1402,27 +1801,35 @@ export function MissionProvider({ children }: { children: React.ReactNode }) {
         return {
           priority: 'urgent',
           isOverdue: false,
-          priorityLabel: 'Urgente hoy',
+          priorityLabel: urgentLabel,
           urgencyContext: isLowImmune
-            ? 'EHR: Defensas bajas previas en seguimiento'
-            : 'Conteo de leucocitos fuera de rango nominal',
+            ? language === 'es'
+              ? 'EHR: Defensas bajas previas en seguimiento'
+              : 'EHR: Prior low defenses under watch'
+            : language === 'es'
+              ? 'Conteo de leucocitos fuera de rango nominal'
+              : 'Leukocyte count outside nominal range',
         };
       }
 
       if (
         linkedDeviceId === 'glucometer' &&
         (systemStatuses.metabolic !== 'nominal' ||
-          (state.astronaut.clinicalHistory.baselineGlucose < 85 &&
+          (astronaut.clinicalHistory.baselineGlucose < 85 &&
             (mission.id === 'planetary-habitat' || mission.id === 'surface-rover')))
       ) {
         return {
           priority: 'urgent',
           isOverdue: false,
-          priorityLabel: 'Urgente hoy',
+          priorityLabel: urgentLabel,
           urgencyContext:
             systemStatuses.metabolic !== 'nominal'
-              ? 'Glucemia capilar requiere verificación hoy'
-              : 'Línea base glucémica baja para operación EVA/Rover',
+              ? language === 'es'
+                ? 'Glucemia capilar requiere verificación hoy'
+                : 'Capillary blood glucose requires verification today'
+              : language === 'es'
+                ? 'Línea base glucémica baja para operación EVA/Rover'
+                : 'Low glycemic baseline for EVA/Rover shift',
         };
       }
 
@@ -1435,11 +1842,15 @@ export function MissionProvider({ children }: { children: React.ReactNode }) {
         return {
           priority: 'urgent',
           isOverdue: false,
-          priorityLabel: 'Urgente hoy',
+          priorityLabel: urgentLabel,
           urgencyContext:
             systemStatuses.cardiovascular !== 'nominal'
-              ? 'Alerta cardiovascular o SpO₂% activa'
-              : 'Control vital prioritario en cabina/EVA',
+              ? language === 'es'
+                ? 'Alerta cardiovascular o SpO₂% activa'
+                : 'Active cardiovascular or SpO₂% alert'
+              : language === 'es'
+                ? 'Control vital prioritario en cabina/EVA'
+                : 'Priority vital signs check for cabin/EVA',
         };
       }
 
@@ -1450,35 +1861,44 @@ export function MissionProvider({ children }: { children: React.ReactNode }) {
         return {
           priority: 'urgent',
           isOverdue: false,
-          priorityLabel: 'Urgente hoy',
-          urgencyContext: 'Seguimiento prioritario neuro-ocular / muscular',
+          priorityLabel: urgentLabel,
+          urgencyContext:
+            language === 'es'
+              ? 'Seguimiento prioritario neuro-ocular / muscular'
+              : 'Priority neuro-ocular / muscular follow-up',
         };
       }
 
       if (
         id === 'psych-checkin-daily' &&
-        (systemStatuses.brain !== 'nominal' ||
-          (hasCircadianNote && state.biomarkers.sleepHours < 7.0))
+        (systemStatuses.brain !== 'nominal' || (hasCircadianNote && biomarkers.sleepHours < 7.0))
       ) {
         return {
           priority: 'urgent',
           isOverdue: false,
-          priorityLabel: 'Urgente hoy',
-          urgencyContext: 'Disrupción circadiana o fatiga detectada hoy',
+          priorityLabel: urgentLabel,
+          urgencyContext:
+            language === 'es'
+              ? 'Disrupción circadiana o fatiga detectada hoy'
+              : 'Circadian disruption or fatigue detected today',
         };
       }
 
       if (
         id === 'exercise-daily-protocol' &&
-        (systemStatuses.musculoskeletal !== 'nominal' || hasPriorSurgery || mission.gravityG === 0)
+        (systemStatuses.musculoskeletal !== 'nominal' || hasSurgery || mission.gravityG === 0)
       ) {
         return {
           priority: 'urgent',
           isOverdue: false,
-          priorityLabel: 'Urgente hoy',
-          urgencyContext: hasPriorSurgery
-            ? 'Sesión adaptada a antecedente quirúrgico'
-            : `Contramedida clave en ${mission.gravityLabel}`,
+          priorityLabel: urgentLabel,
+          urgencyContext: hasSurgery
+            ? language === 'es'
+              ? 'Sesión adaptada a antecedente quirúrgico'
+              : 'Session adapted to surgical history'
+            : language === 'es'
+              ? `Contramedida clave en ${mission.gravityLabel}`
+              : `Key countermeasure in ${mission.gravityLabel}`,
         };
       }
 
@@ -1486,15 +1906,18 @@ export function MissionProvider({ children }: { children: React.ReactNode }) {
         return {
           priority: 'urgent',
           isOverdue: false,
-          priorityLabel: 'Urgente hoy',
-          urgencyContext: 'Soporte mineral prioritario por retención ósea',
+          priorityLabel: urgentLabel,
+          urgencyContext:
+            language === 'es'
+              ? 'Soporte mineral prioritario por retención ósea'
+              : 'Priority mineral support for bone retention',
         };
       }
 
       return {
         priority: 'normal',
         isOverdue: false,
-        priorityLabel: 'Programada',
+        priorityLabel: scheduledLabel,
       };
     };
 
@@ -1504,12 +1927,18 @@ export function MissionProvider({ children }: { children: React.ReactNode }) {
       return {
         id: scan.id,
         title: isConnected ? scan.title : scan.manualFallbackTitle,
-        category: isConnected ? 'Escaneo' : 'Manual',
+        category: isConnected
+          ? language === 'es'
+            ? 'Escaneo'
+            : 'Scan'
+          : 'Manual',
         linkedDeviceId: scan.deviceId,
         usesManualFallback,
         reason: isConnected
           ? scan.reason
-          : `Herramienta desconectada: protocolo adaptado a autoevaluación clínica (${scan.reason})`,
+          : language === 'es'
+            ? `Herramienta desconectada: protocolo adaptado a autoevaluación clínica (${scan.reason})`
+            : `Tool disconnected: adapted to manual clinical self-check (${scan.reason})`,
         completed: state.completedRoutineIds.includes(scan.id),
         points: scan.points,
         ...resolvePriority(scan.id, scan.deviceId, usesManualFallback),
@@ -1519,32 +1948,51 @@ export function MissionProvider({ children }: { children: React.ReactNode }) {
     items.push(
       {
         id: 'psych-checkin-daily',
-        title: 'Check-in emocional y calidad de sueño + Video-Diario',
-        category: 'Psicología',
+        title:
+          language === 'es'
+            ? 'Check-in emocional y calidad de sueño + Video-Diario'
+            : 'Emotional & sleep quality check-in + Video-Diary',
+        category: language === 'es' ? 'Psicología' : 'Psychology',
         usesManualFallback: false,
-        reason: 'Previene fatiga por aislamiento y desincronización circadiana.',
+        reason:
+          language === 'es'
+            ? 'Previene fatiga por aislamiento y desincronización circadiana.'
+            : 'Prevents isolation fatigue and circadian desynchronization.',
         completed: state.completedRoutineIds.includes('psych-checkin-daily'),
         points: 25,
         ...resolvePriority('psych-checkin-daily', undefined, false),
       },
       {
         id: 'exercise-daily-protocol',
-        title: hasPriorSurgery
-          ? 'Entrenamiento óseo y muscular adaptado a historial quirúrgico'
-          : `Rutina física diaria (${mission.gravityLabel})`,
-        category: 'Ejercicio',
+        title: hasSurgery
+          ? language === 'es'
+            ? 'Entrenamiento óseo y muscular adaptado a historial quirúrgico'
+            : 'Bone & muscle workout adapted to surgical history'
+          : language === 'es'
+            ? `Rutina física diaria (${mission.gravityLabel})`
+            : `Daily physical routine (${mission.gravityLabel})`,
+        category: language === 'es' ? 'Ejercicio' : 'Exercise',
         usesManualFallback: false,
-        reason: 'Contrarresta pérdida ósea (1-1.5%/mes) y protege articulaciones.',
+        reason:
+          language === 'es'
+            ? 'Contrarresta pérdida ósea (1-1.5%/mes) y protege articulaciones.'
+            : 'Counteracts bone loss (1–1.5%/mo) and protects operated joints.',
         completed: state.completedRoutineIds.includes('exercise-daily-protocol'),
         points: 40,
         ...resolvePriority('exercise-daily-protocol', undefined, false),
       },
       {
         id: 'nutrition-calcium-daily',
-        title: 'Hidratación controlada + Vitamina D y Calcio',
-        category: 'Nutrición',
+        title:
+          language === 'es'
+            ? 'Hidratación controlada + Vitamina D y Calcio'
+            : 'Controlled hydration + Vitamin D & Calcium',
+        category: language === 'es' ? 'Nutrición' : 'Nutrition',
         usesManualFallback: false,
-        reason: 'Soporta remineralización ósea y estabilidad metabólica.',
+        reason:
+          language === 'es'
+            ? 'Soporta remineralización ósea y estabilidad metabólica.'
+            : 'Supports bone remineralization and metabolic stability.',
         completed: state.completedRoutineIds.includes('nutrition-calcium-daily'),
         points: 20,
         ...resolvePriority('nutrition-calcium-daily', undefined, false),
@@ -1562,33 +2010,131 @@ export function MissionProvider({ children }: { children: React.ReactNode }) {
     mission,
     state.devices,
     state.completedRoutineIds,
-    state.overdueRoutineMeta,
-    state.astronaut,
-    state.biomarkers.sleepHours,
+    localizedOverdueMeta,
+    astronaut,
+    biomarkers.sleepHours,
     systemStatuses,
+    language,
   ]);
 
   const detectedRisks: MissionRiskItem[] = useMemo(
     () =>
       analyzeMissionAndAstronautRisks({
         mission,
-        astronaut: state.astronaut,
-        biomarkers: state.biomarkers,
+        astronaut,
+        biomarkers,
         systemStatuses,
         routines,
         devices: devicesWithStatus,
         activeCrisisScenario,
+        lang: language,
       }),
     [
       mission,
-      state.astronaut,
-      state.biomarkers,
+      astronaut,
+      biomarkers,
       systemStatuses,
       routines,
       devicesWithStatus,
       activeCrisisScenario,
+      language,
     ]
   );
+
+  const inspirationItems = useMemo(() => {
+    const presetList = getDefaultInspirationItems(language);
+    const presetMap = new Map(presetList.map((item) => [item.id, item]));
+    return state.inspirationItems.map((item) => {
+      const preset = presetMap.get(item.id);
+      if (!preset) return item;
+      return {
+        ...item,
+        ...preset,
+        imageUrl: item.imageUrl,
+      };
+    });
+  }, [state.inspirationItems, language]);
+
+  const videoLogs = useMemo(() => {
+    const seedLogs = createInitialVideoLogs(mission, astronaut, state.missionDay, language);
+    const seedMap = new Map(seedLogs.map((l) => [l.id, l]));
+    return state.videoLogs.map((log) => {
+      const seed = seedMap.get(log.id);
+      if (seed) {
+        return {
+          ...seed,
+          aiIndicators: {
+            ...seed.aiIndicators,
+            syncState: log.aiIndicators.syncState ?? seed.aiIndicators.syncState,
+            earthSyncStatus:
+              log.aiIndicators.syncState === 'acknowledged'
+                ? language === 'es'
+                  ? 'Confirmado por Psicología de Tierra (Houston/CSA)'
+                  : 'Acknowledged by Earth Psychology (Houston/CSA)'
+                : log.aiIndicators.syncState === 'transmitting'
+                  ? language === 'es'
+                    ? 'Transmitiendo paquete cifrado hacia Red de Espacio Profundo...'
+                    : 'Transmitting encrypted packet to Deep Space Network...'
+                  : seed.aiIndicators.earthSyncStatus,
+            earthFeedback: log.aiIndicators.earthFeedback ?? seed.aiIndicators.earthFeedback,
+          },
+        };
+      }
+      return {
+        ...log,
+        aiIndicators: {
+          ...log.aiIndicators,
+          confinementStress: localizeStressLevel(log.aiIndicators.confinementStress, language),
+        },
+      };
+    });
+  }, [state.videoLogs, mission, astronaut, state.missionDay, language]);
+
+  const pvtHistory = useMemo(() => {
+    const basePvt = state.pvtHistory ?? [];
+    const seedPvt = createInitialPvtHistory(astronaut, mission, state.missionDay, language)[0];
+    return basePvt.map((item) => {
+      if (seedPvt && item.id === 'pvt-seed-1') {
+        return seedPvt;
+      }
+      return {
+        ...item,
+        statusLabel: localizePvtStatus(item.statusLabel, language),
+      };
+    });
+  }, [state.pvtHistory, astronaut, mission, state.missionDay, language]);
+
+  const crisisAlertBanner = useMemo<CrisisAlertBanner | null>(() => {
+    if (!activeCrisisScenario) return null;
+    if (activeCrisisScenario === 'syncope_hypoglycemic') {
+      return language === 'es'
+        ? {
+            scenario: 'syncope_hypoglycemic',
+            title: 'ALERTA DE CABINA · Síncope / Shock Hipoglucémico',
+            description:
+              'Glucosa en 52 mg/dL y presión arterial en 82/50 mmHg. Sistemas Cardiovascular y Metabólico en código Rojo.',
+          }
+        : {
+            scenario: 'syncope_hypoglycemic',
+            title: 'CABIN ALERT · Syncope / Hypoglycemic Shock',
+            description:
+              'Glucose at 52 mg/dL and blood pressure at 82/50 mmHg. Cardiovascular and Metabolic systems in Code Red.',
+          };
+    }
+    return language === 'es'
+      ? {
+          scenario: 'microgravity_seizure',
+          title: 'ALERTA DE CABINA · Crisis Convulsiva en Microgravedad',
+          description:
+            'Sensor de cabina detectó movimiento convulsivo anómalo. Sistema Neurológico en Rojo y cronómetro de episodio iniciado.',
+        }
+      : {
+          scenario: 'microgravity_seizure',
+          title: 'CABIN ALERT · Seizure Episode in Microgravity',
+          description:
+            'Cabin sensor detected anomalous convulsive motion. Neurological system in Code Red and episode stopwatch started.',
+        };
+  }, [activeCrisisScenario, language]);
 
   const todayKey = isHydrated ? getLocalCalendarDateKey() : '';
   const sameDayAndEpoch =
@@ -1609,11 +2155,11 @@ export function MissionProvider({ children }: { children: React.ReactNode }) {
   const hasPendingRoutineModal = !routineModalDone;
 
   const exercises = useMemo(() => {
-    const surgeryText = state.astronaut.clinicalHistory.priorSurgeries.join(' ').toLowerCase();
+    const surgeryText = astronaut.clinicalHistory.priorSurgeries.join(' ').toLowerCase();
     return mission.defaultExercises.map((ex) => {
       const matchedJoint = ex.affectedJoints.find((joint) => surgeryText.includes(joint));
       const matchedSurgery = matchedJoint
-        ? state.astronaut.clinicalHistory.priorSurgeries.find((s) =>
+        ? astronaut.clinicalHistory.priorSurgeries.find((s) =>
             s.toLowerCase().includes(matchedJoint)
           )
         : undefined;
@@ -1624,7 +2170,7 @@ export function MissionProvider({ children }: { children: React.ReactNode }) {
         completed: state.completedExerciseIds.includes(ex.id),
       };
     });
-  }, [mission, state.astronaut, state.completedExerciseIds]);
+  }, [mission, astronaut, state.completedExerciseIds]);
 
   const readinessScore = useMemo(() => {
     const completedCount = routines.filter((r) => r.completed).length;
@@ -1654,11 +2200,19 @@ export function MissionProvider({ children }: { children: React.ReactNode }) {
   };
 
   const completeOnboarding = (missionId: MissionId, astronautProfile: AstronautProfile) => {
-    const selectedMission = MISSIONS_DATA.find((m) => m.id === missionId) ?? MISSIONS_DATA[0];
-    const safeProfile = sanitizeAstronautProfile(astronautProfile);
     setState((prev) => {
+      const missions = getMissionsData(prev.language);
+      const selectedMission = missions.find((m) => m.id === missionId) ?? missions[0];
+      const safeProfile = sanitizeAstronautProfile(astronautProfile, prev.language);
       const nextEpoch = prev.startupSessionEpoch + 1;
-      return buildDefaultState(selectedMission.id, safeProfile, true, true, nextEpoch);
+      return buildDefaultState(
+        selectedMission.id,
+        safeProfile,
+        true,
+        true,
+        nextEpoch,
+        prev.language
+      );
     });
   };
 
@@ -1740,7 +2294,13 @@ export function MissionProvider({ children }: { children: React.ReactNode }) {
           ? {
               ...d,
               connected: !d.connected,
-              lastUpdated: !d.connected ? 'Conectado ahora' : 'En espera (manual)',
+              lastUpdated: !d.connected
+                ? prev.language === 'es'
+                  ? 'Conectado ahora'
+                  : 'Connected now'
+                : prev.language === 'es'
+                  ? 'En espera (manual)'
+                  : 'Standby (manual)',
             }
           : d
       ),
@@ -1755,7 +2315,13 @@ export function MissionProvider({ children }: { children: React.ReactNode }) {
           ? {
               ...d,
               connected,
-              lastUpdated: connected ? 'Conectado ahora' : 'En espera (manual)',
+              lastUpdated: connected
+                ? prev.language === 'es'
+                  ? 'Conectado ahora'
+                  : 'Connected now'
+                : prev.language === 'es'
+                  ? 'En espera (manual)'
+                  : 'Standby (manual)',
             }
           : d
       ),
@@ -1809,7 +2375,13 @@ export function MissionProvider({ children }: { children: React.ReactNode }) {
         biomarkers: nextBio,
         devices: prev.devices.map((d) =>
           d.availableInMission && touchedDevices.has(d.id)
-            ? { ...d, lastUpdated: `Día ${nextDay} · Recién medido` }
+            ? {
+                ...d,
+                lastUpdated:
+                  prev.language === 'es'
+                    ? `Día ${nextDay} · Recién medido`
+                    : `Day ${nextDay} · Just measured`,
+              }
             : d
         ),
         history: [...prev.history.slice(-14), nextPoint],
@@ -1821,23 +2393,32 @@ export function MissionProvider({ children }: { children: React.ReactNode }) {
   const triggerDemoAnomaly = (scenario: DemoScenario) => {
     if (scenario === 'nominal') {
       setActiveCrisisScenario(null);
-      setCrisisAlertBanner(null);
       setShouldAutoStartTimer(false);
     }
     setState((prev) => {
-      const activeMission = MISSIONS_DATA.find((m) => m.id === prev.missionId) ?? MISSIONS_DATA[0];
+      const missions = getMissionsData(prev.language);
+      const activeMission = missions.find((m) => m.id === prev.missionId) ?? missions[0];
       const nextDay = prev.missionDay + 1;
       let nextBio = { ...prev.biomarkers };
 
       if (scenario === 'nominal') {
-        nextBio = createInitialBiomarkers(activeMission, prev.astronaut);
+        nextBio = createInitialBiomarkers(
+          activeMission,
+          prev.astronaut,
+          getInitialMissionDay(activeMission),
+          prev.language
+        );
       } else if (scenario === 'solar_storm') {
         nextBio.dailyRadiationMsv = 6.8;
         nextBio.cumulativeRadiationMsv = Number(
-          Math.max(activeMission.missionLimitMsv + 8, prev.biomarkers.cumulativeRadiationMsv + 38).toFixed(1)
+          Math.max(
+            activeMission.missionLimitMsv + 8,
+            prev.biomarkers.cumulativeRadiationMsv + 38
+          ).toFixed(1)
         );
-        nextBio.wbcCount =
-          prev.astronaut.clinicalHistory.immuneStatus !== 'Normal' ? 3350 : 3950;
+        nextBio.wbcCount = isLowImmuneStatus(prev.astronaut.clinicalHistory.immuneStatus)
+          ? 3350
+          : 3950;
         nextBio.stressLevel = 7;
       } else if (scenario === 'hypoglycemia_immune') {
         nextBio.glucoseMgDl = 61;
@@ -1848,9 +2429,12 @@ export function MissionProvider({ children }: { children: React.ReactNode }) {
         nextBio.moodScore = 4;
         nextBio.sleepHours = 4.8;
         nextBio.stressLevel = 8;
-        nextBio.ultrasoundStatus = 'Edema Neuro-Ocular Leve';
+        nextBio.ultrasoundStatus = localizeUltrasoundStatus(
+          'Mild Neuro-Ocular Edema',
+          prev.language
+        );
         nextBio.ultrasoundNotes =
-          'Aplanamiento posterior ocular leve compatible con desplazamiento de fluidos en microgravedad.';
+          prev.language === 'es' ? ISOLATION_US_NOTES_ES : ISOLATION_US_NOTES_EN;
       }
 
       const nextPoint: HistoryPoint = {
@@ -1930,9 +2514,10 @@ export function MissionProvider({ children }: { children: React.ReactNode }) {
               },
             ];
 
-      const activeMission = MISSIONS_DATA.find((m) => m.id === prev.missionId) ?? MISSIONS_DATA[0];
+      const activeMission =
+        MISSIONS_DATA_EN.find((m) => m.id === prev.missionId) ?? MISSIONS_DATA_EN[0];
       const dailyExerciseIds = activeMission.defaultExercises
-        .filter((ex) => ex.frequency === 'Diaria')
+        .filter((ex) => isDailyFrequency(ex.frequency))
         .map((ex) => ex.id);
       const allDailyCompleted =
         dailyExerciseIds.length > 0 && dailyExerciseIds.every((id) => nextIds.includes(id));
@@ -2019,10 +2604,11 @@ export function MissionProvider({ children }: { children: React.ReactNode }) {
 
   const savePvtSession = (result: PvtSessionResult) => {
     setState((prev) => {
-      const adjustedStress =
-        result.statusLabel === 'Alerta Circadiana'
-          ? Math.min(10, Math.max(prev.biomarkers.stressLevel, 6))
-          : prev.biomarkers.stressLevel;
+      const isAlert =
+        result.statusLabel === 'Circadian Alert' || result.statusLabel === 'Alerta Circadiana';
+      const adjustedStress = isAlert
+        ? Math.min(10, Math.max(prev.biomarkers.stressLevel, 6))
+        : prev.biomarkers.stressLevel;
       return {
         ...prev,
         pvtHistory: [result, ...(prev.pvtHistory ?? [])].slice(0, 10),
@@ -2040,7 +2626,7 @@ export function MissionProvider({ children }: { children: React.ReactNode }) {
     sleepHours: number;
     stressLevel: number;
     crewCohesion: number;
-    sleepQuality?: 'Reparador' | 'Fragmentado' | 'Insomnio';
+    sleepQuality?: 'Restorative' | 'Fragmented' | 'Insomnia' | 'Reparador' | 'Fragmentado' | 'Insomnio';
     primaryStressor?: string;
   }) => {
     setState((prev) => {
@@ -2091,7 +2677,9 @@ export function MissionProvider({ children }: { children: React.ReactNode }) {
       setVideoMediaUrls((prev) => ({ ...prev, [entryId]: payload.mediaUrl! }));
     }
     setState((prev) => {
-      const activeMission = MISSIONS_DATA.find((m) => m.id === prev.missionId) ?? MISSIONS_DATA[0];
+      const lang = prev.language;
+      const missions = getMissionsData(lang);
+      const activeMission = missions.find((m) => m.id === prev.missionId) ?? missions[0];
       const analysis = analyzeDiaryEntryLocally({
         title: payload.title,
         notes: payload.notes,
@@ -2102,12 +2690,16 @@ export function MissionProvider({ children }: { children: React.ReactNode }) {
         durationSeconds: payload.durationSeconds,
         voiceActiveRatio: payload.voiceActiveRatio,
         usedRealMic: payload.usedRealMic,
+        lang,
       });
 
       const entry: VideoDiaryEntry = {
         id: entryId,
         day: prev.missionDay,
-        timestamp: `Día ${prev.missionDay} · Guardado ahora`,
+        timestamp:
+          lang === 'es'
+            ? `Día ${prev.missionDay} · Guardado ahora`
+            : `Day ${prev.missionDay} · Saved now`,
         mode: payload.mode,
         title: payload.title,
         notes: payload.notes,
@@ -2117,7 +2709,10 @@ export function MissionProvider({ children }: { children: React.ReactNode }) {
           emotionalTone: analysis.emotionalTone,
           vocalFatigue: analysis.vocalFatigue,
           confinementStress: analysis.confinementStress,
-          earthSyncStatus: `En cola cifrada para psicólogos en Tierra (${activeMission.commDelay})`,
+          earthSyncStatus:
+            lang === 'es'
+              ? `En cola cifrada para psicólogos en Tierra (${activeMission.commDelay})`
+              : `Encrypted queue for Earth psychologists (${activeMission.commDelay})`,
           detectedThemes: analysis.detectedThemes,
           clinicalRecommendation: analysis.clinicalRecommendation,
           syncState: 'queued',
@@ -2145,7 +2740,10 @@ export function MissionProvider({ children }: { children: React.ReactNode }) {
               aiIndicators: {
                 ...log.aiIndicators,
                 syncState: 'transmitting',
-                earthSyncStatus: 'Transmitiendo paquete cifrado hacia Red de Espacio Profundo...',
+                earthSyncStatus:
+                  prev.language === 'es'
+                    ? 'Transmitiendo paquete cifrado hacia Red de Espacio Profundo...'
+                    : 'Transmitting encrypted packet to Deep Space Network...',
               },
             }
           : log
@@ -2154,14 +2752,23 @@ export function MissionProvider({ children }: { children: React.ReactNode }) {
 
     setTimeout(() => {
       setState((prev) => {
+        const lang = prev.language;
         const target = prev.videoLogs.find((l) => l.id === entryId);
         if (!target) return prev;
-        const feedback =
-          target.aiIndicators.confinementStress === 'Elevado'
+        const stress = target.aiIndicators.confinementStress;
+        const isHigh = stress === 'High' || stress === 'Elevado';
+        const isMod = stress === 'Moderate' || stress === 'Moderado';
+        const feedback = isHigh
+          ? lang === 'es'
             ? 'Psicología de Vuelo (Houston/CSA): Alerta recibida. Se programa teleconferencia asíncrona prioritaria y ajuste de carga operativa.'
-            : target.aiIndicators.confinementStress === 'Moderado'
+            : 'Flight Psychology (Houston/CSA): Alert received. Priority async teleconference scheduled and workload adjustment advised.'
+          : isMod
+            ? lang === 'es'
               ? 'Psicología de Vuelo: Registro revisado. Recomendamos mantener higiene lumínica ámbar y sesión breve de respiración antes del descanso.'
-              : 'Psicología de Vuelo: Indicadores estables y coherentes con la línea base. Sin intervención adicional requerida.';
+              : 'Flight Psychology: Log reviewed. Recommend keeping 1800K amber light hygiene and a brief breathing session pre-rest.'
+            : lang === 'es'
+              ? 'Psicología de Vuelo: Indicadores estables y coherentes con la línea base. Sin intervención adicional requerida.'
+              : 'Flight Psychology: Indicators stable and aligned with baseline. No additional intervention required.';
 
         return {
           ...prev,
@@ -2172,7 +2779,10 @@ export function MissionProvider({ children }: { children: React.ReactNode }) {
                   aiIndicators: {
                     ...log.aiIndicators,
                     syncState: 'acknowledged',
-                    earthSyncStatus: 'Confirmado por Psicología de Tierra (Houston/CSA)',
+                    earthSyncStatus:
+                      lang === 'es'
+                        ? 'Confirmado por Psicología de Tierra (Houston/CSA)'
+                        : 'Acknowledged by Earth Psychology (Houston/CSA)',
                     earthFeedback: feedback,
                   },
                 }
@@ -2209,14 +2819,20 @@ export function MissionProvider({ children }: { children: React.ReactNode }) {
       return {};
     });
     setActiveCrisisScenario(null);
-    setCrisisAlertBanner(null);
     setShouldAutoStartTimer(false);
     setIsSosOpen(false);
   };
 
   const resetDemoData = () => {
     setState((prev) =>
-      buildDefaultState(prev.missionId, prev.astronaut, true, true, prev.startupSessionEpoch + 1)
+      buildDefaultState(
+        prev.missionId,
+        prev.astronaut,
+        true,
+        true,
+        prev.startupSessionEpoch + 1,
+        prev.language
+      )
     );
     clearSessionTransientMedia();
   };
@@ -2227,7 +2843,10 @@ export function MissionProvider({ children }: { children: React.ReactNode }) {
     } catch {
       // Ignore storage access errors
     }
-    setState(buildDefaultState('deep-space-transit', PRELOADED_ASTRONAUTS[0], false, false, 1));
+    setState((prev) => {
+      const presets = getPreloadedAstronauts(prev.language);
+      return buildDefaultState('deep-space-transit', presets[0], false, false, 1, prev.language);
+    });
     clearSessionTransientMedia();
   };
 
@@ -2236,9 +2855,9 @@ export function MissionProvider({ children }: { children: React.ReactNode }) {
       setActiveEmergencyProtocolId(protocolId);
     } else if (systemStatuses.brain === 'critical' && activeCrisisScenario === 'microgravity_seizure') {
       setActiveEmergencyProtocolId('seizure');
-    } else if (systemStatuses.metabolic === 'critical' && state.biomarkers.glucoseMgDl < 65) {
+    } else if (systemStatuses.metabolic === 'critical' && biomarkers.glucoseMgDl < 65) {
       setActiveEmergencyProtocolId('syncope');
-    } else if (systemStatuses.cardiovascular === 'critical' && state.biomarkers.spo2Percent < 92) {
+    } else if (systemStatuses.cardiovascular === 'critical' && biomarkers.spo2Percent < 92) {
       setActiveEmergencyProtocolId('hypoxia');
     } else if (systemStatuses.cardiovascular === 'critical') {
       setActiveEmergencyProtocolId('cardiovascular_cpr');
@@ -2303,21 +2922,9 @@ export function MissionProvider({ children }: { children: React.ReactNode }) {
     setActiveCrisisScenario(scenario);
 
     if (scenario === 'syncope_hypoglycemic') {
-      setCrisisAlertBanner({
-        scenario,
-        title: 'ALERTA DE CABINA · Síncope / Shock Hipoglucémico',
-        description:
-          'Glucosa en 52 mg/dL y presión arterial en 82/50 mmHg. Sistemas Cardiovascular y Metabólico en código Rojo.',
-      });
       setActiveEmergencyProtocolId('syncope');
       setShouldAutoStartTimer(false);
     } else {
-      setCrisisAlertBanner({
-        scenario,
-        title: 'ALERTA DE CABINA · Crisis Convulsiva en Microgravedad',
-        description:
-          'Sensor de cabina detectó movimiento convulsivo anómalo. Sistema Neurológico en Rojo y cronómetro de episodio iniciado.',
-      });
       setActiveEmergencyProtocolId('seizure');
       setShouldAutoStartTimer(true);
     }
@@ -2327,8 +2934,14 @@ export function MissionProvider({ children }: { children: React.ReactNode }) {
 
   const restoreNominalVitals = () => {
     setState((prev) => {
-      const activeMission = MISSIONS_DATA.find((m) => m.id === prev.missionId) ?? MISSIONS_DATA[0];
-      const nominalBio = createInitialBiomarkers(activeMission, prev.astronaut);
+      const missions = getMissionsData(prev.language);
+      const activeMission = missions.find((m) => m.id === prev.missionId) ?? missions[0];
+      const nominalBio = createInitialBiomarkers(
+        activeMission,
+        prev.astronaut,
+        getInitialMissionDay(activeMission),
+        prev.language
+      );
       const nextDay = prev.missionDay + 1;
       const nextPoint: HistoryPoint = {
         day: nextDay,
@@ -2349,21 +2962,22 @@ export function MissionProvider({ children }: { children: React.ReactNode }) {
       };
     });
     setActiveCrisisScenario(null);
-    setCrisisAlertBanner(null);
     setShouldAutoStartTimer(false);
   };
 
   const value: MissionContextValue = {
+    language,
+    setLanguage,
     isHydrated,
     hasCompletedWelcome: state.hasCompletedWelcome,
     isOnboarded: state.isOnboarded,
     mission,
-    astronaut: state.astronaut,
+    astronaut,
     missionDay: state.missionDay,
     activeTab: state.activeTab,
     setActiveTab,
     devices: devicesWithStatus,
-    biomarkers: state.biomarkers,
+    biomarkers,
     history: state.history,
     routines,
     detectedRisks,
@@ -2382,10 +2996,10 @@ export function MissionProvider({ children }: { children: React.ReactNode }) {
     readinessScore,
     systemStatuses,
     globalTriage,
-    videoLogs: state.videoLogs,
+    videoLogs,
     videoMediaUrls,
-    inspirationItems: state.inspirationItems,
-    pvtHistory: state.pvtHistory ?? [],
+    inspirationItems,
+    pvtHistory,
     completeWelcome,
     reopenWelcome,
     completeOnboarding,
@@ -2426,7 +3040,7 @@ export function MissionProvider({ children }: { children: React.ReactNode }) {
 export function useMission() {
   const ctx = useContext(MissionContext);
   if (!ctx) {
-    throw new Error('useMission debe usarse dentro de MissionProvider');
+    throw new Error('useMission must be used inside MissionProvider');
   }
   return ctx;
 }

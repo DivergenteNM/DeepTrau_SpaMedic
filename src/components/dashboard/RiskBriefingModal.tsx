@@ -10,6 +10,7 @@ import {
   ShieldAlert,
   Sparkles,
 } from 'lucide-react';
+import { useMission } from '@/context/MissionContext';
 import { MissionRiskItem } from '@/utils/missionRiskAnalysis';
 
 interface RiskBriefingModalProps {
@@ -33,6 +34,8 @@ export function RiskBriefingModal({
   hasRoutineStepAfter,
   onConfirm,
 }: RiskBriefingModalProps) {
+  const { language } = useMission();
+
   useEffect(() => {
     if (!isOpen || risks.length === 0) return;
 
@@ -73,11 +76,13 @@ export function RiskBriefingModal({
               <div className="flex flex-wrap items-center gap-2">
                 <span className="inline-flex items-center gap-1.5 rounded-lg border border-warning/35 bg-warning-container px-2 py-0.5 font-mono text-[11px] font-semibold uppercase tracking-[0.04em] text-on-warning-container">
                   <Activity className="h-3 w-3 text-warning" />
-                  Briefing de Riesgos · Día {missionDay}
+                  {language === 'es'
+                    ? `Briefing de Riesgos · Día ${missionDay}`
+                    : `Risk Briefing · Day ${missionDay}`}
                 </span>
                 {hasRoutineStepAfter && (
                   <span className="rounded-lg border border-outline bg-surface-container px-2 py-0.5 font-mono text-[11px] font-medium text-on-surface-variant">
-                    Paso 1 de 2 · Prevención
+                    {language === 'es' ? 'Paso 1 de 2 · Prevención' : 'Step 1 of 2 · Prevention'}
                   </span>
                 )}
               </div>
@@ -85,12 +90,24 @@ export function RiskBriefingModal({
                 id="risk-briefing-title"
                 className="text-[20px] leading-[26px] font-bold tracking-[-0.015em] text-on-surface font-display sm:text-[22px]"
               >
-                Briefing de Riesgos y Prevención del Turno
+                {language === 'es'
+                  ? 'Briefing de Riesgos y Prevención del Turno'
+                  : 'Shift Risk & Prevention Briefing'}
               </h2>
               <p id="risk-briefing-desc" className="text-xs text-on-surface-variant sm:text-sm">
-                Cruce clínico de <span className="font-semibold text-on-surface">{astronautName}</span>{' '}
-                con las condiciones activas de{' '}
-                <span className="font-semibold text-primary">{missionShortName}</span>.
+                {language === 'es' ? (
+                  <>
+                    Cruce clínico de <span className="font-semibold text-on-surface">{astronautName}</span>{' '}
+                    con las condiciones activas de{' '}
+                    <span className="font-semibold text-primary">{missionShortName}</span>.
+                  </>
+                ) : (
+                  <>
+                    Clinical cross-reference for{' '}
+                    <span className="font-semibold text-on-surface">{astronautName}</span> under active{' '}
+                    <span className="font-semibold text-primary">{missionShortName}</span> hazards.
+                  </>
+                )}
               </p>
             </div>
 
@@ -99,13 +116,19 @@ export function RiskBriefingModal({
               {criticalCount > 0 && (
                 <span className="inline-flex items-center gap-1 rounded-full border border-danger/45 bg-danger-container px-2.5 py-1 font-mono text-[11px] font-bold text-on-danger-container">
                   <ShieldAlert className="h-3.5 w-3.5 text-danger" />
-                  {criticalCount} Crítico{criticalCount > 1 ? 's' : ''}
+                  {criticalCount}{' '}
+                  {language === 'es'
+                    ? `Crítico${criticalCount > 1 ? 's' : ''}`
+                    : 'Critical'}
                 </span>
               )}
               {warningCount > 0 && (
                 <span className="inline-flex items-center gap-1 rounded-full border border-warning/40 bg-warning-container px-2.5 py-1 font-mono text-[11px] font-bold text-on-warning-container">
                   <AlertTriangle className="h-3.5 w-3.5 text-warning" />
-                  {warningCount} Precaución{warningCount > 1 ? 'es' : ''}
+                  {warningCount}{' '}
+                  {language === 'es'
+                    ? `Precaución${warningCount > 1 ? 'es' : ''}`
+                    : `Caution${warningCount > 1 ? 's' : ''}`}
                 </span>
               )}
             </div>
@@ -127,7 +150,6 @@ export function RiskBriefingModal({
                   }`}
                 >
                   <div className="space-y-2.5">
-                    {/* Priority Badge + Category */}
                     <div className="flex items-center justify-between gap-2">
                       <div className="flex items-center gap-2">
                         <span
@@ -150,7 +172,13 @@ export function RiskBriefingModal({
                               : 'border-warning/45 bg-warning-container text-on-warning-container'
                           }`}
                         >
-                          {isCritical ? 'Crítico' : 'Precaución'}
+                          {isCritical
+                            ? language === 'es'
+                              ? 'Crítico'
+                              : 'Critical'
+                            : language === 'es'
+                              ? 'Precaución'
+                              : 'Caution'}
                         </span>
                       </div>
                       <span className="rounded-md border border-outline bg-surface-container px-2 py-0.5 font-mono text-[10px] font-semibold text-on-surface-variant">
@@ -158,17 +186,15 @@ export function RiskBriefingModal({
                       </span>
                     </div>
 
-                    {/* 1. Problema / Riesgo */}
                     <div>
                       <p className="text-[10px] font-semibold uppercase tracking-[0.06em] text-on-surface-variant font-display">
-                        Problema / Riesgo hoy
+                        {language === 'es' ? 'Problema / Riesgo hoy' : 'Issue / Risk today'}
                       </p>
                       <h3 className="mt-0.5 text-sm font-bold leading-snug text-on-surface font-display">
                         {risk.problem}
                       </h3>
                     </div>
 
-                    {/* 2. Dato detectado */}
                     <div
                       className={`rounded-lg border px-2.5 py-2 ${
                         isCritical
@@ -177,7 +203,7 @@ export function RiskBriefingModal({
                       }`}
                     >
                       <p className="text-[10px] font-semibold uppercase tracking-[0.06em] text-on-surface-variant font-display">
-                        Dato detectado
+                        {language === 'es' ? 'Dato detectado' : 'Detected metric'}
                       </p>
                       <p className="mt-0.5 font-mono text-[11px] font-medium leading-snug text-on-surface">
                         {risk.detectedMetric}
@@ -185,10 +211,11 @@ export function RiskBriefingModal({
                     </div>
                   </div>
 
-                  {/* 3. Qué tener en cuenta y cómo actuar */}
                   <div className="border-t border-outline-variant/80 pt-2.5">
                     <p className="text-[10px] font-semibold uppercase tracking-[0.06em] text-primary font-display">
-                      Qué tener en cuenta y cómo actuar
+                      {language === 'es'
+                        ? 'Qué tener en cuenta y cómo actuar'
+                        : 'What to watch & how to act'}
                     </p>
                     <p className="mt-1 flex items-start gap-1.5 text-xs leading-relaxed text-on-surface">
                       <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
@@ -206,10 +233,21 @@ export function RiskBriefingModal({
           <div className="flex items-center gap-2 text-xs text-on-surface-variant">
             <Sparkles className="h-4 w-4 shrink-0 text-primary" />
             <span>
-              Análisis autónomo local ({commDelay}).{' '}
-              {hasRoutineStepAfter
-                ? 'A continuación verás tu rutina priorizada para hoy.'
-                : 'Puedes consultar estos riesgos en cualquier momento.'}
+              {language === 'es' ? (
+                <>
+                  Análisis autónomo local ({commDelay}).{' '}
+                  {hasRoutineStepAfter
+                    ? 'A continuación verás tu rutina priorizada para hoy.'
+                    : 'Puedes consultar estos riesgos en cualquier momento.'}
+                </>
+              ) : (
+                <>
+                  Local autonomous analysis ({commDelay}).{' '}
+                  {hasRoutineStepAfter
+                    ? 'Next you will review your prioritized daily routine.'
+                    : 'You can reopen this risk briefing at any time.'}
+                </>
+              )}
             </span>
           </div>
 
@@ -218,7 +256,7 @@ export function RiskBriefingModal({
             onClick={onConfirm}
             className="group inline-flex shrink-0 cursor-pointer items-center justify-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-xs font-bold text-on-primary font-display dt-transition hover:-translate-y-0.5 hover:bg-primary-hover hover:shadow-[0_8px_18px_-8px_rgba(47,93,70,0.45)] active:translate-y-0 active:scale-[0.985] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35 sm:text-sm"
           >
-            <span>Entendido, continuar</span>
+            <span>{language === 'es' ? 'Entendido, continuar' : 'Understood, continue'}</span>
             <ArrowRight className="h-4 w-4 dt-transition group-hover:translate-x-0.5" />
           </button>
         </footer>

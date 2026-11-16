@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { useMission } from '@/context/MissionContext';
 import { EmergencyZoneGuide, MiniBodyZoneId } from '@/data/emergencyProtocolsData';
 
 interface EmergencyMiniBodyMapProps {
@@ -14,8 +15,10 @@ interface EmergencyMiniBodyMapProps {
 const ZONE_META: Record<
   MiniBodyZoneId,
   {
-    title: string;
-    tag: string;
+    titleEn: string;
+    titleEs: string;
+    tagEn: string;
+    tagEs: string;
     anchorX: number;
     anchorY: number;
     elbowX: number;
@@ -25,8 +28,10 @@ const ZONE_META: Record<
   }
 > = {
   head: {
-    title: 'Cráneo / Conciencia',
-    tag: 'CRÁNEO',
+    titleEn: 'Cranium / Consciousness',
+    titleEs: 'Cráneo / Conciencia',
+    tagEn: 'CRANIUM',
+    tagEs: 'CRÁNEO',
     anchorX: 169,
     anchorY: 42,
     elbowX: 204,
@@ -35,8 +40,10 @@ const ZONE_META: Record<
     side: 'right',
   },
   airway_neck: {
-    title: 'Vía Aérea / Cuello',
-    tag: 'VÍA AÉREA',
+    titleEn: 'Airway / Neck',
+    titleEs: 'Vía Aérea / Cuello',
+    tagEn: 'AIRWAY',
+    tagEs: 'VÍA AÉREA',
     anchorX: 143,
     anchorY: 82,
     elbowX: 98,
@@ -45,8 +52,10 @@ const ZONE_META: Record<
     side: 'left',
   },
   chest_heart: {
-    title: 'Tórax / Corazón y O₂',
-    tag: 'TÓRAX',
+    titleEn: 'Thorax / Heart & O₂',
+    titleEs: 'Tórax / Corazón y O₂',
+    tagEn: 'THORAX',
+    tagEs: 'TÓRAX',
     anchorX: 179,
     anchorY: 128,
     elbowX: 210,
@@ -55,8 +64,10 @@ const ZONE_META: Record<
     side: 'right',
   },
   abdomen_fast: {
-    title: 'Abdomen / Pelvis FAST',
-    tag: 'FAST',
+    titleEn: 'Abdomen / Pelvis FAST',
+    titleEs: 'Abdomen / Pelvis FAST',
+    tagEn: 'FAST',
+    tagEs: 'FAST',
     anchorX: 122,
     anchorY: 180,
     elbowX: 94,
@@ -65,8 +76,10 @@ const ZONE_META: Record<
     side: 'left',
   },
   limbs_joints: {
-    title: 'Extremidades / Retorno',
-    tag: 'PIERNAS',
+    titleEn: 'Limbs / Venous Return',
+    titleEs: 'Extremidades / Retorno',
+    tagEn: 'LIMBS',
+    tagEs: 'PIERNAS',
     anchorX: 181,
     anchorY: 288,
     elbowX: 210,
@@ -82,6 +95,8 @@ export function EmergencyMiniBodyMap({
   onSelectZone,
   urgency,
 }: EmergencyMiniBodyMapProps) {
+  const { language } = useMission();
+  const isEs = language === 'es';
   const [hoveredZoneId, setHoveredZoneId] = useState<MiniBodyZoneId | null>(null);
 
   const zoneMap = new Map(protocolZones.map((z, i) => [z.zoneId, { guide: z, index: i + 1 }]));
@@ -138,10 +153,11 @@ export function EmergencyMiniBodyMap({
 
   const zoneProps = (zoneId: MiniBodyZoneId) => {
     const colors = getZoneColors(zoneId);
+    const meta = ZONE_META[zoneId];
     return {
       role: 'button' as const,
       tabIndex: 0,
-      'aria-label': `Verificar ${ZONE_META[zoneId].title}`,
+      'aria-label': `${isEs ? 'Verificar' : 'Inspect'} ${isEs ? meta.titleEs : meta.titleEn}`,
       'aria-pressed': selectedZoneId === zoneId,
       'data-selected': selectedZoneId === zoneId,
       'data-status': colors.status,
@@ -178,8 +194,10 @@ export function EmergencyMiniBodyMap({
         />
 
         <div className="relative z-10 flex items-center justify-between pb-1.5 text-[10px] font-mono font-semibold text-on-surface-variant">
-          <span>EXPLORACIÓN DIRIGIDA</span>
-          <span>{protocolZones.length} ZONAS CLAVE</span>
+          <span>{isEs ? 'EXPLORACIÓN DIRIGIDA' : 'TARGETED SCAN'}</span>
+          <span>
+            {protocolZones.length} {isEs ? 'ZONAS CLAVE' : 'KEY ZONES'}
+          </span>
         </div>
 
         {/* Sculpted Anatomical Scanner SVG */}
@@ -188,7 +206,11 @@ export function EmergencyMiniBodyMap({
             viewBox="-8 4 316 420"
             className="h-auto w-full select-none"
             role="img"
-            aria-label="Mapa anatómico de verificación clínica rápida"
+            aria-label={
+              isEs
+                ? 'Mapa anatómico de verificación clínica rápida'
+                : 'Anatomical rapid clinical inspection map'
+            }
           >
             {/* Calibration Brackets, Concentric Ring & Anatomical Midline */}
             <g aria-hidden="true">
@@ -226,7 +248,7 @@ export function EmergencyMiniBodyMap({
                 fontFamily="var(--font-mono)"
                 opacity="0.55"
               >
-                D
+                {isEs ? 'D' : 'R'}
               </text>
               <text
                 x="227"
@@ -237,7 +259,7 @@ export function EmergencyMiniBodyMap({
                 fontFamily="var(--font-mono)"
                 opacity="0.55"
               >
-                I
+                {isEs ? 'I' : 'L'}
               </text>
             </g>
 
@@ -623,7 +645,7 @@ export function EmergencyMiniBodyMap({
                     fontFamily="var(--font-mono)"
                     className="hidden sm:inline"
                   >
-                    {meta.tag}
+                    {isEs ? meta.tagEs : meta.tagEn}
                   </text>
                 </g>
               );
@@ -686,13 +708,17 @@ export function EmergencyMiniBodyMap({
           </p>
           <p className="leading-relaxed text-on-surface-variant">{activeGuide.checkInstruction}</p>
           <p className="rounded-lg border border-danger/30 bg-danger-container/60 px-2.5 py-1.5 text-[11px] font-medium text-on-danger-container">
-            Signo crítico: {activeGuide.criticalSign}
+            {isEs ? 'Signo crítico:' : 'Critical sign:'} {activeGuide.criticalSign}
           </p>
         </div>
       ) : (
         <div className="flex items-center gap-2 rounded-xl border border-outline bg-surface-container p-3 text-xs text-on-surface-variant">
           <CheckCircle2 className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
-          <span>Zona sin afectación primaria; verifica solo si hay dolor o lesión visible.</span>
+          <span>
+            {isEs
+              ? 'Zona sin afectación primaria; verifica solo si hay dolor o lesión visible.'
+              : 'Zone without primary involvement; inspect only if pain or visible trauma is present.'}
+          </span>
         </div>
       )}
     </div>

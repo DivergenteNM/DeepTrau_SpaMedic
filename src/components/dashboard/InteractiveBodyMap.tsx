@@ -14,9 +14,15 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { useMission } from '@/context/MissionContext';
-import { BODY_SYSTEM_GUIDES, BodySystemId, TriageLevel } from '@/data/medicalKnowledge';
+import { hasPriorSurgeries } from '@/data/astronautsData';
+import {
+  BodySystemId,
+  TriageLevel,
+  getBodySystemGuides,
+} from '@/data/medicalKnowledge';
+import { Language, formatNumberLocale } from '@/i18n/types';
 
-const STATUS_STYLE: Record<
+function getStatusStyles(lang: Language): Record<
   TriageLevel,
   {
     fill: string;
@@ -29,41 +35,43 @@ const STATUS_STYLE: Record<
     label: string;
     shortLabel: string;
   }
-> = {
-  nominal: {
-    fill: 'rgba(47, 93, 70, 0.20)',
-    softFill: 'rgba(47, 93, 70, 0.10)',
-    stroke: '#2F5D46',
-    ring: 'drop-shadow(0 0 6px rgba(47, 93, 70, 0.35))',
-    badge: 'border-primary/35 bg-primary-container text-on-primary-container',
-    shortBadge: 'bg-primary-container text-on-primary-container border-primary/25',
-    dot: 'bg-primary',
-    label: 'Verde · Óptimo',
-    shortLabel: 'Óptimo',
-  },
-  warning: {
-    fill: 'rgba(181, 71, 8, 0.20)',
-    softFill: 'rgba(181, 71, 8, 0.11)',
-    stroke: '#B54708',
-    ring: 'drop-shadow(0 0 7px rgba(181, 71, 8, 0.38))',
-    badge: 'border-warning/35 bg-warning-container text-on-warning-container',
-    shortBadge: 'bg-warning-container text-on-warning-container border-warning/30',
-    dot: 'bg-warning',
-    label: 'Amarillo · Precaución',
-    shortLabel: 'Precaución',
-  },
-  critical: {
-    fill: 'rgba(180, 35, 24, 0.22)',
-    softFill: 'rgba(180, 35, 24, 0.12)',
-    stroke: '#B42318',
-    ring: 'drop-shadow(0 0 8px rgba(180, 35, 24, 0.45))',
-    badge: 'border-danger/45 bg-danger-container text-on-danger-container',
-    shortBadge: 'bg-danger-container text-on-danger-container border-danger/35',
-    dot: 'bg-danger',
-    label: 'Rojo · Atención Inmediata',
-    shortLabel: 'Crítico',
-  },
-};
+> {
+  return {
+    nominal: {
+      fill: 'rgba(47, 93, 70, 0.20)',
+      softFill: 'rgba(47, 93, 70, 0.10)',
+      stroke: '#2F5D46',
+      ring: 'drop-shadow(0 0 6px rgba(47, 93, 70, 0.35))',
+      badge: 'border-primary/35 bg-primary-container text-on-primary-container',
+      shortBadge: 'bg-primary-container text-on-primary-container border-primary/25',
+      dot: 'bg-primary',
+      label: lang === 'es' ? 'Verde · Óptimo' : 'Green · Optimal',
+      shortLabel: lang === 'es' ? 'Óptimo' : 'Optimal',
+    },
+    warning: {
+      fill: 'rgba(181, 71, 8, 0.20)',
+      softFill: 'rgba(181, 71, 8, 0.11)',
+      stroke: '#B54708',
+      ring: 'drop-shadow(0 0 7px rgba(181, 71, 8, 0.38))',
+      badge: 'border-warning/35 bg-warning-container text-on-warning-container',
+      shortBadge: 'bg-warning-container text-on-warning-container border-warning/30',
+      dot: 'bg-warning',
+      label: lang === 'es' ? 'Amarillo · Precaución' : 'Amber · Caution',
+      shortLabel: lang === 'es' ? 'Precaución' : 'Caution',
+    },
+    critical: {
+      fill: 'rgba(180, 35, 24, 0.22)',
+      softFill: 'rgba(180, 35, 24, 0.12)',
+      stroke: '#B42318',
+      ring: 'drop-shadow(0 0 8px rgba(180, 35, 24, 0.45))',
+      badge: 'border-danger/45 bg-danger-container text-on-danger-container',
+      shortBadge: 'bg-danger-container text-on-danger-container border-danger/35',
+      dot: 'bg-danger',
+      label: lang === 'es' ? 'Rojo · Atención Inmediata' : 'Red · Immediate Action',
+      shortLabel: lang === 'es' ? 'Crítico' : 'Critical',
+    },
+  };
+}
 
 const SYSTEM_ICONS: Record<BodySystemId, React.ReactNode> = {
   brain: <Brain className="h-4 w-4" />,
@@ -95,37 +103,56 @@ interface SurgicalMarker {
  * Maps EHR prior surgery descriptions onto anterior anatomical coordinates
  * (viewer left = patient anatomical right; viewer right = patient anatomical left).
  */
-function getSurgicalMarker(priorSurgeries: string[]): SurgicalMarker | null {
+function getSurgicalMarker(priorSurgeries: string[], lang: Language): SurgicalMarker | null {
+  if (!hasPriorSurgeries(priorSurgeries)) return null;
   const joined = priorSurgeries.join(' ').toLowerCase();
-  if (!joined || joined.includes('sin cirugías')) return null;
+  const original = priorSurgeries[0] ?? (lang === 'es' ? 'Antecedente quirúrgico' : 'Prior surgery');
 
-  const original = priorSurgeries[0] ?? 'Antecedente quirúrgico';
-
-  if (joined.includes('rodilla')) {
-    const isLeft = joined.includes('izquierda');
+  if (joined.includes('rodilla') || joined.includes('knee')) {
+    const isLeft = joined.includes('izquierda') || joined.includes('left');
     return {
       x: isLeft ? 174.5 : 125.5,
       y: 316,
-      label: isLeft ? 'Antecedente Qx: rodilla izq.' : 'Antecedente Qx: rodilla der.',
+      label:
+        lang === 'es'
+          ? isLeft
+            ? 'Antecedente Qx: rodilla izq.'
+            : 'Antecedente Qx: rodilla der.'
+          : isLeft
+            ? 'Surgical History: Left knee'
+            : 'Surgical History: Right knee',
       detail: original,
     };
   }
 
-  if (joined.includes('hombro')) {
-    const isRight = joined.includes('derecho');
+  if (joined.includes('hombro') || joined.includes('shoulder')) {
+    const isRight = joined.includes('derecho') || joined.includes('right');
     return {
       x: isRight ? 105 : 195,
       y: 105,
-      label: isRight ? 'Antecedente Qx: hombro der.' : 'Antecedente Qx: hombro izq.',
+      label:
+        lang === 'es'
+          ? isRight
+            ? 'Antecedente Qx: hombro der.'
+            : 'Antecedente Qx: hombro izq.'
+          : isRight
+            ? 'Surgical History: Right shoulder'
+            : 'Surgical History: Left shoulder',
       detail: original,
     };
   }
 
-  if (joined.includes('columna') || joined.includes('espalda') || joined.includes('lumbar')) {
+  if (
+    joined.includes('columna') ||
+    joined.includes('espalda') ||
+    joined.includes('lumbar') ||
+    joined.includes('spine') ||
+    joined.includes('back')
+  ) {
     return {
       x: 150,
       y: 196,
-      label: 'Antecedente Qx: zona lumbar',
+      label: lang === 'es' ? 'Antecedente Qx: zona lumbar' : 'Surgical History: Lumbar spine',
       detail: original,
     };
   }
@@ -134,22 +161,25 @@ function getSurgicalMarker(priorSurgeries: string[]): SurgicalMarker | null {
 }
 
 export function InteractiveBodyMap() {
-  const { systemStatuses, biomarkers, astronaut, mission, setActiveTab } = useMission();
+  const { language, systemStatuses, biomarkers, astronaut, mission, setActiveTab } = useMission();
   const [selectedSystem, setSelectedSystem] = useState<BodySystemId>('brain');
   const [hoveredSystem, setHoveredSystem] = useState<BodySystemId | null>(null);
   const [hoveredSvgTarget, setHoveredSvgTarget] = useState<HoverTargetId | null>(null);
 
-  const activeGuide = BODY_SYSTEM_GUIDES[selectedSystem];
+  const statusStyles = useMemo(() => getStatusStyles(language), [language]);
+  const guides = useMemo(() => getBodySystemGuides(language), [language]);
+
+  const activeGuide = guides[selectedSystem];
   const activeStatus = systemStatuses[selectedSystem];
-  const activeStyle = STATUS_STYLE[activeStatus];
+  const activeStyle = statusStyles[activeStatus];
 
   const displaySystem = hoveredSystem ?? selectedSystem;
-  const displayGuide = BODY_SYSTEM_GUIDES[displaySystem];
+  const displayGuide = guides[displaySystem];
   const displayStatus = systemStatuses[displaySystem];
 
   const surgicalMarker = useMemo(
-    () => getSurgicalMarker(astronaut.clinicalHistory.priorSurgeries),
-    [astronaut.clinicalHistory.priorSurgeries]
+    () => getSurgicalMarker(astronaut.clinicalHistory.priorSurgeries, language),
+    [astronaut.clinicalHistory.priorSurgeries, language]
   );
 
   const alertCount = useMemo(
@@ -159,18 +189,26 @@ export function InteractiveBodyMap() {
     [systemStatuses]
   );
 
+  const formattedWbc = formatNumberLocale(biomarkers.wbcCount, language);
+
   const getPrimaryReadout = (sys: BodySystemId) => {
     switch (sys) {
       case 'brain':
-        return `Ánimo ${biomarkers.moodScore}/10 · ${biomarkers.sleepHours}h sueño`;
+        return language === 'es'
+          ? `Ánimo ${biomarkers.moodScore}/10 · ${biomarkers.sleepHours}h sueño`
+          : `Mood ${biomarkers.moodScore}/10 · ${biomarkers.sleepHours}h sleep`;
       case 'cardiovascular':
         return `SpO₂ ${biomarkers.spo2Percent}% · ${biomarkers.heartRateBpm} bpm`;
       case 'immune':
-        return `${biomarkers.wbcCount.toLocaleString('es-ES')}/µL · ${biomarkers.cumulativeRadiationMsv.toFixed(1)} mSv`;
+        return `${formattedWbc}/µL · ${biomarkers.cumulativeRadiationMsv.toFixed(1)} mSv`;
       case 'metabolic':
-        return `Glucosa ${biomarkers.glucoseMgDl} mg/dL`;
+        return language === 'es'
+          ? `Glucosa ${biomarkers.glucoseMgDl} mg/dL`
+          : `Glucose ${biomarkers.glucoseMgDl} mg/dL`;
       case 'musculoskeletal':
-        return `BMD ${biomarkers.boneDensityRetentionPercent}% · Músculo ${biomarkers.muscleMassRetentionPercent}%`;
+        return language === 'es'
+          ? `BMD ${biomarkers.boneDensityRetentionPercent}% · Músculo ${biomarkers.muscleMassRetentionPercent}%`
+          : `BMD ${biomarkers.boneDensityRetentionPercent}% · Muscle ${biomarkers.muscleMassRetentionPercent}%`;
     }
   };
 
@@ -184,16 +222,19 @@ export function InteractiveBodyMap() {
       return {
         title: surgicalMarker.label,
         status: 'warning' as TriageLevel,
-        statusLabel: 'Adaptado',
+        statusLabel: language === 'es' ? 'Adaptado' : 'Adapted',
         metrics: surgicalMarker.detail,
-        hint: 'Protocolo articular seguro activo · Clic para ver',
+        hint:
+          language === 'es'
+            ? 'Protocolo articular seguro activo · Clic para ver'
+            : 'Safe joint protocol active · Click to inspect',
         placement: placeBelow ? ('bottom' as const) : ('top' as const),
         ...anchor,
       };
     }
 
     const sys: BodySystemId = target === 'surgery' ? 'musculoskeletal' : target;
-    const guide = BODY_SYSTEM_GUIDES[sys];
+    const guide = guides[sys];
     const status = systemStatuses[sys];
 
     const coords: Record<
@@ -204,7 +245,10 @@ export function InteractiveBodyMap() {
         x: 150,
         y: 66,
         placement: 'bottom',
-        metrics: `Ánimo ${biomarkers.moodScore}/10 · Sueño ${biomarkers.sleepHours}h · Estrés ${biomarkers.stressLevel}/10`,
+        metrics:
+          language === 'es'
+            ? `Ánimo ${biomarkers.moodScore}/10 · Sueño ${biomarkers.sleepHours}h · Estrés ${biomarkers.stressLevel}/10`
+            : `Mood ${biomarkers.moodScore}/10 · Sleep ${biomarkers.sleepHours}h · Stress ${biomarkers.stressLevel}/10`,
       },
       cardiovascular: {
         x: 150,
@@ -216,19 +260,28 @@ export function InteractiveBodyMap() {
         x: 131,
         y: 154,
         placement: 'top',
-        metrics: `Glucosa ${biomarkers.glucoseMgDl} mg/dL · Basal ${astronaut.clinicalHistory.baselineGlucose} mg/dL`,
+        metrics:
+          language === 'es'
+            ? `Glucosa ${biomarkers.glucoseMgDl} mg/dL · Basal ${astronaut.clinicalHistory.baselineGlucose} mg/dL`
+            : `Glucose ${biomarkers.glucoseMgDl} mg/dL · Baseline ${astronaut.clinicalHistory.baselineGlucose} mg/dL`,
       },
       immune: {
         x: 169,
         y: 154,
         placement: 'top',
-        metrics: `Leucocitos ${biomarkers.wbcCount.toLocaleString('es-ES')}/µL · ${biomarkers.cumulativeRadiationMsv.toFixed(1)} mSv`,
+        metrics:
+          language === 'es'
+            ? `Leucocitos ${formattedWbc}/µL · ${biomarkers.cumulativeRadiationMsv.toFixed(1)} mSv`
+            : `Leukocytes ${formattedWbc}/µL · ${biomarkers.cumulativeRadiationMsv.toFixed(1)} mSv`,
       },
       musculoskeletal: {
         x: 150,
         y: 224,
         placement: 'top',
-        metrics: `Retención ósea ${biomarkers.boneDensityRetentionPercent}% · Músculo ${biomarkers.muscleMassRetentionPercent}%`,
+        metrics:
+          language === 'es'
+            ? `Retención ósea ${biomarkers.boneDensityRetentionPercent}% · Músculo ${biomarkers.muscleMassRetentionPercent}%`
+            : `Bone retention ${biomarkers.boneDensityRetentionPercent}% · Muscle ${biomarkers.muscleMassRetentionPercent}%`,
       },
     };
 
@@ -238,12 +291,16 @@ export function InteractiveBodyMap() {
     return {
       title: guide.shortLabel,
       status,
-      statusLabel: STATUS_STYLE[status].shortLabel,
+      statusLabel: statusStyles[status].shortLabel,
       metrics: cfg.metrics,
       hint:
         selectedSystem === sys
-          ? 'Sistema activo · Revisa el panel derecho'
-          : 'Clic para inspeccionar medidas preventivas',
+          ? language === 'es'
+            ? 'Sistema activo · Revisa el panel derecho'
+            : 'Active system · View details on right'
+          : language === 'es'
+            ? 'Clic para inspeccionar medidas preventivas'
+            : 'Click to inspect preventive countermeasures',
       placement: cfg.placement,
       ...anchor,
     };
@@ -253,59 +310,72 @@ export function InteractiveBodyMap() {
     switch (sys) {
       case 'brain':
         return [
-          { label: 'Ánimo actual', value: `${biomarkers.moodScore}/10` },
-          { label: 'Sueño nocturno', value: `${biomarkers.sleepHours} h` },
-          { label: 'Estrés percibido', value: `${biomarkers.stressLevel}/10` },
-          { label: 'Ultrasonido SANS', value: biomarkers.ultrasoundStatus },
+          { label: language === 'es' ? 'Ánimo actual' : 'Current mood', value: `${biomarkers.moodScore}/10` },
+          { label: language === 'es' ? 'Sueño nocturno' : 'Sleep duration', value: `${biomarkers.sleepHours} h` },
+          { label: language === 'es' ? 'Estrés percibido' : 'Perceived stress', value: `${biomarkers.stressLevel}/10` },
+          { label: language === 'es' ? 'Ultrasonido SANS' : 'SANS Ultrasound', value: biomarkers.ultrasoundStatus },
         ];
       case 'cardiovascular':
         return [
-          { label: 'Oxígeno SpO₂', value: `${biomarkers.spo2Percent}%` },
+          { label: language === 'es' ? 'Oxígeno SpO₂' : 'Oxygen SpO₂', value: `${biomarkers.spo2Percent}%` },
           {
-            label: 'Presión Arterial',
+            label: language === 'es' ? 'Presión Arterial' : 'Blood Pressure',
             value: `${biomarkers.systolicBP}/${biomarkers.diastolicBP} mmHg`,
           },
-          { label: 'Frecuencia Cardíaca', value: `${biomarkers.heartRateBpm} bpm` },
-          { label: 'Base en Tierra', value: astronaut.clinicalHistory.baselineBP },
+          { label: language === 'es' ? 'Frecuencia Cardíaca' : 'Heart Rate', value: `${biomarkers.heartRateBpm} bpm` },
+          { label: language === 'es' ? 'Base en Tierra' : 'Earth Baseline', value: astronaut.clinicalHistory.baselineBP },
         ];
       case 'immune':
         return [
           {
-            label: 'Leucocitos (Defensas)',
-            value: `${biomarkers.wbcCount.toLocaleString('es-ES')} cél/µL`,
+            label: language === 'es' ? 'Leucocitos (Defensas)' : 'Leukocytes (WBC)',
+            value: `${formattedWbc} ${language === 'es' ? 'cél/µL' : 'cells/µL'}`,
           },
           {
-            label: 'Radiación Acumulada',
+            label: language === 'es' ? 'Radiación Acumulada' : 'Cumulative Radiation',
             value: `${biomarkers.cumulativeRadiationMsv.toFixed(1)} / ${mission.missionLimitMsv} mSv`,
           },
           {
-            label: 'Historial Pre-vuelo',
+            label: language === 'es' ? 'Historial Pre-vuelo' : 'Pre-flight History',
             value:
-              astronaut.clinicalHistory.immuneStatus === 'Normal' ? 'Normal' : 'Defensas Bajas',
+              astronaut.clinicalHistory.immuneStatus === 'Normal'
+                ? 'Normal'
+                : language === 'es'
+                  ? 'Defensas Bajas'
+                  : 'Low Defenses',
           },
-          { label: 'Tipo de Sangre', value: astronaut.bloodType },
+          { label: language === 'es' ? 'Tipo de Sangre' : 'Blood Type', value: astronaut.bloodType },
         ];
       case 'metabolic':
         return [
-          { label: 'Glucosa Capilar', value: `${biomarkers.glucoseMgDl} mg/dL` },
+          { label: language === 'es' ? 'Glucosa Capilar' : 'Capillary Glucose', value: `${biomarkers.glucoseMgDl} mg/dL` },
           {
-            label: 'Glucosa Basal EHR',
+            label: language === 'es' ? 'Glucosa Basal EHR' : 'EHR Baseline Glucose',
             value: `${astronaut.clinicalHistory.baselineGlucose} mg/dL`,
           },
-          { label: 'Rango Seguro', value: '75 – 125 mg/dL' },
+          { label: language === 'es' ? 'Rango Seguro' : 'Safe Corridor', value: '75 – 125 mg/dL' },
           {
-            label: 'Demanda energética',
-            value: mission.id === 'planetary-habitat' ? 'Alta (EVA)' : 'Estándar',
+            label: language === 'es' ? 'Demanda energética' : 'Energy demand',
+            value:
+              mission.id === 'planetary-habitat'
+                ? language === 'es'
+                  ? 'Alta (EVA)'
+                  : 'High (EVA)'
+                : language === 'es'
+                  ? 'Estándar'
+                  : 'Standard',
           },
         ];
       case 'musculoskeletal':
         return [
-          { label: 'Retención Ósea (BMD)', value: `${biomarkers.boneDensityRetentionPercent}%` },
-          { label: 'Masa Muscular', value: `${biomarkers.muscleMassRetentionPercent}%` },
-          { label: 'Gravedad Entorno', value: mission.gravityLabel },
+          { label: language === 'es' ? 'Retención Ósea (BMD)' : 'Bone Retention (BMD)', value: `${biomarkers.boneDensityRetentionPercent}%` },
+          { label: language === 'es' ? 'Masa Muscular' : 'Muscle Mass', value: `${biomarkers.muscleMassRetentionPercent}%` },
+          { label: language === 'es' ? 'Gravedad Entorno' : 'Mission Gravity', value: mission.gravityLabel },
           {
-            label: 'Cirugía Previa',
-            value: astronaut.clinicalHistory.priorSurgeries[0] ?? 'Sin cirugías',
+            label: language === 'es' ? 'Cirugía Previa' : 'Prior Surgery',
+            value:
+              astronaut.clinicalHistory.priorSurgeries[0] ??
+              (language === 'es' ? 'Sin cirugías' : 'No prior surgeries'),
           },
         ];
     }
@@ -339,15 +409,15 @@ export function InteractiveBodyMap() {
     onKeyDown: (e: React.KeyboardEvent<SVGGElement>) => handleZoneKeyDown(e, sys),
     className: 'dt-body-zone',
     style: {
-      filter: selectedSystem === sys ? STATUS_STYLE[systemStatuses[sys]].ring : undefined,
+      filter: selectedSystem === sys ? statusStyles[systemStatuses[sys]].ring : undefined,
     },
   });
 
-  const brainStyle = STATUS_STYLE[systemStatuses.brain];
-  const cardioStyle = STATUS_STYLE[systemStatuses.cardiovascular];
-  const metabolicStyle = STATUS_STYLE[systemStatuses.metabolic];
-  const immuneStyle = STATUS_STYLE[systemStatuses.immune];
-  const musculoStyle = STATUS_STYLE[systemStatuses.musculoskeletal];
+  const brainStyle = statusStyles[systemStatuses.brain];
+  const cardioStyle = statusStyles[systemStatuses.cardiovascular];
+  const metabolicStyle = statusStyles[systemStatuses.metabolic];
+  const immuneStyle = statusStyles[systemStatuses.immune];
+  const musculoStyle = statusStyles[systemStatuses.musculoskeletal];
 
   const activeTooltip = hoveredSvgTarget ? getTooltipContent(hoveredSvgTarget) : null;
 
@@ -358,21 +428,28 @@ export function InteractiveBodyMap() {
         <div>
           <h2 className="flex items-center gap-2 text-[18px] leading-[24px] font-bold text-on-surface font-display">
             <Sparkles className="h-5 w-5 text-primary" />
-            Mapa Corporal Interactivo de Salud Espacial
+            {language === 'es'
+              ? 'Mapa Corporal Interactivo de Salud Espacial'
+              : 'Interactive Space Health Body Map'}
           </h2>
           <p className="text-xs text-on-surface-variant">
-            Pasa el cursor o haz clic en cualquier zona anatómica para inspeccionar su estado.
+            {language === 'es'
+              ? 'Pasa el cursor o haz clic en cualquier zona anatómica para inspeccionar su estado.'
+              : 'Hover or click any anatomical zone to inspect live system telemetry.'}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-1.5 text-[11px] font-semibold shrink-0">
           <span className="inline-flex items-center gap-1 rounded-full border border-primary/25 bg-primary-container px-2.5 py-0.5 text-on-primary-container">
-            <span className="h-2 w-2 rounded-full bg-primary" /> Óptimo
+            <span className="h-2 w-2 rounded-full bg-primary" />{' '}
+            {language === 'es' ? 'Óptimo' : 'Optimal'}
           </span>
           <span className="inline-flex items-center gap-1 rounded-full border border-warning/25 bg-warning-container px-2.5 py-0.5 text-on-warning-container">
-            <span className="h-2 w-2 rounded-full bg-warning" /> Precaución
+            <span className="h-2 w-2 rounded-full bg-warning" />{' '}
+            {language === 'es' ? 'Precaución' : 'Caution'}
           </span>
           <span className="inline-flex items-center gap-1 rounded-full border border-danger/25 bg-danger-container px-2.5 py-0.5 text-on-danger-container">
-            <span className="h-2 w-2 rounded-full bg-danger" /> Crítico
+            <span className="h-2 w-2 rounded-full bg-danger" />{' '}
+            {language === 'es' ? 'Crítico' : 'Critical'}
           </span>
         </div>
       </div>
@@ -381,10 +458,14 @@ export function InteractiveBodyMap() {
       <div
         className="mb-4 flex flex-wrap items-center gap-1.5 rounded-xl border border-outline-variant bg-surface-container-low/70 p-1.5"
         role="group"
-        aria-label="Selector rápido de sistemas corporales"
+        aria-label={
+          language === 'es'
+            ? 'Selector rápido de sistemas corporales'
+            : 'Quick body systems selector'
+        }
       >
-        {(Object.keys(BODY_SYSTEM_GUIDES) as BodySystemId[]).map((sysId) => {
-          const guide = BODY_SYSTEM_GUIDES[sysId];
+        {(Object.keys(guides) as BodySystemId[]).map((sysId) => {
+          const guide = guides[sysId];
           const status = systemStatuses[sysId];
           const isSelected = selectedSystem === sysId;
           const dotColor =
@@ -402,14 +483,15 @@ export function InteractiveBodyMap() {
               onMouseEnter={() => setHoveredSystem(sysId)}
               onMouseLeave={() => setHoveredSystem((prev) => (prev === sysId ? null : prev))}
               aria-pressed={isSelected}
-              className={`inline-flex cursor-pointer items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[11px] font-semibold dt-transition active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35 ${isSelected
-                ? 'border-primary bg-surface-container text-on-primary-container dt-selected-ring'
-                : status === 'critical'
-                  ? 'border-danger/35 bg-danger-container/50 text-on-danger-container hover:-translate-y-px hover:border-danger'
-                  : status === 'warning'
-                    ? 'border-warning/35 bg-warning-container/45 text-on-warning-container hover:-translate-y-px hover:border-warning'
-                    : 'border-outline bg-surface-container text-on-surface-variant hover:-translate-y-px hover:border-primary/45 hover:text-on-surface'
-                }`}
+              className={`inline-flex cursor-pointer items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[11px] font-semibold dt-transition active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35 ${
+                isSelected
+                  ? 'border-primary bg-surface-container text-on-primary-container dt-selected-ring'
+                  : status === 'critical'
+                    ? 'border-danger/35 bg-danger-container/50 text-on-danger-container hover:-translate-y-px hover:border-danger'
+                    : status === 'warning'
+                      ? 'border-warning/35 bg-warning-container/45 text-on-warning-container hover:-translate-y-px hover:border-warning'
+                      : 'border-outline bg-surface-container text-on-surface-variant hover:-translate-y-px hover:border-primary/45 hover:text-on-surface'
+              }`}
             >
               <span className={`h-2 w-2 shrink-0 rounded-full ${dotColor}`} />
               <span>{guide.shortLabel}</span>
@@ -421,7 +503,6 @@ export function InteractiveBodyMap() {
       <div className="grid gap-5 lg:grid-cols-[1fr_1.18fr]">
         {/* Left: Biometric Anatomical Scanner Viewport */}
         <div className="relative flex flex-col justify-between overflow-hidden rounded-2xl border border-outline bg-surface-container-low p-3">
-          {/* Technical Mineral Grid */}
           <div
             className="pointer-events-none absolute inset-0 opacity-65"
             style={{
@@ -431,24 +512,25 @@ export function InteractiveBodyMap() {
             }}
           />
 
-          {/* Scanner Micro-HUD Top Bar */}
           <div className="relative z-10 flex items-center justify-between gap-2 pb-1">
             <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.07em] text-on-surface-variant">
-              Vista Anterior
+              {language === 'es' ? 'Vista Anterior' : 'Anterior View'}
             </span>
             <span
-              className={`inline-flex items-center gap-1 rounded-md border px-2 py-0.5 font-mono text-[10px] font-semibold ${alertCount > 0
-                ? 'border-warning/30 bg-warning-container text-on-warning-container'
-                : 'border-outline bg-surface-container text-on-surface-variant'
-                }`}
+              className={`inline-flex items-center gap-1 rounded-md border px-2 py-0.5 font-mono text-[10px] font-semibold ${
+                alertCount > 0
+                  ? 'border-warning/30 bg-warning-container text-on-warning-container'
+                  : 'border-outline bg-surface-container text-on-surface-variant'
+              }`}
             >
               {alertCount > 0
-                ? `${alertCount} ${alertCount === 1 ? 'alerta' : 'alertas'}`
+                ? language === 'es'
+                  ? `${alertCount} ${alertCount === 1 ? 'alerta' : 'alertas'}`
+                  : `${alertCount} ${alertCount === 1 ? 'alert' : 'alerts'}`
                 : mission.gravityLabel}
             </span>
           </div>
 
-          {/* Native Anatomical Telemetry SVG + Hover Tooltip Anchor */}
           <div className="relative z-10 flex flex-1 items-center justify-center py-0.5">
             <div
               style={{ aspectRatio: `${SVG_VB.width} / ${SVG_VB.height}` }}
@@ -458,11 +540,13 @@ export function InteractiveBodyMap() {
                 viewBox={`${SVG_VB.minX} ${SVG_VB.minY} ${SVG_VB.width} ${SVG_VB.height}`}
                 className="h-full w-full select-none"
                 role="img"
-                aria-label="Escáner anatómico interactivo de salud espacial"
+                aria-label={
+                  language === 'es'
+                    ? 'Escáner anatómico interactivo de salud espacial'
+                    : 'Interactive space health anatomical scanner'
+                }
               >
-                {/* Calibration Frame & Anatomical Planes */}
                 <g aria-hidden="true">
-                  {/* Corner Reticle Brackets */}
                   <path
                     d="M58 24 L58 14 L68 14 M232 14 L242 14 L242 24 M58 408 L58 418 L68 418 M232 418 L242 418 L242 408"
                     fill="none"
@@ -470,8 +554,6 @@ export function InteractiveBodyMap() {
                     strokeWidth="1.5"
                     strokeLinecap="round"
                   />
-
-                  {/* Concentric Calibration Rings */}
                   <circle
                     cx="150"
                     cy="148"
@@ -490,8 +572,6 @@ export function InteractiveBodyMap() {
                     strokeWidth="0.9"
                     opacity="0.85"
                   />
-
-                  {/* Vertical Anatomical Midline */}
                   <line
                     x1="150"
                     y1="14"
@@ -501,16 +581,12 @@ export function InteractiveBodyMap() {
                     strokeWidth="1"
                     strokeDasharray="2 4"
                   />
-
-                  {/* Horizontal Elevation Reference Ticks */}
                   <path
                     d="M59 44 L64 44 M236 44 L241 44 M59 132 L64 132 M236 132 L241 132 M59 178 L64 178 M236 178 L241 178 M59 236 L64 236 M236 236 L241 236 M59 316 L64 316 M236 316 L241 316"
                     stroke="#D8D3C8"
                     strokeWidth="1.1"
                     strokeLinecap="round"
                   />
-
-                  {/* Anatomical Orientation Labels (Patient Right = Viewer Left) */}
                   <text
                     x="61"
                     y="96"
@@ -520,7 +596,7 @@ export function InteractiveBodyMap() {
                     fontFamily="var(--font-mono)"
                     opacity="0.65"
                   >
-                    D
+                    {language === 'es' ? 'D' : 'R'}
                   </text>
                   <text
                     x="234"
@@ -531,13 +607,11 @@ export function InteractiveBodyMap() {
                     fontFamily="var(--font-mono)"
                     opacity="0.65"
                   >
-                    I
+                    {language === 'es' ? 'I' : 'L'}
                   </text>
                 </g>
 
-                {/* Sculpted Continuous Anatomical Silhouette */}
                 <g aria-hidden="true">
-                  {/* Neck, Shoulders, Arms, Hands, Torso, Legs & Feet */}
                   <path
                     d="M 139 64 L 161 64
                        C 161 75, 164 81, 171 85
@@ -593,7 +667,6 @@ export function InteractiveBodyMap() {
                     strokeLinejoin="round"
                   />
 
-                  {/* Cranium & Ears */}
                   <path
                     d="M127 42 C123 42, 123 53, 127 54 M173 42 C177 42, 177 53, 173 54"
                     fill="#FFFFFF"
@@ -609,7 +682,6 @@ export function InteractiveBodyMap() {
                     strokeLinejoin="round"
                   />
 
-                  {/* Internal Structural Guide Contours (Clavicles, Rib Arch, Pelvis, Arm Creases) */}
                   <g fill="none" stroke="#E6E2D8" strokeWidth="1.2" strokeLinecap="round">
                     <path d="M146 91 Q127 88 109 98" />
                     <path d="M154 91 Q173 88 191 98" />
@@ -622,7 +694,14 @@ export function InteractiveBodyMap() {
                 </g>
 
                 {/* ZONE 1: Brain & Mental Health */}
-                <g {...zoneInteractionProps('brain', 'Inspeccionar cerebro y salud mental')}>
+                <g
+                  {...zoneInteractionProps(
+                    'brain',
+                    language === 'es'
+                      ? 'Inspeccionar cerebro y salud mental'
+                      : 'Inspect brain and mental health'
+                  )}
+                >
                   <circle cx="150" cy="44" r="24" fill="transparent" />
                   {selectedSystem === 'brain' && (
                     <circle
@@ -636,7 +715,6 @@ export function InteractiveBodyMap() {
                       className="dt-body-reticle"
                     />
                   )}
-                  {/* Bilateral Cerebral Hemispheres */}
                   <path
                     d="M 149 27 C 139 27, 132 34, 132 43 C 132 50, 137 55, 144 55 C 147 55, 149 53, 149 50 Z"
                     fill={brainStyle.fill}
@@ -651,7 +729,6 @@ export function InteractiveBodyMap() {
                     strokeWidth={selectedSystem === 'brain' ? 2.1 : 1.6}
                     strokeLinejoin="round"
                   />
-                  {/* Cortical Gyri & Neural Stem */}
                   <path
                     d="M137 37 Q142 34 146 38 M136 45 Q141 42 146 46 M163 37 Q158 34 154 38 M164 45 Q159 42 154 46 M148 54 L148 61 M152 54 L152 61"
                     fill="none"
@@ -666,7 +743,9 @@ export function InteractiveBodyMap() {
                 <g
                   {...zoneInteractionProps(
                     'cardiovascular',
-                    'Inspeccionar sistema cardiovascular y oxigenación'
+                    language === 'es'
+                      ? 'Inspeccionar sistema cardiovascular y oxigenación'
+                      : 'Inspect cardiovascular system and oxygenation'
                   )}
                 >
                   <rect x="114" y="99" width="72" height="56" rx="18" fill="transparent" />
@@ -684,7 +763,6 @@ export function InteractiveBodyMap() {
                       className="dt-body-reticle"
                     />
                   )}
-                  {/* Trachea & Bronchi */}
                   <path
                     d="M150 94 L150 109 M150 109 L137 119 M150 109 L163 119"
                     fill="none"
@@ -693,7 +771,6 @@ export function InteractiveBodyMap() {
                     strokeLinecap="round"
                     opacity="0.7"
                   />
-                  {/* Bilateral Pulmonary Contours */}
                   <path
                     d="M 146 107 C 136 104, 123 110, 119 123 C 116 134, 118 147, 126 150 C 134 152, 143 148, 146 142 Z"
                     fill={cardioStyle.softFill}
@@ -708,7 +785,6 @@ export function InteractiveBodyMap() {
                     strokeWidth={selectedSystem === 'cardiovascular' ? 1.8 : 1.3}
                     strokeLinejoin="round"
                   />
-                  {/* Anatomical Heart Silhouette (Apex to Patient Left / Viewer Right) */}
                   <path
                     d="M 154 121 C 150 116, 143 119, 144 128 C 145 136, 153 143, 160 145 C 166 142, 169 133, 167 124 C 165 118, 158 118, 154 121 Z"
                     fill={cardioStyle.fill}
@@ -716,7 +792,6 @@ export function InteractiveBodyMap() {
                     strokeWidth={selectedSystem === 'cardiovascular' ? 2.2 : 1.7}
                     strokeLinejoin="round"
                   />
-                  {/* ECG Tracing with contrast halo */}
                   <path
                     d="M122 132 L135 132 L140 123 L146 141 L152 126 L157 132 L178 132"
                     fill="none"
@@ -736,8 +811,15 @@ export function InteractiveBodyMap() {
                   />
                 </g>
 
-                {/* ZONE 3: Metabolic & Glucose (Patient Right Upper Quadrant / Viewer Left) */}
-                <g {...zoneInteractionProps('metabolic', 'Inspeccionar metabolismo y glucosa')}>
+                {/* ZONE 3: Metabolic & Glucose */}
+                <g
+                  {...zoneInteractionProps(
+                    'metabolic',
+                    language === 'es'
+                      ? 'Inspeccionar metabolismo y glucosa'
+                      : 'Inspect metabolism and glucose'
+                  )}
+                >
                   <rect x="114" y="157" width="35" height="40" rx="12" fill="transparent" />
                   {selectedSystem === 'metabolic' && (
                     <rect
@@ -753,7 +835,6 @@ export function InteractiveBodyMap() {
                       className="dt-body-reticle"
                     />
                   )}
-                  {/* Hepatic + Pancreatic Metabolic Contour */}
                   <path
                     d="M 118 164 C 128 160, 143 161, 146 167 C 147 172, 138 179, 129 185 C 122 190, 117 184, 118 164 Z"
                     fill={metabolicStyle.fill}
@@ -768,7 +849,6 @@ export function InteractiveBodyMap() {
                     strokeWidth="1.5"
                     strokeLinecap="round"
                   />
-                  {/* Metabolic Glucose Hex Node */}
                   <polygon
                     points="129,169 133,171.5 133,176.5 129,179 125,176.5 125,171.5"
                     fill="#FFFFFF"
@@ -777,8 +857,15 @@ export function InteractiveBodyMap() {
                   />
                 </g>
 
-                {/* ZONE 4: Immune System & Blood (Patient Left Upper Quadrant / Viewer Right) */}
-                <g {...zoneInteractionProps('immune', 'Inspeccionar sistema inmunitario y sangre')}>
+                {/* ZONE 4: Immune System & Blood */}
+                <g
+                  {...zoneInteractionProps(
+                    'immune',
+                    language === 'es'
+                      ? 'Inspeccionar sistema inmunitario y sangre'
+                      : 'Inspect immune system and blood'
+                  )}
+                >
                   <rect x="151" y="157" width="35" height="40" rx="12" fill="transparent" />
                   {selectedSystem === 'immune' && (
                     <rect
@@ -794,7 +881,6 @@ export function InteractiveBodyMap() {
                       className="dt-body-reticle"
                     />
                   )}
-                  {/* Splenic Organ Contour */}
                   <path
                     d="M 164 162 C 174 160, 182 167, 181 178 C 180 188, 171 192, 163 187 C 158 183, 158 167, 164 162 Z"
                     fill={immuneStyle.fill}
@@ -802,7 +888,6 @@ export function InteractiveBodyMap() {
                     strokeWidth={selectedSystem === 'immune' ? 2.1 : 1.6}
                     strokeLinejoin="round"
                   />
-                  {/* Lymphatic Pathway & Leukocyte Nodes */}
                   <path
                     d="M156 164 Q161 175 159 191"
                     fill="none"
@@ -824,11 +909,13 @@ export function InteractiveBodyMap() {
                   <circle cx="170" cy="175" r="1.8" fill={immuneStyle.stroke} />
                 </g>
 
-                {/* ZONE 5: Musculoskeletal (Bilateral Muscular Sheaths + Hip/Femur/Patella/Tibia) */}
+                {/* ZONE 5: Musculoskeletal */}
                 <g
                   {...zoneInteractionProps(
                     'musculoskeletal',
-                    'Inspeccionar densidad ósea y músculos'
+                    language === 'es'
+                      ? 'Inspeccionar densidad ósea y músculos'
+                      : 'Inspect bone density and muscles'
                   )}
                 >
                   <rect x="108" y="226" width="84" height="172" rx="16" fill="transparent" />
@@ -847,7 +934,6 @@ export function InteractiveBodyMap() {
                     />
                   )}
 
-                  {/* Left-Viewer Limb Muscle Contour & Skeletal Axis */}
                   <path
                     d="M 116 240 C 122 236, 134 238, 138 248 L 133 314 C 133 324, 133 358, 130 382 C 128 386, 123 386, 121 382 L 118 338 C 117 318, 114 274, 116 240 Z"
                     fill={musculoStyle.fill}
@@ -879,7 +965,6 @@ export function InteractiveBodyMap() {
                     strokeWidth="1.7"
                   />
 
-                  {/* Right-Viewer Limb Muscle Contour & Skeletal Axis */}
                   <path
                     d="M 184 240 C 178 236, 166 238, 162 248 L 167 314 C 167 324, 167 358, 170 382 C 172 386, 177 386, 179 382 L 182 338 C 183 318, 186 274, 184 240 Z"
                     fill={musculoStyle.fill}
@@ -912,12 +997,16 @@ export function InteractiveBodyMap() {
                   />
                 </g>
 
-                {/* Dynamic Clinical Surgical Marker (EHR Prior Surgery Context) */}
+                {/* Dynamic Clinical Surgical Marker */}
                 {surgicalMarker && (
                   <g
                     role="button"
                     tabIndex={0}
-                    aria-label={`${surgicalMarker.label}. Clic para ver detalle musculoesquelético`}
+                    aria-label={
+                      language === 'es'
+                        ? `${surgicalMarker.label}. Clic para ver detalle musculoesquelético`
+                        : `${surgicalMarker.label}. Click to inspect musculoskeletal detail`
+                    }
                     data-selected={selectedSystem === 'musculoskeletal'}
                     data-status="warning"
                     onClick={() => setSelectedSystem('musculoskeletal')}
@@ -975,7 +1064,6 @@ export function InteractiveBodyMap() {
                           : 'border-primary/40'
                     }`}
                   >
-                    {/* Directional Caret aligned with hovered organ X */}
                     <span
                       style={{
                         left: `clamp(16px, ${activeTooltip.xPct}%, calc(100% - 16px))`,
@@ -996,14 +1084,14 @@ export function InteractiveBodyMap() {
                     <div className="flex items-center justify-between gap-2">
                       <div className="flex min-w-0 items-center gap-1.5">
                         <span
-                          className={`h-2 w-2 shrink-0 rounded-full ${STATUS_STYLE[activeTooltip.status].dot}`}
+                          className={`h-2 w-2 shrink-0 rounded-full ${statusStyles[activeTooltip.status].dot}`}
                         />
                         <span className="truncate text-[11px] font-bold text-on-surface font-display">
                           {activeTooltip.title}
                         </span>
                       </div>
                       <span
-                        className={`shrink-0 rounded-full border px-1.5 py-0.5 text-[9px] font-semibold ${STATUS_STYLE[activeTooltip.status].shortBadge}`}
+                        className={`shrink-0 rounded-full border px-1.5 py-0.5 text-[9px] font-semibold ${statusStyles[activeTooltip.status].shortBadge}`}
                       >
                         {activeTooltip.statusLabel}
                       </span>
@@ -1026,12 +1114,13 @@ export function InteractiveBodyMap() {
             <div className="flex items-center justify-between gap-2">
               <div className="flex min-w-0 items-center gap-1.5">
                 <span
-                  className={`h-2 w-2 shrink-0 rounded-full ${displayStatus === 'nominal'
-                    ? 'bg-primary'
-                    : displayStatus === 'warning'
-                      ? 'bg-warning'
-                      : 'bg-danger'
-                    }`}
+                  className={`h-2 w-2 shrink-0 rounded-full ${
+                    displayStatus === 'nominal'
+                      ? 'bg-primary'
+                      : displayStatus === 'warning'
+                        ? 'bg-warning'
+                        : 'bg-danger'
+                  }`}
                 />
                 <span className="truncate text-[11px] font-bold text-on-surface font-display">
                   {displayGuide.shortLabel}
@@ -1063,7 +1152,8 @@ export function InteractiveBodyMap() {
                     {activeGuide.title}
                   </h3>
                   <p className="text-xs text-on-surface-variant">
-                    Evaluación en tiempo real · {astronaut.name}
+                    {language === 'es' ? 'Evaluación en tiempo real' : 'Real-time evaluation'} ·{' '}
+                    {astronaut.name}
                   </p>
                 </div>
               </div>
@@ -1100,7 +1190,9 @@ export function InteractiveBodyMap() {
             <div className="space-y-3 text-xs">
               <div className="rounded-xl border border-outline bg-surface-container p-3.5">
                 <p className="font-semibold text-primary font-display">
-                  ¿Por qué importa este sistema en {mission.shortName}?
+                  {language === 'es'
+                    ? `¿Por qué importa este sistema en ${mission.shortName}?`
+                    : `Why does this system matter in ${mission.shortName}?`}
                 </p>
                 <p className="mt-1 leading-relaxed text-on-surface-variant">
                   {activeGuide.whySpaceAffectsIt}
@@ -1108,17 +1200,22 @@ export function InteractiveBodyMap() {
               </div>
 
               <div
-                className={`rounded-xl border p-3.5 dt-transition ${activeStatus === 'nominal'
-                  ? 'border-primary/30 bg-primary-container text-on-primary-container'
-                  : activeStatus === 'warning'
-                    ? 'border-warning/35 bg-warning-container text-on-warning-container'
-                    : 'border-danger/40 bg-danger-container text-on-danger-container'
-                  }`}
+                className={`rounded-xl border p-3.5 dt-transition ${
+                  activeStatus === 'nominal'
+                    ? 'border-primary/30 bg-primary-container text-on-primary-container'
+                    : activeStatus === 'warning'
+                      ? 'border-warning/35 bg-warning-container text-on-warning-container'
+                      : 'border-danger/40 bg-danger-container text-on-danger-container'
+                }`}
               >
                 <p className="font-bold font-display">
                   {activeStatus === 'nominal'
-                    ? 'Estado y Prevención Continua:'
-                    : 'Qué hacer ahora (Medida Preventiva Autónoma):'}
+                    ? language === 'es'
+                      ? 'Estado y Prevención Continua:'
+                      : 'Status & Continuous Prevention:'
+                    : language === 'es'
+                      ? 'Qué hacer ahora (Medida Preventiva Autónoma):'
+                      : 'What to do now (Autonomous Countermeasure):'}
                 </p>
                 <p className="mt-1 leading-relaxed">
                   {activeStatus === 'nominal'
@@ -1133,14 +1230,16 @@ export function InteractiveBodyMap() {
 
           <div className="flex items-center justify-between border-t border-outline-variant pt-3">
             <span className="text-[11px] text-on-surface-variant">
-              Basado en NASA HRP & Dosimetría CSA
+              {language === 'es'
+                ? 'Basado en NASA HRP & Dosimetría CSA'
+                : 'Based on NASA HRP & CSA Dosimetry'}
             </span>
             <button
               type="button"
               onClick={() => setActiveTab(activeGuide.linkedTab)}
               className="group inline-flex cursor-pointer items-center gap-1.5 rounded-xl bg-primary px-3.5 py-2 text-xs font-semibold text-on-primary dt-transition hover:-translate-y-0.5 hover:bg-primary-hover hover:shadow-[0_8px_18px_-8px_rgba(47,93,70,0.45)] active:translate-y-0 active:scale-[0.985] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35"
             >
-              Abrir módulo especializado
+              {language === 'es' ? 'Abrir módulo especializado' : 'Open specialized module'}
               <ArrowRight className="h-3.5 w-3.5 dt-transition group-hover:translate-x-0.5" />
             </button>
           </div>

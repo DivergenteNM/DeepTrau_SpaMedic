@@ -14,7 +14,11 @@ import {
   VideoOff,
 } from 'lucide-react';
 import { useMission } from '@/context/MissionContext';
-import { analyzeDiaryEntryLocally } from '@/utils/psychologyAnalysis';
+import {
+  analyzeDiaryEntryLocally,
+  isHighStressLevel,
+  isModerateStressLevel,
+} from '@/utils/psychologyAnalysis';
 
 interface VideoDiaryStudioProps {
   currentMoodScore: number;
@@ -22,6 +26,7 @@ interface VideoDiaryStudioProps {
 
 export function VideoDiaryStudio({ currentMoodScore }: VideoDiaryStudioProps) {
   const {
+    language,
     mission,
     missionDay,
     biomarkers,
@@ -30,6 +35,8 @@ export function VideoDiaryStudio({ currentMoodScore }: VideoDiaryStudioProps) {
     addVideoDiaryEntry,
     syncVideoDiaryToEarth,
   } = useMission();
+
+  const isEs = language === 'es';
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -273,6 +280,7 @@ export function VideoDiaryStudio({ currentMoodScore }: VideoDiaryStudioProps) {
         durationSeconds: isRecording ? recordSeconds : recordedDuration,
         voiceActiveRatio: measuredVoiceRatio,
         usedRealMic: hasAudioTrack && !cameraFallback,
+        lang: language,
       }),
     [
       diaryTitle,
@@ -287,6 +295,7 @@ export function VideoDiaryStudio({ currentMoodScore }: VideoDiaryStudioProps) {
       measuredVoiceRatio,
       hasAudioTrack,
       cameraFallback,
+      language,
     ]
   );
 
@@ -303,12 +312,16 @@ export function VideoDiaryStudio({ currentMoodScore }: VideoDiaryStudioProps) {
 
     addVideoDiaryEntry({
       mode: diaryMode,
-      title: diaryTitle.trim() || `Registro Día ${missionDay}`,
+      title: diaryTitle.trim() || (isEs ? `Registro Día ${missionDay}` : `Day ${missionDay} Entry`),
       notes:
         diaryNotes.trim() ||
         (finalDuration > 0
-          ? `Sesión multimedia de ${finalDuration}s capturada en cabina para seguimiento psicológico.`
-          : 'Bitácora de seguimiento emocional en órbita.'),
+          ? isEs
+            ? `Sesión multimedia de ${finalDuration}s capturada en cabina para seguimiento psicológico.`
+            : `${finalDuration}s cabin media session captured for psychological follow-up.`
+          : isEs
+            ? 'Bitácora de seguimiento emocional en órbita.'
+            : 'Orbital emotional monitoring log entry.'),
       moodRating: currentMoodScore,
       durationSeconds: finalDuration > 0 ? finalDuration : undefined,
       voiceActiveRatio: measuredVoiceRatio,
@@ -334,11 +347,12 @@ export function VideoDiaryStudio({ currentMoodScore }: VideoDiaryStudioProps) {
           <div>
             <h2 className="text-base font-bold text-on-surface flex items-center gap-2 font-display">
               <Video className="h-5 w-5 text-primary" />
-              Video-Diario y Bitácora Psicológica
+              {isEs ? 'Video-Diario y Bitácora Psicológica' : 'Video Diary & Psychological Log'}
             </h2>
             <p className="text-xs text-on-surface-variant">
-              Captura real de video/audio en cabina, análisis léxico local y envío asíncrono a
-              Tierra ({mission.commDelay}).
+              {isEs
+                ? `Captura real de video/audio en cabina, análisis léxico local y envío asíncrono a Tierra (${mission.commDelay}).`
+                : `Real cabin video/audio capture, local lexical analysis, and asynchronous downlink to Earth (${mission.commDelay}).`}
             </p>
           </div>
           <div className="flex rounded-xl border border-outline bg-surface-container-low p-1 text-xs">
@@ -351,7 +365,7 @@ export function VideoDiaryStudio({ currentMoodScore }: VideoDiaryStudioProps) {
                   : 'text-on-surface-variant hover:bg-surface-container hover:text-on-surface'
               }`}
             >
-              Modo Video
+              {isEs ? 'Modo Video' : 'Video Mode'}
             </button>
             <button
               type="button"
@@ -362,7 +376,7 @@ export function VideoDiaryStudio({ currentMoodScore }: VideoDiaryStudioProps) {
                   : 'text-on-surface-variant hover:bg-surface-container hover:text-on-surface'
               }`}
             >
-              Diario Escrito
+              {isEs ? 'Diario Escrito' : 'Written Log'}
             </button>
           </div>
         </div>
@@ -390,19 +404,21 @@ export function VideoDiaryStudio({ currentMoodScore }: VideoDiaryStudioProps) {
                     <Camera className="h-7 w-7 text-primary" />
                   </div>
                   <p className="text-xs font-semibold text-on-viewport font-display">
-                    Modo Simulador de Cabina Activo
+                    {isEs ? 'Modo Simulador de Cabina Activo' : 'Cabin Simulator Mode Active'}
                   </p>
                   <p className="mt-1 text-[11px] text-on-viewport/75 max-w-sm">
-                    Sin cámara o micrófono físico disponible: la grabación estima la duración y
-                    analiza tu relato escrito localmente.
+                    {isEs
+                      ? 'Sin cámara o micrófono físico disponible: la grabación estima la duración y analiza tu relato escrito localmente.'
+                      : 'No physical camera or microphone detected: recording tracks session duration and analyzes your written notes locally.'}
                   </p>
                 </div>
               ) : (
                 <div className="flex flex-col items-center text-center px-4">
                   <VideoOff className="h-8 w-8 text-on-viewport/50 mb-2" />
                   <p className="text-xs text-on-viewport/80 max-w-sm">
-                    Activa cámara y micrófono para grabar un clip reproducible con análisis de
-                    energía vocal en tiempo real.
+                    {isEs
+                      ? 'Activa cámara y micrófono para grabar un clip reproducible con análisis de energía vocal en tiempo real.'
+                      : 'Enable camera and microphone to record a playable clip with real-time vocal energy analysis.'}
                   </p>
                 </div>
               )}
@@ -431,7 +447,13 @@ export function VideoDiaryStudio({ currentMoodScore }: VideoDiaryStudioProps) {
                     ))}
                   </div>
                   <span className="font-mono">
-                    {hasAudioTrack && !cameraFallback ? 'Audio activo' : 'Simulador'}
+                    {hasAudioTrack && !cameraFallback
+                      ? isEs
+                        ? 'Audio activo'
+                        : 'Audio active'
+                      : isEs
+                        ? 'Simulador'
+                        : 'Simulator'}
                   </span>
                 </div>
               )}
@@ -446,7 +468,7 @@ export function VideoDiaryStudio({ currentMoodScore }: VideoDiaryStudioProps) {
                     className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl bg-primary px-3.5 py-2 text-xs font-semibold text-on-primary dt-transition hover:-translate-y-px hover:bg-primary-hover hover:shadow-[0_6px_14px_-6px_rgba(47,93,70,0.45)] active:translate-y-0 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35"
                   >
                     <Camera className="h-4 w-4" />
-                    Activar Cámara y Micrófono
+                    {isEs ? 'Activar Cámara y Micrófono' : 'Enable Camera & Microphone'}
                   </button>
                 ) : (
                   <>
@@ -460,14 +482,24 @@ export function VideoDiaryStudio({ currentMoodScore }: VideoDiaryStudioProps) {
                       }`}
                     >
                       <Radio className="h-4 w-4" />
-                      {isRecording ? 'Detener Grabación' : pendingMediaUrl ? 'Grabar Nuevo Clip' : 'Iniciar Grabación'}
+                      {isRecording
+                        ? isEs
+                          ? 'Detener Grabación'
+                          : 'Stop Recording'
+                        : pendingMediaUrl
+                          ? isEs
+                            ? 'Grabar Nuevo Clip'
+                            : 'Record New Clip'
+                          : isEs
+                            ? 'Iniciar Grabación'
+                            : 'Start Recording'}
                     </button>
                     <button
                       type="button"
                       onClick={stopAllHardware}
                       className="cursor-pointer rounded-xl border border-outline bg-surface-container px-3 py-2 text-xs font-medium text-on-surface dt-transition hover:-translate-y-px hover:border-primary/40 hover:bg-surface-container-high active:translate-y-0 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35"
                     >
-                      Apagar Cámara
+                      {isEs ? 'Apagar Cámara' : 'Turn Off Camera'}
                     </button>
                   </>
                 )}
@@ -476,7 +508,7 @@ export function VideoDiaryStudio({ currentMoodScore }: VideoDiaryStudioProps) {
               {pendingMediaUrl && !isRecording && (
                 <span className="inline-flex items-center gap-1 rounded-full border border-primary/30 bg-primary-container px-2.5 py-1 text-[11px] font-semibold text-on-primary-container">
                   <CheckCircle2 className="h-3.5 w-3.5" />
-                  Clip listo ({recordedDuration}s)
+                  {isEs ? `Clip listo (${recordedDuration}s)` : `Clip ready (${recordedDuration}s)`}
                 </span>
               )}
             </div>
@@ -488,14 +520,22 @@ export function VideoDiaryStudio({ currentMoodScore }: VideoDiaryStudioProps) {
             type="text"
             value={diaryTitle}
             onChange={(e) => setDiaryTitle(e.target.value)}
-            placeholder="Título de la entrada (ej. Balance emocional tras caminata espacial)"
+            placeholder={
+              isEs
+                ? 'Título de la entrada (ej. Balance emocional tras caminata espacial)'
+                : 'Entry title (e.g., Emotional check-in post-EVA)'
+            }
             className="w-full rounded-xl border border-outline bg-surface px-3.5 py-2 text-xs text-on-surface outline-none dt-transition focus:border-primary focus:ring-2 focus:ring-primary/15"
           />
           <textarea
             rows={3}
             value={diaryNotes}
             onChange={(e) => setDiaryNotes(e.target.value)}
-            placeholder="Describe cómo dormiste, tu nivel de estrés, nostalgia o relación con la tripulación..."
+            placeholder={
+              isEs
+                ? 'Describe cómo dormiste, tu nivel de estrés, nostalgia o relación con la tripulación...'
+                : 'Describe how you slept, your stress level, homesickness, or crew dynamics...'
+            }
             className="w-full rounded-xl border border-outline bg-surface px-3.5 py-2 text-xs text-on-surface outline-none dt-transition focus:border-primary focus:ring-2 focus:ring-primary/15"
           />
 
@@ -504,18 +544,19 @@ export function VideoDiaryStudio({ currentMoodScore }: VideoDiaryStudioProps) {
             <div className="dt-animate-panel rounded-xl border border-telemetry/25 bg-telemetry-container/45 p-3 space-y-2 text-xs">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <span className="font-bold text-on-telemetry-container font-display">
-                  Pre-análisis Local en Cabina: {livePreview.emotionalTone}
+                  {isEs ? 'Pre-análisis Local en Cabina:' : 'Local Cabin Pre-Analysis:'}{' '}
+                  {livePreview.emotionalTone}
                 </span>
                 <span
                   className={`rounded-full border px-2 py-0.5 text-[10px] font-bold font-mono ${
-                    livePreview.confinementStress === 'Elevado'
+                    isHighStressLevel(livePreview.confinementStress)
                       ? 'border-danger/35 bg-danger-container text-on-danger-container'
-                      : livePreview.confinementStress === 'Moderado'
+                      : isModerateStressLevel(livePreview.confinementStress)
                         ? 'border-warning/35 bg-warning-container text-on-warning-container'
                         : 'border-primary/35 bg-primary-container text-on-primary-container'
                   }`}
                 >
-                  Estrés: {livePreview.confinementStress}
+                  {isEs ? 'Estrés' : 'Stress'}: {livePreview.confinementStress}
                 </span>
               </div>
               <div className="flex flex-wrap gap-1.5">
@@ -529,7 +570,7 @@ export function VideoDiaryStudio({ currentMoodScore }: VideoDiaryStudioProps) {
                 ))}
               </div>
               <p className="text-[11px] text-on-surface-variant">
-                Sugerencia: {livePreview.clinicalRecommendation}
+                {isEs ? 'Sugerencia:' : 'Recommendation:'} {livePreview.clinicalRecommendation}
               </p>
             </div>
           )}
@@ -543,11 +584,13 @@ export function VideoDiaryStudio({ currentMoodScore }: VideoDiaryStudioProps) {
               className="inline-flex cursor-pointer items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-xs font-bold text-on-primary dt-transition hover:-translate-y-0.5 hover:bg-primary-hover hover:shadow-[0_8px_18px_-8px_rgba(47,93,70,0.45)] active:translate-y-0 active:scale-[0.985] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35 font-display"
             >
               <Sparkles className="h-4 w-4" />
-              Analizar y Guardar en Bitácora (+35 pts)
+              {isEs
+                ? 'Analizar y Guardar en Bitácora (+35 pts)'
+                : 'Analyze & Save to Log (+35 pts)'}
             </button>
             {savedBanner && (
               <span className="dt-animate-panel rounded-full border border-primary/30 bg-primary-container px-3 py-1 text-[11px] font-semibold text-on-primary-container">
-                Entrada guardada y analizada ✓
+                {isEs ? 'Entrada guardada y analizada ✓' : 'Entry saved & analyzed ✓'}
               </span>
             )}
           </div>
@@ -559,11 +602,14 @@ export function VideoDiaryStudio({ currentMoodScore }: VideoDiaryStudioProps) {
         <div className="border-b border-outline-variant pb-3">
           <h3 className="text-base font-bold text-on-surface flex items-center gap-2 font-display">
             <Brain className="h-5 w-5 text-telemetry" />
-            Evaluación Psicológica (IA Local & Tierra)
+            {isEs
+              ? 'Evaluación Psicológica (IA Local & Tierra)'
+              : 'Psychological Assessment (Local AI & Earth)'}
           </h3>
           <p className="text-xs text-on-surface-variant">
-            Historial con reproducción local, análisis léxico-vocal y transmisión asíncrona a
-            psicólogos de vuelo.
+            {isEs
+              ? 'Historial con reproducción local, análisis léxico-vocal y transmisión asíncrona a psicólogos de vuelo.'
+              : 'History with local playback, lexical-vocal analysis, and asynchronous downlink to flight psychologists.'}
           </p>
         </div>
 
@@ -571,12 +617,11 @@ export function VideoDiaryStudio({ currentMoodScore }: VideoDiaryStudioProps) {
           {videoLogs.map((log) => {
             const mediaUrl = videoMediaUrls[log.id];
             const syncState = log.aiIndicators.syncState ?? 'queued';
-            const stressBadge =
-              log.aiIndicators.confinementStress === 'Elevado'
-                ? 'border-danger/35 bg-danger-container text-on-danger-container'
-                : log.aiIndicators.confinementStress === 'Moderado'
-                  ? 'border-warning/35 bg-warning-container text-on-warning-container'
-                  : 'border-primary/35 bg-primary-container text-on-primary-container';
+            const stressBadge = isHighStressLevel(log.aiIndicators.confinementStress)
+              ? 'border-danger/35 bg-danger-container text-on-danger-container'
+              : isModerateStressLevel(log.aiIndicators.confinementStress)
+                ? 'border-warning/35 bg-warning-container text-on-warning-container'
+                : 'border-primary/35 bg-primary-container text-on-primary-container';
 
             return (
               <div
@@ -594,7 +639,13 @@ export function VideoDiaryStudio({ currentMoodScore }: VideoDiaryStudioProps) {
                     </span>
                   </div>
                   <span className="shrink-0 rounded-md border border-telemetry/25 bg-telemetry-container px-2 py-0.5 text-[10px] font-semibold text-on-telemetry-container font-mono">
-                    {log.mode === 'video' ? 'Video-Diario' : 'Escrito'}
+                    {log.mode === 'video'
+                      ? isEs
+                        ? 'Video-Diario'
+                        : 'Video Diary'
+                      : isEs
+                        ? 'Escrito'
+                        : 'Written'}
                   </span>
                 </div>
 
@@ -619,25 +670,31 @@ export function VideoDiaryStudio({ currentMoodScore }: VideoDiaryStudioProps) {
                       </span>
                     ))}
                     <span className={`rounded-md border px-2 py-0.5 text-[10px] font-bold ${stressBadge}`}>
-                      Estrés {log.aiIndicators.confinementStress}
+                      {isEs ? 'Estrés' : 'Stress'} {log.aiIndicators.confinementStress}
                     </span>
                   </div>
                 )}
 
                 <div className="grid grid-cols-2 gap-1.5 pt-2 border-t border-outline-variant text-[10px]">
                   <div className="rounded-lg border border-outline bg-surface-container px-2 py-1.5 text-on-surface">
-                    <span className="text-on-surface-variant block">Tono Detectado:</span>
+                    <span className="text-on-surface-variant block">
+                      {isEs ? 'Tono Detectado:' : 'Detected Tone:'}
+                    </span>
                     {log.aiIndicators.emotionalTone}
                   </div>
                   <div className="rounded-lg border border-outline bg-surface-container px-2 py-1.5 text-on-surface">
-                    <span className="text-on-surface-variant block">Métrica Vocal:</span>
+                    <span className="text-on-surface-variant block">
+                      {isEs ? 'Métrica Vocal:' : 'Vocal Metric:'}
+                    </span>
                     {log.aiIndicators.vocalFatigue}
                   </div>
                 </div>
 
                 {log.aiIndicators.clinicalRecommendation && (
                   <p className="rounded-lg border border-outline bg-surface-container px-2.5 py-1.5 text-[11px] text-on-surface-variant">
-                    <strong className="text-on-surface">Guía abordo:</strong>{' '}
+                    <strong className="text-on-surface">
+                      {isEs ? 'Guía abordo:' : 'Onboard guide:'}
+                    </strong>{' '}
                     {log.aiIndicators.clinicalRecommendation}
                   </p>
                 )}
@@ -661,13 +718,13 @@ export function VideoDiaryStudio({ currentMoodScore }: VideoDiaryStudioProps) {
                       className="inline-flex cursor-pointer items-center gap-1 rounded-lg border border-primary/35 bg-primary-container px-2.5 py-1 text-[10px] font-bold text-on-primary-container dt-transition hover:-translate-y-px hover:bg-primary hover:text-on-primary active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35"
                     >
                       <Send className="h-3 w-3" />
-                      Transmitir a Tierra (+10 pts)
+                      {isEs ? 'Transmitir a Tierra (+10 pts)' : 'Transmit to Earth (+10 pts)'}
                     </button>
                   )}
 
                   {syncState === 'transmitting' && (
                     <span className="rounded-lg border border-telemetry/30 bg-telemetry-container px-2.5 py-1 text-[10px] font-mono font-semibold text-on-telemetry-container animate-pulse">
-                      Enviando paquete…
+                      {isEs ? 'Enviando paquete…' : 'Transmitting packet…'}
                     </span>
                   )}
                 </div>

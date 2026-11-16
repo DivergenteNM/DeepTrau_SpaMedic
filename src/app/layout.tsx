@@ -19,9 +19,9 @@ const ibmPlexMono = IBM_Plex_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'DeepTrau | Telemetría Médica Espacial (NASA Space Apps)',
+  title: 'DeepTrau | Space Medical Telemetry (NASA Space Apps)',
   description:
-    'DeepTrau SpaMedic: software autónomo de monitorización integral de salud física, radiación, metabolismo y psicología para astronautas en misiones espaciales.',
+    'DeepTrau SpaMedic: autonomous aerospace medical software for monitoring physical health, space radiation, metabolism, and psychology for astronauts.',
 };
 
 export default function RootLayout({
@@ -31,7 +31,7 @@ export default function RootLayout({
 }>) {
   return (
     <html
-      lang="es"
+      lang="en"
       suppressHydrationWarning
       className={`${ibmPlexSans.variable} ${ibmPlexMono.variable}`}
     >

@@ -27,6 +27,7 @@ export function RoutineFocusModal({
   onRequestDock,
 }: RoutineFocusModalProps) {
   const {
+    language,
     mission,
     missionDay,
     routines,
@@ -177,12 +178,12 @@ export function RoutineFocusModal({
               {!task.completed && isUrgent && (
                 <span className="inline-flex items-center gap-1 rounded-md border border-warning/40 bg-warning-container px-1.5 py-0.5 font-mono text-[10px] font-bold text-on-warning-container">
                   <AlertTriangle className="h-2.5 w-2.5 text-warning" />
-                  Urgente hoy
+                  {language === 'es' ? 'Urgente hoy' : 'Urgent today'}
                 </span>
               )}
               {task.usesManualFallback && (
                 <span className="rounded-md border border-warning/30 bg-warning-container px-1.5 py-0.5 text-[10px] font-semibold text-on-warning-container">
-                  Modo Manual
+                  {language === 'es' ? 'Modo Manual' : 'Manual Mode'}
                 </span>
               )}
               <span className="rounded-md border border-outline bg-surface-container px-1.5 py-0.5 font-mono text-[10px] font-semibold text-primary">
@@ -236,15 +237,17 @@ export function RoutineFocusModal({
               <div className="flex flex-wrap items-center gap-2">
                 <span className="inline-flex items-center gap-1.5 rounded-lg border border-primary/30 bg-primary-container px-2 py-0.5 font-mono text-[11px] font-semibold uppercase tracking-[0.04em] text-on-primary-container">
                   <Sparkles className="h-3 w-3 text-primary" />
-                  Rutina de Hoy · Día {missionDay}
+                  {language === 'es'
+                    ? `Rutina de Hoy · Día ${missionDay}`
+                    : `Today's Routine · Day ${missionDay}`}
                 </span>
                 {showStepIndicator && (
                   <span className="rounded-lg border border-outline bg-surface-container px-2 py-0.5 font-mono text-[11px] font-medium text-on-surface-variant">
-                    Paso 2 de 2 · Plan Diario
+                    {language === 'es' ? 'Paso 2 de 2 · Plan Diario' : 'Step 2 of 2 · Daily Plan'}
                   </span>
                 )}
                 <span className="rounded-lg border border-telemetry/30 bg-telemetry-container px-2 py-0.5 font-mono text-[11px] font-semibold text-on-telemetry-container">
-                  Aptitud {readinessScore}%
+                  {language === 'es' ? 'Aptitud' : 'Readiness'} {readinessScore}%
                 </span>
               </div>
 
@@ -252,20 +255,34 @@ export function RoutineFocusModal({
                 id="routine-focus-title"
                 className="text-[20px] leading-[26px] font-bold tracking-[-0.015em] text-on-surface font-display sm:text-[22px]"
               >
-                Plan Médico y Contramedidas del Día
+                {language === 'es'
+                  ? 'Plan Médico y Contramedidas del Día'
+                  : 'Daily Medical Plan & Countermeasures'}
               </h2>
               <p id="routine-focus-desc" className="text-xs text-on-surface-variant">
-                Misión <span className="font-semibold text-primary">{mission.shortName}</span> ·{' '}
-                {availableDevices.length - disconnectedCount}/{availableDevices.length} sensores conectados. Prioriza
-                los pendientes atrasados y urgentes.
+                {language === 'es' ? (
+                  <>
+                    Misión <span className="font-semibold text-primary">{mission.shortName}</span> ·{' '}
+                    {availableDevices.length - disconnectedCount}/{availableDevices.length} sensores
+                    conectados. Prioriza los pendientes atrasados y urgentes.
+                  </>
+                ) : (
+                  <>
+                    Mission <span className="font-semibold text-primary">{mission.shortName}</span> ·{' '}
+                    {availableDevices.length - disconnectedCount}/{availableDevices.length} sensors
+                    connected. Prioritize overdue and urgent checks.
+                  </>
+                )}
               </p>
             </div>
 
             <button
               type="button"
               onClick={triggerManualOrAutoDock}
-              aria-label="Continuar al dashboard"
-              title="Acoplar rutina al dashboard"
+              aria-label={language === 'es' ? 'Continuar al dashboard' : 'Continue to dashboard'}
+              title={
+                language === 'es' ? 'Acoplar rutina al dashboard' : 'Dock routine to dashboard'
+              }
               className="inline-flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-xl border border-outline bg-surface-container text-on-surface-variant dt-transition hover:-translate-y-px hover:border-primary/45 hover:bg-surface-container-low hover:text-on-surface active:translate-y-0 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35"
             >
               <X className="h-4 w-4" />
@@ -276,13 +293,15 @@ export function RoutineFocusModal({
           <div className="mt-3.5 space-y-1.5">
             <div className="flex items-center justify-between text-xs">
               <span className="font-medium text-on-surface-variant">
-                Avance del turno:{' '}
+                {language === 'es' ? 'Avance del turno:' : 'Shift progress:'}{' '}
                 <span className="font-mono font-bold text-on-surface">
                   {completedCount}/{routines.length}
                 </span>{' '}
                 ({progressPct}%)
               </span>
-              <span className="font-mono font-semibold text-primary">+{earnedPoints} pts hoy</span>
+              <span className="font-mono font-semibold text-primary">
+                +{earnedPoints} {language === 'es' ? 'pts hoy' : 'pts today'}
+              </span>
             </div>
             <div className="h-2 w-full overflow-hidden rounded-full bg-surface-container-high">
               <div
@@ -300,9 +319,13 @@ export function RoutineFocusModal({
               <Wrench className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
               <div>
                 <span className="font-semibold">
-                  {disconnectedCount} herramienta(s) desconectada(s):
+                  {language === 'es'
+                    ? `${disconnectedCount} herramienta(s) desconectada(s):`
+                    : `${disconnectedCount} tool(s) disconnected:`}
                 </span>{' '}
-                DeepTrau adaptó esos escaneos a protocolos clínicos manuales prioritarios.
+                {language === 'es'
+                  ? 'DeepTrau adaptó esos escaneos a protocolos clínicos manuales prioritarios.'
+                  : 'DeepTrau adapted those scans to priority manual clinical protocols.'}
               </div>
             </div>
           )}
@@ -317,15 +340,20 @@ export function RoutineFocusModal({
                   </span>
                   <div>
                     <h3 className="text-xs font-bold uppercase tracking-[0.05em] text-on-danger-container font-display">
-                      Atrasadas de días anteriores
+                      {language === 'es'
+                        ? 'Atrasadas de días anteriores'
+                        : 'Overdue from previous days'}
                     </h3>
                     <p className="text-[11px] text-on-danger-container/85">
-                      Requieren resolución prioritaria para cerrar el ciclo clínico previo.
+                      {language === 'es'
+                        ? 'Requieren resolución prioritaria para cerrar el ciclo clínico previo.'
+                        : 'Require priority completion to close out the prior clinical cycle.'}
                     </p>
                   </div>
                 </div>
                 <span className="rounded-full border border-danger/40 bg-danger-container px-2 py-0.5 font-mono text-[10px] font-bold text-on-danger-container">
-                  {overdueTasks.filter((t) => !t.completed).length} pend.
+                  {overdueTasks.filter((t) => !t.completed).length}{' '}
+                  {language === 'es' ? 'pend.' : 'left'}
                 </span>
               </div>
 
@@ -342,11 +370,12 @@ export function RoutineFocusModal({
                     <AlertTriangle className="h-3.5 w-3.5" />
                   </span>
                   <h3 className="text-xs font-bold uppercase tracking-[0.05em] text-on-warning-container font-display">
-                    Prioridad urgente de hoy
+                    {language === 'es' ? 'Prioridad urgente de hoy' : "Today's urgent priority"}
                   </h3>
                 </div>
                 <span className="rounded-full border border-warning/40 bg-warning-container px-2 py-0.5 font-mono text-[10px] font-bold text-on-warning-container">
-                  {urgentTasks.filter((t) => !t.completed).length} pend.
+                  {urgentTasks.filter((t) => !t.completed).length}{' '}
+                  {language === 'es' ? 'pend.' : 'left'}
                 </span>
               </div>
 
@@ -358,7 +387,9 @@ export function RoutineFocusModal({
           {normalTasks.length > 0 && (
             <section className="space-y-2">
               <h3 className="text-[11px] font-semibold uppercase tracking-[0.06em] text-on-surface-variant font-display">
-                Controles programados del turno ({normalTasks.length})
+                {language === 'es'
+                  ? `Controles programados del turno (${normalTasks.length})`
+                  : `Scheduled shift checks (${normalTasks.length})`}
               </h3>
               <div className="space-y-2">{normalTasks.map(renderTaskButton)}</div>
             </section>
@@ -373,14 +404,23 @@ export function RoutineFocusModal({
                 <CheckCircle2 className="h-4 w-4 shrink-0 text-primary" />
                 <span className="font-semibold text-primary font-display">
                   {isAutoCompleting
-                    ? '¡Rutina del día completada! Acoplando al dashboard...'
-                    : 'Rutina del día completada al 100%.'}
+                    ? language === 'es'
+                      ? '¡Rutina del día completada! Acoplando al dashboard...'
+                      : 'Daily routine complete! Docking to dashboard...'
+                    : language === 'es'
+                      ? 'Rutina del día completada al 100%.'
+                      : 'Daily routine 100% completed.'}
                 </span>
               </>
             ) : (
               <span className="text-on-surface-variant">
-                Se acoplará automáticamente al completar las {pendingCount} tarea
-                {pendingCount > 1 ? 's' : ''} restante{pendingCount > 1 ? 's' : ''}.
+                {language === 'es'
+                  ? `Se acoplará automáticamente al completar las ${pendingCount} tarea${
+                      pendingCount > 1 ? 's' : ''
+                    } restante${pendingCount > 1 ? 's' : ''}.`
+                  : `Automatically docks upon completing the remaining ${pendingCount} task${
+                      pendingCount > 1 ? 's' : ''
+                    }.`}
               </span>
             )}
           </div>
@@ -390,7 +430,7 @@ export function RoutineFocusModal({
             onClick={triggerManualOrAutoDock}
             className="group inline-flex shrink-0 cursor-pointer items-center justify-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-xs font-bold text-on-primary font-display dt-transition hover:-translate-y-0.5 hover:bg-primary-hover hover:shadow-[0_8px_18px_-8px_rgba(47,93,70,0.45)] active:translate-y-0 active:scale-[0.985] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35 sm:text-sm"
           >
-            <span>Continuar al dashboard</span>
+            <span>{language === 'es' ? 'Continuar al dashboard' : 'Continue to dashboard'}</span>
             <ArrowRight className="h-4 w-4 dt-transition group-hover:translate-x-0.5" />
           </button>
         </footer>

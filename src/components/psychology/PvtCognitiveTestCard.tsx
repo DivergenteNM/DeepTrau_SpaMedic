@@ -3,14 +3,21 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Activity, AlertTriangle, CheckCircle2, Play, RotateCcw, Timer } from 'lucide-react';
 import { useMission } from '@/context/MissionContext';
-import { evaluatePvtSession, PvtSessionResult } from '@/utils/psychologyAnalysis';
+import {
+  evaluatePvtSession,
+  isCircadianAlertStatus,
+  isMildFatigueStatus,
+  localizePvtStatus,
+  PvtSessionResult,
+} from '@/utils/psychologyAnalysis';
 
 type PvtPhase = 'idle' | 'waiting' | 'stimulus' | 'feedback' | 'done';
 
 const TOTAL_TRIALS = 5;
 
 export function PvtCognitiveTestCard() {
-  const { missionDay, pvtHistory, savePvtSession } = useMission();
+  const { language, missionDay, pvtHistory, savePvtSession } = useMission();
+  const isEs = language === 'es';
 
   const [phase, setPhase] = useState<PvtPhase>('idle');
   const [trialIndex, setTrialIndex] = useState(0);
@@ -84,7 +91,7 @@ export function PvtCognitiveTestCard() {
 
       const nextIndex = trialIndex + 1;
       if (nextIndex >= TOTAL_TRIALS) {
-        const evaluated = evaluatePvtSession(updatedTrials, falseStarts, missionDay);
+        const evaluated = evaluatePvtSession(updatedTrials, falseStarts, missionDay, language);
         setLatestResult(evaluated);
         setPhase('done');
         savePvtSession(evaluated);
@@ -100,12 +107,11 @@ export function PvtCognitiveTestCard() {
 
   const lastSaved = latestResult ?? pvtHistory[0] ?? null;
 
-  const statusTone =
-    lastSaved?.statusLabel === 'Alerta Circadiana'
-      ? 'border-danger/35 bg-danger-container text-on-danger-container'
-      : lastSaved?.statusLabel === 'Fatiga Leve'
-        ? 'border-warning/35 bg-warning-container text-on-warning-container'
-        : 'border-primary/35 bg-primary-container text-on-primary-container';
+  const statusTone = isCircadianAlertStatus(lastSaved?.statusLabel)
+    ? 'border-danger/35 bg-danger-container text-on-danger-container'
+    : isMildFatigueStatus(lastSaved?.statusLabel)
+      ? 'border-warning/35 bg-warning-container text-on-warning-container'
+      : 'border-primary/35 bg-primary-container text-on-primary-container';
 
   return (
     <section className="rounded-2xl border border-outline bg-surface-container p-5 space-y-4">
@@ -113,16 +119,20 @@ export function PvtCognitiveTestCard() {
         <div>
           <h2 className="text-base font-bold text-on-surface flex items-center gap-2 font-display">
             <Timer className="h-5 w-5 text-telemetry" />
-            Test de Vigilancia Psicomotora (PVT · 5 Estímulos)
+            {isEs
+              ? 'Test de Vigilancia Psicomotora (PVT · 5 Estímulos)'
+              : 'Psychomotor Vigilance Test (PVT · 5 Stimuli)'}
           </h2>
           <p className="text-xs text-on-surface-variant">
-            Protocolo estándar NASA para medir latencia de reacción (ms), lapsos atencionales y
-            fatiga circadiana real.
+            {isEs
+              ? 'Protocolo estándar NASA para medir latencia de reacción (ms), lapsos atencionales y fatiga circadiana real.'
+              : 'Standard NASA protocol measuring reaction latency (ms), attentional lapses, and real circadian fatigue.'}
           </p>
         </div>
         {lastSaved && (
           <div className={`rounded-full border px-3 py-1 text-[11px] font-bold font-mono ${statusTone}`}>
-            Alerta Cognitiva: {lastSaved.alertnessScore}% · {lastSaved.statusLabel}
+            {isEs ? 'Alerta Cognitiva' : 'Cognitive Alertness'}: {lastSaved.alertnessScore}% ·{' '}
+            {localizePvtStatus(lastSaved.statusLabel, language)}
           </div>
         )}
       </div>
@@ -137,11 +147,14 @@ export function PvtCognitiveTestCard() {
               </div>
               <div className="max-w-md space-y-1">
                 <p className="text-xs font-bold text-on-surface font-display">
-                  Listo para calibración cognitiva (~15 segundos)
+                  {isEs
+                    ? 'Listo para calibración cognitiva (~15 segundos)'
+                    : 'Ready for cognitive calibration (~15 seconds)'}
                 </p>
                 <p className="text-[11px] text-on-surface-variant">
-                  Pulsa el panel solo cuando el indicador cambie a verde clínico. Mediremos tu tiempo
-                  real con precisión de milisegundos.
+                  {isEs
+                    ? 'Pulsa el panel solo cuando el indicador cambie a verde clínico. Mediremos tu tiempo real con precisión de milisegundos.'
+                    : 'Tap the panel only when the indicator turns clinical green. Your reaction latency will be measured to millisecond precision.'}
                 </p>
               </div>
               <button
@@ -150,7 +163,7 @@ export function PvtCognitiveTestCard() {
                 className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl bg-primary px-4 py-2 text-xs font-bold text-on-primary dt-transition hover:-translate-y-0.5 hover:bg-primary-hover hover:shadow-[0_6px_14px_-6px_rgba(47,93,70,0.45)] active:translate-y-0 active:scale-[0.985] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35 font-display"
               >
                 <Play className="h-4 w-4" />
-                Iniciar Test PVT
+                {isEs ? 'Iniciar Test PVT' : 'Start PVT Test'}
               </button>
             </div>
           )}
@@ -170,35 +183,55 @@ export function PvtCognitiveTestCard() {
               }`}
             >
               <span className="font-mono text-[11px] uppercase tracking-wider opacity-80">
-                Estímulo {Math.min(trialIndex + 1, TOTAL_TRIALS)} de {TOTAL_TRIALS}
+                {isEs ? 'Estímulo' : 'Stimulus'} {Math.min(trialIndex + 1, TOTAL_TRIALS)}{' '}
+                {isEs ? 'de' : 'of'} {TOTAL_TRIALS}
               </span>
               {phase === 'stimulus' ? (
                 <>
-                  <p className="mt-2 text-2xl font-bold font-display">¡PULSA AHORA!</p>
-                  <p className="mt-1 text-xs opacity-90">Estímulo visual activo</p>
+                  <p className="mt-2 text-2xl font-bold font-display">
+                    {isEs ? '¡PULSA AHORA!' : 'TAP NOW!'}
+                  </p>
+                  <p className="mt-1 text-xs opacity-90">
+                    {isEs ? 'Estímulo visual activo' : 'Visual stimulus active'}
+                  </p>
                 </>
               ) : falseStartFlash ? (
                 <>
                   <p className="mt-2 text-base font-bold font-display flex items-center gap-1.5">
-                    <AlertTriangle className="h-4 w-4" /> Anticipación detectada
+                    <AlertTriangle className="h-4 w-4" />{' '}
+                    {isEs ? 'Anticipación detectada' : 'False start detected'}
                   </p>
-                  <p className="mt-1 text-xs">Espera al cambio visual antes de pulsar…</p>
+                  <p className="mt-1 text-xs">
+                    {isEs
+                      ? 'Espera al cambio visual antes de pulsar…'
+                      : 'Wait for the visual signal before tapping…'}
+                  </p>
                 </>
               ) : phase === 'feedback' && lastTrialMs !== null ? (
                 <>
                   <p className="mt-2 text-2xl font-bold font-mono">{lastTrialMs} ms</p>
                   <p className="mt-1 text-xs">
                     {lastTrialMs >= 500
-                      ? 'Lapso atencional (>= 500 ms)'
+                      ? isEs
+                        ? 'Lapso atencional (>= 500 ms)'
+                        : 'Attentional lapse (>= 500 ms)'
                       : lastTrialMs <= 300
-                        ? 'Respuesta rápida óptima'
-                        : 'Respuesta dentro de rango'}
+                        ? isEs
+                          ? 'Respuesta rápida óptima'
+                          : 'Optimal rapid response'
+                        : isEs
+                          ? 'Respuesta dentro de rango'
+                          : 'Response within range'}
                   </p>
                 </>
               ) : (
                 <>
-                  <p className="mt-2 text-base font-bold font-display">Mantén la mirada fija…</p>
-                  <p className="mt-1 text-xs opacity-75">Esperando estímulo aleatorio</p>
+                  <p className="mt-2 text-base font-bold font-display">
+                    {isEs ? 'Mantén la mirada fija…' : 'Keep gaze steady…'}
+                  </p>
+                  <p className="mt-1 text-xs opacity-75">
+                    {isEs ? 'Esperando estímulo aleatorio' : 'Awaiting randomized stimulus'}
+                  </p>
                 </>
               )}
             </button>
@@ -210,7 +243,9 @@ export function PvtCognitiveTestCard() {
                 <div className="flex items-center gap-2">
                   <CheckCircle2 className="h-5 w-5 text-primary" />
                   <span className="text-xs font-bold text-on-primary-container font-display">
-                    Evaluación PVT guardada (+20 pts)
+                    {isEs
+                      ? 'Evaluación PVT guardada (+20 pts)'
+                      : 'PVT assessment saved (+20 pts)'}
                   </span>
                 </div>
                 <button
@@ -219,25 +254,31 @@ export function PvtCognitiveTestCard() {
                   className="inline-flex cursor-pointer items-center gap-1 rounded-lg border border-outline bg-surface-container px-2.5 py-1 text-[11px] font-semibold text-on-surface dt-transition hover:-translate-y-px hover:border-primary/45 active:scale-[0.98]"
                 >
                   <RotateCcw className="h-3.5 w-3.5" />
-                  Repetir
+                  {isEs ? 'Repetir' : 'Repeat'}
                 </button>
               </div>
 
               <div className="grid grid-cols-3 gap-2">
                 <div className="rounded-lg border border-outline bg-surface-container p-2.5">
-                  <p className="text-[10px] text-on-surface-variant">Media RT</p>
+                  <p className="text-[10px] text-on-surface-variant">
+                    {isEs ? 'Media RT' : 'Mean RT'}
+                  </p>
                   <p className="font-mono text-sm font-bold text-on-surface">
                     {latestResult.meanRtMs} ms
                   </p>
                 </div>
                 <div className="rounded-lg border border-outline bg-surface-container p-2.5">
-                  <p className="text-[10px] text-on-surface-variant">Mejor RT</p>
+                  <p className="text-[10px] text-on-surface-variant">
+                    {isEs ? 'Mejor RT' : 'Best RT'}
+                  </p>
                   <p className="font-mono text-sm font-bold text-primary">
                     {latestResult.fastestRtMs} ms
                   </p>
                 </div>
                 <div className="rounded-lg border border-outline bg-surface-container p-2.5">
-                  <p className="text-[10px] text-on-surface-variant">Lapsos / Falsos</p>
+                  <p className="text-[10px] text-on-surface-variant">
+                    {isEs ? 'Lapsos / Falsos' : 'Lapses / False'}
+                  </p>
                   <p className="font-mono text-sm font-bold text-warning">
                     {latestResult.lapses} / {latestResult.falseStarts}
                   </p>
@@ -264,15 +305,20 @@ export function PvtCognitiveTestCard() {
           {phase !== 'idle' && phase !== 'done' && (
             <div className="flex items-center justify-between text-[11px] text-on-surface-variant">
               <span>
-                Ensayos completados: <strong className="font-mono">{trialsMs.length}/{TOTAL_TRIALS}</strong>
-                {falseStarts > 0 ? ` · Anticipaciones: ${falseStarts}` : ''}
+                {isEs ? 'Ensayos completados:' : 'Completed trials:'}{' '}
+                <strong className="font-mono">
+                  {trialsMs.length}/{TOTAL_TRIALS}
+                </strong>
+                {falseStarts > 0
+                  ? ` · ${isEs ? 'Anticipaciones:' : 'False starts:'} ${falseStarts}`
+                  : ''}
               </span>
               <button
                 type="button"
                 onClick={resetTest}
                 className="cursor-pointer rounded-lg border border-outline bg-surface-container-low px-2.5 py-1 text-[11px] font-medium text-on-surface dt-transition hover:bg-surface-container-high active:scale-[0.98]"
               >
-                Cancelar
+                {isEs ? 'Cancelar' : 'Cancel'}
               </button>
             </div>
           )}
@@ -282,18 +328,19 @@ export function PvtCognitiveTestCard() {
         <div className="lg:col-span-5 rounded-xl border border-outline bg-surface-container-low p-4 flex flex-col justify-between space-y-3">
           <div>
             <p className="text-xs font-bold text-on-surface font-display">
-              Comparativa vs Línea Base Orbital
+              {isEs ? 'Comparativa vs Línea Base Orbital' : 'Orbital Baseline Comparison'}
             </p>
             <p className="mt-0.5 text-[11px] text-on-surface-variant">
-              Umbral óptimo: &lt; 300 ms sin lapsos (&gt;= 500 ms). Refleja deuda de sueño antes
-              que la percepción subjetiva.
+              {isEs
+                ? 'Umbral óptimo: < 300 ms sin lapsos (>= 500 ms). Refleja deuda de sueño antes que la percepción subjetiva.'
+                : 'Optimal threshold: < 300 ms with no lapses (>= 500 ms). Detects sleep debt earlier than subjective perception.'}
             </p>
           </div>
 
           <div className="space-y-2 max-h-36 overflow-y-auto pr-1">
             {pvtHistory.length === 0 ? (
               <p className="text-xs text-on-surface-variant italic">
-                Aún no hay mediciones PVT registradas.
+                {isEs ? 'Aún no hay mediciones PVT registradas.' : 'No PVT measurements recorded yet.'}
               </p>
             ) : (
               pvtHistory.slice(0, 4).map((item) => {

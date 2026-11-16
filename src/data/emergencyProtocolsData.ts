@@ -1,4 +1,5 @@
-import { AstronautProfile } from './astronautsData';
+import { Language, formatNumberLocale } from '@/i18n/types';
+import { AstronautProfile, hasKnownAllergies, hasPriorSurgeries } from './astronautsData';
 import { BodySystemId } from './medicalKnowledge';
 import { MissionType } from './missionsData';
 
@@ -77,13 +78,395 @@ export interface TriageRecommendation {
 export interface SimulatedCapturePreset {
   id: string;
   label: string;
-  modality: 'Ultrasonido FAST' | 'Cámara Óptica';
+  modality: 'FAST Ultrasound' | 'Optical Camera' | 'Ultrasonido FAST' | 'Cámara Óptica';
   caption: string;
   findingSummary: string;
   dataUrl: string;
 }
 
-export const EMERGENCY_PROTOCOLS: EmergencyProtocol[] = [
+export const EMERGENCY_PROTOCOLS_EN: EmergencyProtocol[] = [
+  {
+    id: 'seizure',
+    code: 'PRO-01 · NEURO',
+    title: 'Seizure / Epilepsy Episode',
+    shortTitle: 'Seizure / Convulsion',
+    subtitle: 'Safe anti-impact cabin restraint and airway protection without physical force.',
+    urgency: 'critical',
+    relatedSystems: ['brain', 'cardiovascular'],
+    nasaReference: 'NASA ISS Medical Checklist (JSC-48522) · Microgravity Neurological Management',
+    verifyNow: {
+      vitalKeys: ['spo2', 'hr', 'glucose', 'temp'],
+      quickCheckSummary:
+        'Start the episode stopwatch immediately, confirm breathing, and rule out head impact or hypoglycemia (<65 mg/dL).',
+      zones: [
+        {
+          zoneId: 'head',
+          label: 'Cranium & Pupils',
+          checkInstruction:
+            'Check for impact against rigid cabin panels or consoles and observe for eye deviation.',
+          criticalSign: 'Bleeding laceration, unequal pupils, or unresponsiveness after convulsions cease.',
+        },
+        {
+          zoneId: 'airway_neck',
+          label: 'Mouth & Airway',
+          checkInstruction:
+            'Verify chest rise and fall. Never force the jaw open while muscle rigidity is active.',
+          criticalSign: 'Bluish lips, gurgling from saliva/blood, or SpO₂ < 92%.',
+        },
+        {
+          zoneId: 'limbs_joints',
+          label: 'Arms & Legs',
+          checkInstruction:
+            'Gently guide limbs away from consoles; in 0g protect joints with prior surgical history.',
+          criticalSign: 'Rhythmic jerking lasting beyond 5 continuous minutes.',
+        },
+      ],
+    },
+    actionSteps: {
+      zeroGSteps: [
+        'Start the episode stopwatch immediately to time exact seizure duration from the first second.',
+        'Gently secure the torso with an elastic restraint strap or floating arm in the center of the module, clear of corners, switches, and handrails.',
+        'Place soft padding or cushions around the helmet or floating head; guide the body without forcibly pinning arms or legs.',
+      ],
+      partialGravitySteps: [
+        'Start the episode stopwatch and lay the crew member on their side (recovery position) on a padded surface.',
+        'Clear tools, helmets, or cables around the head and slide a soft cushion under the cranium.',
+        'Loosen the suit collar or garments and keep the head slightly tilted downward so saliva drains safely.',
+      ],
+      commonSteps: [
+        'Once jerking stops, gently tilt the head to one side to keep the throat clear and wipe visible secretions.',
+        'Attach the pulse oximeter and take a rapid capillary glucose check (mg/dL) to rule out hypoglycemic seizure.',
+        'Administer supplemental oxygen if SpO₂ drops below 94% and document level of consciousness upon waking.',
+      ],
+    },
+    contraindications: [
+      'NEVER insert fingers, cloth, or rigid objects between the crew member’s teeth.',
+      'NEVER forcibly restrain limbs or pin the chest against deck surfaces to stop shaking.',
+      'DO NOT give oral fluids, tablets, or glucose gel until fully awake and able to swallow safely.',
+    ],
+    earthEscalation: [
+      'Transmit critical packet immediately if seizure exceeds 5 minutes (risk of status epilepticus).',
+      'Escalate if 2 or more consecutive seizures occur without regaining full consciousness between them.',
+      'Escalate if this is a first-ever seizure event or if visible cranial trauma is present.',
+    ],
+  },
+  {
+    id: 'syncope',
+    code: 'PRO-02 · ORTHO',
+    title: 'Syncope / Sudden Fainting',
+    shortTitle: 'Syncope / Fainting',
+    subtitle: 'Rapid check of blood pressure, pulse, and glucose due to orthostatic intolerance or EVA strain.',
+    urgency: 'warning',
+    relatedSystems: ['cardiovascular', 'metabolic'],
+    nasaReference: 'NASA HRP · Risk of Orthostatic Intolerance During Re-exposure to Gravity',
+    verifyNow: {
+      vitalKeys: ['bp', 'hr', 'glucose', 'spo2'],
+      quickCheckSummary:
+        'Measure blood pressure (mmHg), heart rate, and blood glucose (mg/dL) immediately: distinguish an orthostatic drop from hypoglycemic shock.',
+      zones: [
+        {
+          zoneId: 'head',
+          label: 'Consciousness & Response',
+          checkInstruction:
+            'Speak loudly to the crew member and tap shoulders to verify eye opening and command response.',
+          criticalSign: 'Does not wake within 60 seconds or exhibits severe confusion on awakening.',
+        },
+        {
+          zoneId: 'chest_heart',
+          label: 'Pulse & Blood Pressure',
+          checkInstruction:
+            'Check systolic pressure (<90 mmHg signals critical drop) and radial or carotid pulse rhythm.',
+          criticalSign: 'Persistent BP under 90/60 mmHg or irregular / tachycardic pulse > 120 bpm.',
+        },
+        {
+          zoneId: 'limbs_joints',
+          label: 'Legs & Venous Return',
+          checkInstruction:
+            'Check for pallor and cold clammy skin; elevate legs if operating in partial gravity.',
+          criticalSign: 'Cold, diaphoretic skin paired with blood glucose below 65 mg/dL.',
+        },
+      ],
+    },
+    actionSteps: {
+      zeroGSteps: [
+        'Position the astronaut horizontally floating with knees lightly flexed toward the torso to promote cerebral blood return.',
+        'Loosen harnesses or neck/chest fasteners; ventilate the face if cold sweating is present.',
+      ],
+      partialGravitySteps: [
+        'Lay the crew member flat on their back immediately and elevate both legs ~30 cm above heart level.',
+        'Remove helmet or open suit collar inside a pressurized airlock to improve fresh airflow.',
+      ],
+      commonSteps: [
+        'Measure capillary glucose (mg/dL), blood pressure, and SpO₂% within the first 90 seconds.',
+        'If awake and glucose is <70 mg/dL, administer 15 g of fast carbohydrates (gel or drink pouch) and re-test in 15 minutes.',
+        'If glucose is normal, offer 300–500 ml of electrolyte solution in slow sips and maintain at least 20 minutes of rest.',
+      ],
+    },
+    contraindications: [
+      'DO NOT sit or stand the crew member upright before blood pressure stabilizes and dizziness resolves.',
+      'DO NOT give drinks or gels while unconscious or drowsy (aspiration risk).',
+      'DO NOT clear the astronaut for EVA or Rover driving after a syncopal episode.',
+    ],
+    earthEscalation: [
+      'Transmit critical packet if systolic BP remains below 90 mmHg after 10 minutes of rest and hydration.',
+      'Escalate immediately if fainting was accompanied by chest pain, strong palpitations, or shortness of breath.',
+      'Escalate if full mental clarity does not return within the first 2 minutes.',
+    ],
+  },
+  {
+    id: 'cardiovascular_cpr',
+    code: 'PRO-03 · CPR-0G',
+    title: 'Cardiovascular Event / Space CPR',
+    shortTitle: 'Space CPR',
+    subtitle: 'Cardiopulmonary resuscitation adapted to altered gravity (Evetts-Russomano / Handstand) and AED.',
+    urgency: 'critical',
+    relatedSystems: ['cardiovascular', 'brain'],
+    nasaReference: 'NASA ExMC & ESA Microgravity Resuscitation Guidelines (Evetts-Russomano & Handstand)',
+    verifyNow: {
+      vitalKeys: ['hr', 'bp', 'spo2'],
+      quickCheckSummary:
+        'Check consciousness and normal breathing for no more than 10 seconds. If unresponsive and not breathing normally, start Space CPR immediately.',
+      zones: [
+        {
+          zoneId: 'head',
+          label: 'Neurological Response',
+          checkInstruction:
+            'Gently shake shoulders and ask loudly: "Can you hear me?" Verify normal chest rise.',
+          criticalSign: 'Complete absence of response and agonal gasping or apnea.',
+        },
+        {
+          zoneId: 'chest_heart',
+          label: 'Center of Sternum & AED',
+          checkInstruction:
+            'Locate center of chest between nipples for firm compressions and apply defibrillator (AED) pads.',
+          criticalSign: 'No central pulse or shockable rhythm detected by the AED.',
+        },
+        {
+          zoneId: 'airway_neck',
+          label: 'Airway & Oxygen',
+          checkInstruction:
+            'Check carotid pulse for max 10 s and connect bag-valve-mask with O₂ if 2 rescuers are available.',
+          criticalSign: 'Undetectable SpO₂ or rapid drop below 88%.',
+        },
+      ],
+    },
+    actionSteps: {
+      zeroGSteps: [
+        'EVETTS-RUSSOMANO TECHNIQUE (1 rescuer): Position patient floating across your crossed legs; hook your feet behind their torso/shoulders to create counter-pressure without drifting away.',
+        'HANDSTAND METHOD (low ceiling module): Brace feet against the overhead deck over the strapped patient on the floor deck, locking legs to compress the sternum in a straight line.',
+        'Maintain 100 to 120 compressions per minute (5–6 cm depth) and start the stopwatch for 2-minute CPR cycles.',
+      ],
+      partialGravitySteps: [
+        'Restrain patient on a rigid backboard or firm floor deck and lock your knees or belt to anchor body weight in partial gravity.',
+        'Deliver hard, fast chest compressions at the center of the chest (100–120/min) allowing full chest recoil.',
+        'Prepare supplemental O₂ bag-mask and stretcher for medical bay transfer if needed.',
+      ],
+      commonSteps: [
+        'Power on the Automated External Defibrillator (AED) as soon as it arrives, dry sweat off chest, and apply pads as diagrammed.',
+        'Pause compressions ONLY while the AED analyzes rhythm or commands shock delivery ("Stand clear!").',
+        'Rotate the compressing crew member every 2 minutes (timed via stopwatch) to prevent rescuer exhaustion.',
+      ],
+    },
+    contraindications: [
+      'NEVER attempt chest compressions in 0g without anchoring (Evetts-Russomano, Handstand, or straps): Newton’s third law will launch you off the patient.',
+      'DO NOT touch the patient’s body or conductive metal surfaces during AED shock delivery.',
+      'DO NOT interrupt chest compressions for more than 10 seconds during pulse checks or rescuer swaps.',
+    ],
+    earthEscalation: [
+      'IMMEDIATE MAXIMUM ALERT: Transmit critical packet at T+0 logging arrest onset time and AED cycles.',
+      'Request priority flight surgeon link for advanced medication authorization if ROSC is not achieved after 2 cycles.',
+    ],
+  },
+  {
+    id: 'hypoxia',
+    code: 'PRO-04 · ATMOS',
+    title: 'Hypoxia / Hostile Atmosphere',
+    shortTitle: 'Hypoxia / Air',
+    subtitle: 'Emergency 100% O₂ delivery, CO₂ scrubbing, and suit or hatch seal verification.',
+    urgency: 'critical',
+    relatedSystems: ['cardiovascular', 'brain'],
+    nasaReference: 'NASA HRP · Hostile Closed Environments & ISS Atmospheric Emergency Checklist',
+    verifyNow: {
+      vitalKeys: ['spo2', 'hr', 'bp'],
+      quickCheckSummary:
+        'Validate SpO₂% immediately (<92% is an emergency), inspect cabin O₂/CO₂ partial pressures, and check for leaks or smoke.',
+      zones: [
+        {
+          zoneId: 'airway_neck',
+          label: 'Breathing & Airway',
+          checkInstruction:
+            'Inspect breathing effort, dry cough from regolith dust, or throat irritation.',
+          criticalSign: 'SpO₂ below 90%, cyanotic lips, or inability to speak full sentences.',
+        },
+        {
+          zoneId: 'head',
+          label: 'Hypoxic Mental Status',
+          checkInstruction:
+            'Assess disorientation, tunnel vision, sudden dizziness, or uncharacteristic euphoria from low oxygen.',
+          criticalSign: 'Acute drowsiness, confusion, or loss of motor coordination.',
+        },
+        {
+          zoneId: 'chest_heart',
+          label: 'Heart Rate & Chest',
+          checkInstruction:
+            'Verify bilateral chest expansion and watch for compensatory tachycardia (>115 bpm).',
+          criticalSign: 'Rapid shallow breathing or sharp pleuritic pain on inhalation.',
+        },
+      ],
+    },
+    actionSteps: {
+      zeroGSteps: [
+        'Place 100% emergency oxygen mask onto the affected crew member and tether them beside the life-support panel.',
+        'Check cabin air circulation fans (in 0g, stagnant CO₂ pockets form rapidly if fans fail).',
+      ],
+      partialGravitySteps: [
+        'If onset followed EVA return, safely doff helmet inside the pressurized airlock and supply 100% O₂ while seated.',
+        'Keep affected crew clear of dusty airlocks to prevent further inhalation of abrasive regolith.',
+      ],
+      commonSteps: [
+        'Swap CO₂ scrubber cartridges or activate auxiliary module air purifier if sensors show elevated carbon dioxide.',
+        'Verify airtight seals on all EVA suits, oxygen supply valves, and module hatches.',
+        'Monitor SpO₂% and heart rate every 2 minutes until sustained recovery above 95%.',
+      ],
+    },
+    contraindications: [
+      'DO NOT allow a hypoxic crew member to walk unassisted or operate critical spacecraft/Rover controls.',
+      'DO NOT abruptly remove supplemental oxygen until SpO₂ remains ≥95% for 10 continuous minutes.',
+      'DO NOT ignore gradual SpO₂ drops paired with headache: this can signal silent CO₂ toxicity.',
+    ],
+    earthEscalation: [
+      'Transmit critical packet if SpO₂ fails to climb above 92% after 5 minutes on 100% oxygen.',
+      'Escalate immediately if multiple crew members report headaches or dyspnea (systemic closed-atmosphere failure).',
+    ],
+  },
+  {
+    id: 'metabolic_thermal_shock',
+    code: 'PRO-05 · METAB/THERM',
+    title: 'Hypoglycemic or Thermal Shock',
+    shortTitle: 'Glucose / Thermal',
+    subtitle: 'Rapid intervention for critical blood glucose (mg/dL) or core body temperature excursions.',
+    urgency: 'warning',
+    relatedSystems: ['metabolic', 'cardiovascular'],
+    nasaReference: 'NASA HRP · Metabolic Dysregulation & Thermal Loop Failure Countermeasures',
+    verifyNow: {
+      vitalKeys: ['glucose', 'temp', 'bp', 'hr'],
+      quickCheckSummary:
+        'Check capillary glucose (<65 mg/dL critical) and core temperature (<35.2 °C hypothermia or ≥38.5 °C heat stroke/fever).',
+      zones: [
+        {
+          zoneId: 'head',
+          label: 'Alertness & Sweating',
+          checkInstruction:
+            'Look for confusion, slurred speech, blurred vision, or cold sweat on the forehead.',
+          criticalSign: 'Glucose <60 mg/dL with drowsiness or inability to swallow safely.',
+        },
+        {
+          zoneId: 'abdomen_fast',
+          label: 'Oral Tolerance & Thermal Core',
+          checkInstruction:
+            'Verify absence of nausea before giving fluids and confirm core body temperature.',
+          criticalSign: 'Persistent vomiting or temperature ≥38.5 °C / ≤35.2 °C.',
+        },
+        {
+          zoneId: 'chest_heart',
+          label: 'Shock Pulse & BP',
+          checkInstruction:
+            'Evaluate compensatory tachycardia (>110 bpm) or systolic drop (<90 mmHg).',
+          criticalSign: 'Low blood pressure combined with rapid tachycardia.',
+        },
+      ],
+    },
+    actionSteps: {
+      zeroGSteps: [
+        'Use sealed spout drink pouches to deliver liquid carbohydrates in microgravity without floating droplets.',
+        'If hyperthermia occurs from LCVG suit cooling loop failure, open torso zipper and apply cold packs to neck, axillae, and groin.',
+      ],
+      partialGravitySteps: [
+        'If conscious on surface ops, seat crew member in shaded thermal zone before oral rehydration.',
+        'Remove insulating EVA layers for hyperthermia, or wrap in reflective thermal blanket if core temp <35.5 °C.',
+      ],
+      commonSteps: [
+        'CONSCIOUS HYPOGLYCEMIA (<65 mg/dL): Give 15–20 g fast-acting glucose (oral gel or chewable tabs) and re-test after 15 minutes.',
+        'HYPOTHERMIA (<35.5 °C): Gradual core rewarming using thermal blankets and warm liquids if fully awake.',
+        'HYPERTHERMIA (≥38.3 °C): Active cooling at neck/axillae plus chilled electrolyte hydration; re-check vitals every 10 minutes.',
+      ],
+    },
+    contraindications: [
+      'DO NOT place gels, water, or food in the mouth if unconscious or seizing (use IV/glucagon only if authorized).',
+      'DO NOT apply scalding direct heat or rub frostbitten extremities during hypothermia.',
+      'DO NOT administer antipyretic drugs without checking allergies in the EHR record.',
+    ],
+    earthEscalation: [
+      'Transmit critical packet if blood glucose stays below 65 mg/dL after two fast-carb doses.',
+      'Escalate immediately if consciousness is lost or temperature exceeds 39.0 °C / drops below 35.0 °C.',
+    ],
+  },
+  {
+    id: 'internal_trauma_fast',
+    code: 'PRO-06 · FAST-US',
+    title: 'Internal Trauma / FAST Ultrasound Scan',
+    shortTitle: 'Trauma / FAST Eco',
+    subtitle: 'Step-by-step abdominal and thoracic ultrasound guidance to rule out internal hemorrhage.',
+    urgency: 'critical',
+    relatedSystems: ['cardiovascular', 'musculoskeletal'],
+    nasaReference: 'NASA HRP · Advanced Diagnostic Ultrasound in Microgravity (ADUM) — FAST Protocol',
+    verifyNow: {
+      vitalKeys: ['bp', 'hr', 'spo2'],
+      quickCheckSummary:
+        'Following severe cabin or EVA impact, monitor for falling BP + rising pulse and capture all 4 FAST ultrasound windows.',
+      zones: [
+        {
+          zoneId: 'chest_heart',
+          label: 'Window 1 · Pericardium & Thorax',
+          checkInstruction:
+            'Place ultrasound probe just below the xiphoid sternum tip aimed toward the left shoulder to image the heart.',
+          criticalSign: 'Dark anechoic stripe (fluid) surrounding heart or absent lung sliding.',
+        },
+        {
+          zoneId: 'abdomen_fast',
+          label: 'Windows 2, 3 & 4 · Abdomen & Pelvis',
+          checkInstruction:
+            'Scan right flank (liver/kidney), left flank (spleen/kidney), and suprapubic pelvis.',
+          criticalSign: 'Dark anechoic pockets (free blood/fluid) between organs or rigid painful abdomen.',
+        },
+        {
+          zoneId: 'limbs_joints',
+          label: 'Stability & Localized Pain',
+          checkInstruction:
+            'Check for expanding bruising or pelvic/limb deformity and prevent unnecessary movement.',
+          criticalSign: 'Progressive severe pain accompanied by systolic BP < 95 mmHg.',
+        },
+      ],
+    },
+    actionSteps: {
+      zeroGSteps: [
+        'Restrain both the injured crew member and ultrasound operator with straps before applying acoustic gel so probe contact remains steady.',
+        'Remember in 0g free fluid distributes atypically: capture slow 5-second sweeps across every window.',
+      ],
+      partialGravitySteps: [
+        'Keep the injured astronaut lying flat and immobile on a firm deck; in partial gravity fluid pools in dependent zones.',
+        'Apply generous acoustic gel on each window without pressing hard over tender areas.',
+      ],
+      commonSteps: [
+        'WINDOW 1 (Subxiphoid / Heart): Place probe beneath the sternum pointing upward; save capture.',
+        'WINDOW 2 (Right Upper Quadrant — Morrison’s Pouch): Place probe on right flank below ribs aimed posteriorly.',
+        'WINDOW 3 (Left Upper Quadrant — Splenorenal): Place probe slightly higher and posterior on left flank.',
+        'WINDOW 4 (Suprapubic): Place probe just above pubic bone and attach images to the Earth telemetry packet.',
+      ],
+    },
+    contraindications: [
+      'DO NOT press deeply into a rigid, swollen, or severely tender abdomen.',
+      'DO NOT administer painkillers, food, or heavy fluids until internal bleeding is ruled out.',
+      'DO NOT move the patient if spinal or pelvic trauma is suspected without full immobilization.',
+    ],
+    earthEscalation: [
+      'Transmit critical packet WITH ATTACHED ULTRASOUND IMAGES if dark free-fluid pockets or worsening abdominal pain appear.',
+      'Escalate Code Red if systolic BP drops below 95 mmHg while heart rate climbs above 110 bpm (early internal hemorrhage sign).',
+    ],
+  },
+];
+
+export const EMERGENCY_PROTOCOLS_ES: EmergencyProtocol[] = [
   {
     id: 'seizure',
     code: 'PRO-01 · NEURO',
@@ -407,9 +790,7 @@ export const EMERGENCY_PROTOCOLS: EmergencyProtocol[] = [
     shortTitle: 'Trauma / Eco FAST',
     subtitle: 'Guía visual paso a paso de ultrasonido abdominal y torácico para descartar hemorragia.',
     urgency: 'critical',
-    relatedSystems: ['abdomen_fast' as unknown as BodySystemId, 'cardiovascular', 'musculoskeletal'].filter(
-      (s): s is BodySystemId => s === 'cardiovascular' || s === 'musculoskeletal'
-    ),
+    relatedSystems: ['cardiovascular', 'musculoskeletal'],
     nasaReference: 'NASA HRP · Advanced Diagnostic Ultrasound in Microgravity (ADUM) — Protocolo FAST',
     verifyNow: {
       vitalKeys: ['bp', 'hr', 'spo2'],
@@ -467,7 +848,46 @@ export const EMERGENCY_PROTOCOLS: EmergencyProtocol[] = [
   },
 ];
 
-export const QUICK_SYMPTOM_TAGS: QuickSymptomTag[] = [
+export const EMERGENCY_PROTOCOLS = EMERGENCY_PROTOCOLS_EN;
+
+export function getEmergencyProtocols(lang: Language): EmergencyProtocol[] {
+  return lang === 'es' ? EMERGENCY_PROTOCOLS_ES : EMERGENCY_PROTOCOLS_EN;
+}
+
+export const QUICK_SYMPTOM_TAGS_EN: QuickSymptomTag[] = [
+  {
+    id: 'tag-faint-sweat',
+    label: 'Fainted with cold sweat',
+    queryText: 'fainted with cold sweat and dizziness',
+  },
+  {
+    id: 'tag-eva-breath',
+    label: 'Short of breath after EVA',
+    queryText: 'short of breath after spacewalk difficulty breathing',
+  },
+  {
+    id: 'tag-seizure-0g',
+    label: 'Seizure / jerking in 0g',
+    queryText: 'having seizure and involuntary convulsions in microgravity',
+  },
+  {
+    id: 'tag-chest-pain',
+    label: 'Chest pain & rapid or absent pulse',
+    queryText: 'crushing chest pain unresponsive or unstable pulse cpr',
+  },
+  {
+    id: 'tag-glucose-temp',
+    label: 'Tremor, confusion or heat/cold shock',
+    queryText: 'intense tremor confusion low glucose or extreme temperature',
+  },
+  {
+    id: 'tag-trauma-fast',
+    label: 'Severe abdominal blow / internal trauma',
+    queryText: 'severe abdominal blow internal trauma abdominal pain fast ultrasound',
+  },
+];
+
+export const QUICK_SYMPTOM_TAGS_ES: QuickSymptomTag[] = [
   {
     id: 'tag-faint-sweat',
     label: 'Se desmayó y tiene sudor frío',
@@ -500,7 +920,60 @@ export const QUICK_SYMPTOM_TAGS: QuickSymptomTag[] = [
   },
 ];
 
-export const SIMULATED_CAPTURES: SimulatedCapturePreset[] = [
+export const QUICK_SYMPTOM_TAGS = QUICK_SYMPTOM_TAGS_EN;
+
+export function getQuickSymptomTags(lang: Language): QuickSymptomTag[] {
+  return lang === 'es' ? QUICK_SYMPTOM_TAGS_ES : QUICK_SYMPTOM_TAGS_EN;
+}
+
+export const SIMULATED_CAPTURES_EN: SimulatedCapturePreset[] = [
+  {
+    id: 'sim-fast-morrison',
+    label: 'FAST Eco · Hepatorenal Window',
+    modality: 'FAST Ultrasound',
+    caption: 'Simulated ADUM Capture — Right Upper Quadrant (Morrison’s Pouch)',
+    findingSummary: 'No evident free fluid collection in Morrison’s space; preventive monitoring suggested.',
+    dataUrl:
+      'data:image/svg+xml;utf8,' +
+      encodeURIComponent(
+        `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 220">
+          <rect width="360" height="220" fill="#1A241E"/>
+          <path d="M180 22 L328 192 C230 212 130 212 32 192 Z" fill="#23332A" stroke="#2F5D46" stroke-width="2"/>
+          <ellipse cx="165" cy="112" rx="68" ry="34" fill="#2F5D46" fill-opacity="0.45" stroke="#4A7C64" stroke-width="1.5"/>
+          <ellipse cx="212" cy="136" rx="34" ry="20" fill="#1A241E" stroke="#D8D3C8" stroke-dasharray="4 3" stroke-width="1.5"/>
+          <line x1="180" y1="22" x2="180" y2="202" stroke="#4A7C64" stroke-opacity="0.4" stroke-dasharray="3 4"/>
+          <text x="16" y="24" fill="#F7F5F0" font-family="monospace" font-size="11" font-weight="bold">ADUM FAST · WINDOW 2 (MORRISON)</text>
+          <text x="16" y="40" fill="#DFECE4" font-family="monospace" font-size="10">3.5 MHz · SIMULATED</text>
+          <rect x="14" y="186" width="234" height="22" rx="4" fill="#1A241E" fill-opacity="0.85" stroke="#2F5D46"/>
+          <text x="22" y="201" fill="#F7F5F0" font-family="monospace" font-size="9">[SI / SIMULATED TELEMETRY — DEEPTRAU]</text>
+        </svg>`
+      ),
+  },
+  {
+    id: 'sim-optical-airway',
+    label: 'Cabin Cam · Pupil / O₂ Check',
+    modality: 'Optical Camera',
+    caption: 'Optical neurological & oxygen mask seal check',
+    findingSummary: 'Symmetrical pupils reactive to light; facial seal visually verified in cabin.',
+    dataUrl:
+      'data:image/svg+xml;utf8,' +
+      encodeURIComponent(
+        `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 220">
+          <rect width="360" height="220" fill="#1A241E"/>
+          <circle cx="122" cy="108" r="36" fill="#2B5B6C" fill-opacity="0.35" stroke="#DCE9EE" stroke-width="1.5"/>
+          <circle cx="122" cy="108" r="14" fill="#0F1713" stroke="#F7F5F0" stroke-width="1.5"/>
+          <circle cx="238" cy="108" r="36" fill="#2B5B6C" fill-opacity="0.35" stroke="#DCE9EE" stroke-width="1.5"/>
+          <circle cx="238" cy="108" r="14" fill="#0F1713" stroke="#F7F5F0" stroke-width="1.5"/>
+          <path d="M96 48 L96 36 L108 36 M264 48 L264 36 L252 36 M96 168 L96 180 L108 180 M264 168 L264 180 L252 180" fill="none" stroke="#4A7C64" stroke-width="2"/>
+          <text x="16" y="24" fill="#F7F5F0" font-family="monospace" font-size="11" font-weight="bold">MEDICAL CAM · PUPIL REFLEX 3.2 mm</text>
+          <rect x="14" y="186" width="234" height="22" rx="4" fill="#1A241E" fill-opacity="0.85" stroke="#2F5D46"/>
+          <text x="22" y="201" fill="#F7F5F0" font-family="monospace" font-size="9">[SI / SIMULATED TELEMETRY — DEEPTRAU]</text>
+        </svg>`
+      ),
+  },
+];
+
+export const SIMULATED_CAPTURES_ES: SimulatedCapturePreset[] = [
   {
     id: 'sim-fast-morrison',
     label: 'Eco FAST · Ventana Hepatorrenal',
@@ -547,37 +1020,51 @@ export const SIMULATED_CAPTURES: SimulatedCapturePreset[] = [
   },
 ];
 
+export const SIMULATED_CAPTURES = SIMULATED_CAPTURES_EN;
+
+export function getSimulatedCaptures(lang: Language): SimulatedCapturePreset[] {
+  return lang === 'es' ? SIMULATED_CAPTURES_ES : SIMULATED_CAPTURES_EN;
+}
+
 export function buildDynamicContraindications(
   protocol: EmergencyProtocol,
-  astronaut: AstronautProfile
+  astronaut: AstronautProfile,
+  lang: Language = 'en'
 ): { baseRules: string[]; ehrRules: string[] } {
   const ehrRules: string[] = [];
-  const allergies = astronaut.clinicalHistory.allergies.filter(
-    (a) => !a.toLowerCase().includes('ninguna')
-  );
-  if (allergies.length > 0) {
+  const hasAllergies = hasKnownAllergies(astronaut.clinicalHistory.allergies);
+  const allergies = astronaut.clinicalHistory.allergies;
+
+  if (hasAllergies) {
     ehrRules.push(
-      `ALERGIA REGISTRADA (${allergies.join(', ')}): Evita fármacos, guantes o parches que contengan este alérgeno antes de administrar cualquier soporte.`
+      lang === 'es'
+        ? `ALERGIA REGISTRADA (${allergies.join(', ')}): Evita fármacos, guantes o parches que contengan este alérgeno antes de administrar cualquier soporte.`
+        : `REGISTERED ALLERGY (${allergies.join(', ')}): Avoid medications, gloves, or patches containing this allergen before administering any aid.`
     );
   }
 
-  const surgeries = astronaut.clinicalHistory.priorSurgeries.filter(
-    (s) => !s.toLowerCase().includes('sin cirug')
-  );
-  if (surgeries.length > 0) {
+  const hasSurgeries = hasPriorSurgeries(astronaut.clinicalHistory.priorSurgeries);
+  if (hasSurgeries) {
+    const firstSurgery = astronaut.clinicalHistory.priorSurgeries[0];
     ehrRules.push(
-      `ANTECEDENTE QUIRÚRGICO (${surgeries[0]}): No fuerces torsiones ni compresiones bruscas sobre la articulación operada durante la contención o traslado.`
+      lang === 'es'
+        ? `ANTECEDENTE QUIRÚRGICO (${firstSurgery}): No fuerces torsiones ni compresiones bruscas sobre la articulación operada durante la contención o traslado.`
+        : `PRIOR SURGERY (${firstSurgery}): Do not apply forced twisting or abrupt compression to the operated joint during restraint or transfer.`
     );
   }
 
   if (astronaut.clinicalHistory.immuneStatus !== 'Normal') {
     ehrRules.push(
-      `DEFENSAS BAJAS (Leucopenia/Reactivación viral): Usa mascarilla estéril y desinfecta manos antes de manipular vía aérea o mucosas.`
+      lang === 'es'
+        ? `DEFENSAS BAJAS (Leucopenia/Reactivación viral): Usa mascarilla estéril y desinfecta manos antes de manipular vía aérea o mucosas.`
+        : `LOW DEFENSES (Leukopenia/Viral reactivation): Wear a sterile mask and sanitize hands before airway or mucosal contact.`
     );
   }
 
   ehrRules.push(
-    `TIPO DE SANGRE ${astronaut.bloodType}: Verifica compatibilidad en reserva de cabina antes de reposición sanguínea o paquete de emergencia.`
+    lang === 'es'
+      ? `TIPO DE SANGRE ${astronaut.bloodType}: Verifica compatibilidad en reserva de cabina antes de reposición sanguínea o paquete de emergencia.`
+      : `BLOOD TYPE ${astronaut.bloodType}: Verify compatibility in cabin stores before any blood replacement or emergency transfusion kit.`
   );
 
   return {
@@ -590,174 +1077,282 @@ export function evaluateSymptomTriage(
   rawQuery: string,
   vitals: TriageVitalSnapshot,
   astronaut: AstronautProfile,
-  mission: MissionType
+  mission: MissionType,
+  lang: Language = 'en'
 ): TriageRecommendation {
   const query = rawQuery.toLowerCase().trim();
   const matchedSignals: string[] = [];
 
   if (vitals.glucoseMgDl < 65) {
-    matchedSignals.push(`Glucosa crítica: ${vitals.glucoseMgDl} mg/dL`);
+    matchedSignals.push(
+      lang === 'es'
+        ? `Glucosa crítica: ${vitals.glucoseMgDl} mg/dL`
+        : `Critical glucose: ${vitals.glucoseMgDl} mg/dL`
+    );
   }
   if (vitals.systolicBP <= 90 || vitals.diastolicBP <= 55) {
-    matchedSignals.push(`Hipotensión: ${vitals.systolicBP}/${vitals.diastolicBP} mmHg`);
+    matchedSignals.push(
+      lang === 'es'
+        ? `Hipotensión: ${vitals.systolicBP}/${vitals.diastolicBP} mmHg`
+        : `Hypotension: ${vitals.systolicBP}/${vitals.diastolicBP} mmHg`
+    );
   }
   if (vitals.spo2Percent < 92) {
-    matchedSignals.push(`Oxígeno bajo: ${vitals.spo2Percent}% SpO₂`);
+    matchedSignals.push(
+      lang === 'es'
+        ? `Oxígeno bajo: ${vitals.spo2Percent}% SpO₂`
+        : `Low oxygen: ${vitals.spo2Percent}% SpO₂`
+    );
   }
   if (vitals.heartRateBpm >= 115 || vitals.heartRateBpm <= 45) {
-    matchedSignals.push(`Pulso alterado: ${vitals.heartRateBpm} bpm`);
+    matchedSignals.push(
+      lang === 'es'
+        ? `Pulso alterado: ${vitals.heartRateBpm} bpm`
+        : `Altered pulse: ${vitals.heartRateBpm} bpm`
+    );
   }
   if (vitals.bodyTempC >= 38.5 || vitals.bodyTempC <= 35.2) {
-    matchedSignals.push(`Temperatura crítica: ${vitals.bodyTempC.toFixed(1)} °C`);
+    matchedSignals.push(
+      lang === 'es'
+        ? `Temperatura crítica: ${vitals.bodyTempC.toFixed(1)} °C`
+        : `Critical temp: ${vitals.bodyTempC.toFixed(1)} °C`
+    );
   }
 
-  const hasAllergy = astronaut.clinicalHistory.allergies.some(
-    (a) => !a.toLowerCase().includes('ninguna')
-  );
+  const hasAllergy = hasKnownAllergies(astronaut.clinicalHistory.allergies);
   const ehrAlert = hasAllergy
-    ? `Precaución EHR: Alergia a ${astronaut.clinicalHistory.allergies.join(', ')} · Sangre ${astronaut.bloodType}.`
-    : `Expediente EHR: Sangre ${astronaut.bloodType} · ${astronaut.clinicalHistory.priorSurgeries[0] ?? 'Sin cirugías'}.`;
+    ? lang === 'es'
+      ? `Precaución EHR: Alergia a ${astronaut.clinicalHistory.allergies.join(', ')} · Sangre ${astronaut.bloodType}.`
+      : `EHR Caution: Allergy to ${astronaut.clinicalHistory.allergies.join(', ')} · Blood ${astronaut.bloodType}.`
+    : lang === 'es'
+      ? `Expediente EHR: Sangre ${astronaut.bloodType} · ${astronaut.clinicalHistory.priorSurgeries[0] ?? 'Sin cirugías'}.`
+      : `EHR Record: Blood ${astronaut.bloodType} · ${astronaut.clinicalHistory.priorSurgeries[0] ?? 'No prior surgeries'}.`;
 
-  // 1. Seizure / neurological match
+  // 1. Seizure / neurological match (EN + ES)
   if (
     query.includes('convul') ||
     query.includes('epilep') ||
     query.includes('sacud') ||
     query.includes('temblor involunt') ||
-    query.includes('espasm')
+    query.includes('espasm') ||
+    query.includes('seiz') ||
+    query.includes('jerk') ||
+    query.includes('twitch') ||
+    query.includes('fit')
   ) {
     return {
       possibleCause:
-        'Crisis convulsiva aguda en cabina (posible origen neurológico, hipoxia o descenso brusco de glucosa).',
+        lang === 'es'
+          ? 'Crisis convulsiva aguda en cabina (posible origen neurológico, hipoxia o descenso brusco de glucosa).'
+          : 'Acute cabin seizure episode (possible neurological origin, hypoxia, or sudden blood glucose drop).',
       urgency: 'critical',
       recommendedProtocolId: 'seizure',
       immediateAction:
-        'Inicia el cronómetro de episodio, protege la cabeza contra impactos en ' +
-        mission.gravityLabel +
-        ' y NO sujetes brazos ni piernas a la fuerza.',
+        lang === 'es'
+          ? `Inicia el cronómetro de episodio, protege la cabeza contra impactos en ${mission.gravityLabel} y NO sujetes brazos ni piernas a la fuerza.`
+          : `Start the episode stopwatch, cushion head from impacts in ${mission.gravityLabel}, and DO NOT forcibly restrain arms or legs.`,
       ehrAlert,
       matchedSignals:
-        matchedSignals.length > 0 ? matchedSignals : ['Evento neurológico agudo reportado'],
+        matchedSignals.length > 0
+          ? matchedSignals
+          : [
+              lang === 'es'
+                ? 'Evento neurológico agudo reportado'
+                : 'Acute neurological event reported',
+            ],
     };
   }
 
-  // 2. Cardiac arrest / severe chest pain / CPR
+  // 2. Cardiac arrest / severe chest pain / CPR (EN + ES)
   if (
     query.includes('rcp') ||
+    query.includes('cpr') ||
     query.includes('paro') ||
+    query.includes('arrest') ||
     query.includes('no tiene pulso') ||
     query.includes('sin pulso') ||
+    query.includes('no pulse') ||
     query.includes('pecho') ||
+    query.includes('chest') ||
     query.includes('corazón') ||
     query.includes('corazon') ||
-    query.includes('desfibril')
+    query.includes('heart') ||
+    query.includes('desfibril') ||
+    query.includes('aed') ||
+    query.includes('unresponsive')
   ) {
     return {
       possibleCause:
-        'Compromiso cardiovascular agudo o sospecha de paro cardiorrespiratorio que exige soporte vital inmediato.',
+        lang === 'es'
+          ? 'Compromiso cardiovascular agudo o sospecha de paro cardiorrespiratorio que exige soporte vital inmediato.'
+          : 'Acute cardiovascular compromise or suspected cardiac arrest requiring immediate life support.',
       urgency: 'critical',
       recommendedProtocolId: 'cardiovascular_cpr',
       immediateAction:
         mission.gravityG === 0
-          ? 'Prepara técnica Evetts-Russomano o Handstand en 0g, enciende el DEA y transmite paquete crítico a Tierra.'
-          : 'Asegura superficie firme, inicia compresiones torácicas (100-120/min) y conecta el DEA.',
+          ? lang === 'es'
+            ? 'Prepara técnica Evetts-Russomano o Handstand en 0g, enciende el DEA y transmite paquete crítico a Tierra.'
+            : 'Prepare Evetts-Russomano or Handstand 0g technique, power on AED, and transmit critical packet to Earth.'
+          : lang === 'es'
+            ? 'Asegura superficie firme, inicia compresiones torácicas (100-120/min) y conecta el DEA.'
+            : 'Secure firm deck surface, initiate chest compressions (100–120/min), and attach AED pads.',
       ehrAlert,
       matchedSignals:
-        matchedSignals.length > 0 ? matchedSignals : ['Sospecha de evento cardiovascular mayor'],
+        matchedSignals.length > 0
+          ? matchedSignals
+          : [
+              lang === 'es'
+                ? 'Sospecha de evento cardiovascular mayor'
+                : 'Suspected major cardiovascular event',
+            ],
     };
   }
 
-  // 3. Hypoxia / EVA breathing difficulty
+  // 3. Hypoxia / EVA breathing difficulty (EN + ES)
   if (
     query.includes('respir') ||
+    query.includes('breath') ||
     query.includes('ahog') ||
+    query.includes('chok') ||
+    query.includes('suffoc') ||
     query.includes('aire') ||
+    query.includes('air') ||
     query.includes('oxíg') ||
     query.includes('oxig') ||
+    query.includes('oxygen') ||
+    query.includes('hypox') ||
+    query.includes('hipox') ||
     query.includes('co2') ||
     query.includes('caminata') ||
+    query.includes('spacewalk') ||
     query.includes('eva') ||
     query.includes('traje') ||
+    query.includes('suit') ||
     vitals.spo2Percent < 92
   ) {
     return {
       possibleCause:
         vitals.spo2Percent < 92
-          ? `Hipoxia confirmada (${vitals.spo2Percent}% SpO₂) por posible fallo de O₂, exceso de CO₂ o irritación post-EVA.`
-          : 'Dificultad respiratoria aguda compatible con hipoxia, acumulación de CO₂ o inhalación de polvo de regolito tras EVA.',
+          ? lang === 'es'
+            ? `Hipoxia confirmada (${vitals.spo2Percent}% SpO₂) por posible fallo de O₂, exceso de CO₂ o irritación post-EVA.`
+            : `Confirmed hypoxia (${vitals.spo2Percent}% SpO₂) from possible O₂ drop, CO₂ buildup, or post-EVA irritation.`
+          : lang === 'es'
+            ? 'Dificultad respiratoria aguda compatible con hipoxia, acumulación de CO₂ o inhalación de polvo de regolito tras EVA.'
+            : 'Acute respiratory distress consistent with hypoxia, CO₂ buildup, or post-EVA regolith dust inhalation.',
       urgency: 'critical',
       recommendedProtocolId: 'hypoxia',
       immediateAction:
-        'Suministra oxígeno de emergencia al 100% de inmediato, revisa sellado de escotillas/traje y depuradores de CO₂.',
+        lang === 'es'
+          ? 'Suministra oxígeno de emergencia al 100% de inmediato, revisa sellado de escotillas/traje y depuradores de CO₂.'
+          : 'Deliver 100% emergency oxygen immediately, check hatch/suit seals, and verify CO₂ scrubbers.',
       ehrAlert,
       matchedSignals:
-        matchedSignals.length > 0 ? matchedSignals : [`SpO₂ actual: ${vitals.spo2Percent}%`],
+        matchedSignals.length > 0
+          ? matchedSignals
+          : [
+              lang === 'es'
+                ? `SpO₂ actual: ${vitals.spo2Percent}%`
+                : `Current SpO₂: ${vitals.spo2Percent}%`,
+            ],
     };
   }
 
-  // 4. Internal trauma / FAST ultrasound
+  // 4. Internal trauma / FAST ultrasound (EN + ES)
   if (
     query.includes('golpe') ||
+    query.includes('blow') ||
     query.includes('trauma') ||
-    query.includes('abdomen') ||
+    query.includes('abdom') ||
     query.includes('sangr') ||
-    query.includes('hemorrag') ||
-    query.includes('ultrasonido') ||
+    query.includes('bleed') ||
+    query.includes('hemorr') ||
+    query.includes('ultrason') ||
     query.includes('fast') ||
-    query.includes('impacto')
+    query.includes('impact')
   ) {
     return {
       possibleCause:
-        'Sospecha de trauma cerrado torácico o abdominal con posible riesgo de sangrado interno oculto.',
+        lang === 'es'
+          ? 'Sospecha de trauma cerrado torácico o abdominal con posible riesgo de sangrado interno oculto.'
+          : 'Suspected blunt thoracic or abdominal trauma with possible occult internal bleeding risk.',
       urgency: 'critical',
       recommendedProtocolId: 'internal_trauma_fast',
       immediateAction:
-        'Mantén al astronauta inmóvil, realiza las 4 ventanas de escaneo Ultrasonido FAST y adjunta la captura para Tierra.',
+        lang === 'es'
+          ? 'Mantén al astronauta inmóvil, realiza las 4 ventanas de escaneo Ultrasonido FAST y adjunta la captura para Tierra.'
+          : 'Keep the astronaut immobilized, perform all 4 FAST ultrasound windows, and attach captures for Earth.',
       ehrAlert,
       matchedSignals:
-        matchedSignals.length > 0 ? matchedSignals : ['Mecanismo de trauma / impacto reportado'],
+        matchedSignals.length > 0
+          ? matchedSignals
+          : [
+              lang === 'es'
+                ? 'Mecanismo de trauma / impacto reportado'
+                : 'Reported impact / trauma mechanism',
+            ],
     };
   }
 
-  // 5. Syncope / fainting / cold sweat / orthostatic hypotension
+  // 5. Syncope / fainting / cold sweat / orthostatic hypotension (EN + ES)
   if (
     query.includes('desmay') ||
+    query.includes('faint') ||
     query.includes('síncop') ||
     query.includes('sincop') ||
+    query.includes('syncop') ||
     query.includes('mareo') ||
+    query.includes('dizz') ||
     query.includes('sudor') ||
+    query.includes('sweat') ||
     query.includes('desvane') ||
+    query.includes('pass out') ||
     (vitals.systolicBP <= 90 && vitals.glucoseMgDl < 65)
   ) {
     const isCritical = vitals.systolicBP <= 90 || vitals.glucoseMgDl < 65;
     return {
       possibleCause:
         vitals.glucoseMgDl < 65 || vitals.systolicBP <= 90
-          ? `Síncope asociado a hipotensión (${vitals.systolicBP}/${vitals.diastolicBP} mmHg) y/o hipoglucemia (${vitals.glucoseMgDl} mg/dL).`
-          : 'Síncope vasovagal o intolerancia ortostática por redistribución de fluidos y deshidratación en misión.',
+          ? lang === 'es'
+            ? `Síncope asociado a hipotensión (${vitals.systolicBP}/${vitals.diastolicBP} mmHg) y/o hipoglucemia (${vitals.glucoseMgDl} mg/dL).`
+            : `Syncope linked to hypotension (${vitals.systolicBP}/${vitals.diastolicBP} mmHg) and/or hypoglycemia (${vitals.glucoseMgDl} mg/dL).`
+          : lang === 'es'
+            ? 'Síncope vasovagal o intolerancia ortostática por redistribución de fluidos y deshidratación en misión.'
+            : 'Vasovagal syncope or orthostatic intolerance due to fluid redistribution and mission dehydration.',
       urgency: isCritical ? 'critical' : 'warning',
       recommendedProtocolId: 'syncope',
       immediateAction:
-        'Recuesta al tripulante, mide presión arterial y glucosa en mg/dL al instante, y corrige hipoglucemia si está consciente.',
+        lang === 'es'
+          ? 'Recuesta al tripulante, mide presión arterial y glucosa en mg/dL al instante, y corrige hipoglucemia si está consciente.'
+          : 'Lay crew member supine, measure blood pressure and glucose (mg/dL) immediately, and treat hypoglycemia if awake.',
       ehrAlert,
       matchedSignals:
         matchedSignals.length > 0
           ? matchedSignals
-          : [`PA: ${vitals.systolicBP}/${vitals.diastolicBP} mmHg · Glucosa: ${vitals.glucoseMgDl} mg/dL`],
+          : [
+              lang === 'es'
+                ? `PA: ${vitals.systolicBP}/${vitals.diastolicBP} mmHg · Glucosa: ${vitals.glucoseMgDl} mg/dL`
+                : `BP: ${vitals.systolicBP}/${vitals.diastolicBP} mmHg · Glucose: ${vitals.glucoseMgDl} mg/dL`,
+            ],
     };
   }
 
-  // 6. Metabolic / thermal shock
+  // 6. Metabolic / thermal shock (EN + ES)
   if (
     query.includes('gluc') ||
     query.includes('azúcar') ||
     query.includes('azucar') ||
+    query.includes('sugar') ||
     query.includes('temblor') ||
+    query.includes('tremor') ||
     query.includes('calor') ||
+    query.includes('heat') ||
     query.includes('frío') ||
     query.includes('frio') ||
+    query.includes('cold') ||
     query.includes('fiebre') ||
+    query.includes('fever') ||
     query.includes('hipoterm') ||
+    query.includes('hypotherm') ||
     query.includes('confusi') ||
     vitals.glucoseMgDl < 70 ||
     vitals.bodyTempC >= 38.0 ||
@@ -768,43 +1363,65 @@ export function evaluateSymptomTriage(
     return {
       possibleCause:
         vitals.glucoseMgDl < 70
-          ? `Descompensación metabólica por hipoglucemia (${vitals.glucoseMgDl} mg/dL vs base ${astronaut.clinicalHistory.baselineGlucose} mg/dL).`
-          : 'Estrés térmico o alteración metabólica aguda en cabina/traje presurizado.',
+          ? lang === 'es'
+            ? `Descompensación metabólica por hipoglucemia (${vitals.glucoseMgDl} mg/dL vs base ${astronaut.clinicalHistory.baselineGlucose} mg/dL).`
+            : `Metabolic decompensation from hypoglycemia (${vitals.glucoseMgDl} mg/dL vs baseline ${astronaut.clinicalHistory.baselineGlucose} mg/dL).`
+          : lang === 'es'
+            ? 'Estrés térmico o alteración metabólica aguda en cabina/traje presurizado.'
+            : 'Acute thermal stress or metabolic disruption inside cabin or pressurized suit.',
       urgency: isCritical ? 'critical' : 'warning',
       recommendedProtocolId: 'metabolic_thermal_shock',
       immediateAction:
-        'Valida glucosa capilar y temperatura corporal; administra 15 g de glucosa si está consciente o activa control térmico.',
+        lang === 'es'
+          ? 'Valida glucosa capilar y temperatura corporal; administra 15 g de glucosa si está consciente o activa control térmico.'
+          : 'Confirm capillary glucose and core temperature; give 15 g fast glucose if awake or initiate thermal regulation.',
       ehrAlert,
       matchedSignals:
         matchedSignals.length > 0
           ? matchedSignals
-          : [`Glucosa: ${vitals.glucoseMgDl} mg/dL · Temp: ${vitals.bodyTempC.toFixed(1)} °C`],
+          : [
+              lang === 'es'
+                ? `Glucosa: ${vitals.glucoseMgDl} mg/dL · Temp: ${vitals.bodyTempC.toFixed(1)} °C`
+                : `Glucose: ${vitals.glucoseMgDl} mg/dL · Temp: ${vitals.bodyTempC.toFixed(1)} °C`,
+            ],
     };
   }
 
   // Default fallback based on live vital signs
   if (vitals.systolicBP <= 90 || vitals.glucoseMgDl < 65) {
     return {
-      possibleCause: `Descompensación aguda detectada en telemetría (PA ${vitals.systolicBP}/${vitals.diastolicBP} mmHg, Glucosa ${vitals.glucoseMgDl} mg/dL).`,
+      possibleCause:
+        lang === 'es'
+          ? `Descompensación aguda detectada en telemetría (PA ${vitals.systolicBP}/${vitals.diastolicBP} mmHg, Glucosa ${vitals.glucoseMgDl} mg/dL).`
+          : `Acute decompensation detected in live telemetry (BP ${vitals.systolicBP}/${vitals.diastolicBP} mmHg, Glucose ${vitals.glucoseMgDl} mg/dL).`,
       urgency: 'critical',
       recommendedProtocolId: 'syncope',
       immediateAction:
-        'Estabiliza al astronauta en posición horizontal y sigue el protocolo de Síncope / Shock Hipoglucémico.',
+        lang === 'es'
+          ? 'Estabiliza al astronauta en posición horizontal y sigue el protocolo de Síncope / Shock Hipoglucémico.'
+          : 'Stabilize the astronaut horizontally and execute the Syncope / Hypoglycemic Shock protocol.',
       ehrAlert,
       matchedSignals,
     };
   }
 
+  const wbcNote = formatNumberLocale(vitals.wbcCount, lang);
   return {
     possibleCause:
-      'Síntomas inespecíficos en revisión: se recomienda verificación estructurada de signos vitales y protocolo de síncope/control metabólico.',
+      lang === 'es'
+        ? 'Síntomas inespecíficos en revisión: se recomienda verificación estructurada de signos vitales y protocolo de síncope/control metabólico.'
+        : 'Nonspecific symptoms under review: structured vital signs check and syncope/metabolic protocol advised.',
     urgency: 'warning',
     recommendedProtocolId: 'syncope',
     immediateAction:
-      'Describe un síntoma más específico o pulsa una etiqueta rápida para afinar la recomendación.',
+      lang === 'es'
+        ? 'Describe un síntoma más específico o pulsa una etiqueta rápida para afinar la recomendación.'
+        : 'Enter a more specific symptom or tap a quick tag to refine triage recommendation.',
     ehrAlert,
     matchedSignals: [
-      `PA ${vitals.systolicBP}/${vitals.diastolicBP} mmHg · SpO₂ ${vitals.spo2Percent}% · Glucosa ${vitals.glucoseMgDl} mg/dL`,
+      lang === 'es'
+        ? `PA ${vitals.systolicBP}/${vitals.diastolicBP} mmHg · SpO₂ ${vitals.spo2Percent}% · Glucosa ${vitals.glucoseMgDl} mg/dL · WBC ${wbcNote}`
+        : `BP ${vitals.systolicBP}/${vitals.diastolicBP} mmHg · SpO₂ ${vitals.spo2Percent}% · Glucose ${vitals.glucoseMgDl} mg/dL · WBC ${wbcNote}`,
     ],
   };
 }

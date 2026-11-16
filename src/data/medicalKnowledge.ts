@@ -1,3 +1,5 @@
+import { Language } from '@/i18n/types';
+
 export type TriageLevel = 'nominal' | 'warning' | 'critical';
 
 export type BodySystemId =
@@ -18,7 +20,80 @@ export interface BodySystemGuide {
   criticalAction: string;
 }
 
-export const BODY_SYSTEM_GUIDES: Record<BodySystemId, BodySystemGuide> = {
+export const BODY_SYSTEM_GUIDES_EN: Record<BodySystemId, BodySystemGuide> = {
+  brain: {
+    id: 'brain',
+    title: 'Brain, Sleep & Mental Health',
+    shortLabel: 'Brain & Mind',
+    linkedTab: 'psychology',
+    whySpaceAffectsIt:
+      'Isolation, confinement, circadian disruption, and cephalad fluid shift (SANS syndrome) impact mood, rest quality, and cognitive sharpness.',
+    nominalSummary:
+      'Stable circadian rhythm, restorative rest, and psychological resilience within expected operational baselines.',
+    warningAction:
+      'Complete 2 minutes of guided box breathing, adjust cabin lighting, and open your Inspiration Wall ("My Earth Anchor").',
+    criticalAction:
+      'Activate emotional decompression protocol: record a Video-Diary entry for Earth flight psychologists and prioritize a protected rest block.',
+  },
+  cardiovascular: {
+    id: 'cardiovascular',
+    title: 'Cardiovascular System & Oxygenation',
+    shortLabel: 'Heart & O₂',
+    linkedTab: 'sensors',
+    whySpaceAffectsIt:
+      'In microgravity the heart works less against gravity and loses plasma volume; in habitats and rovers, lunar dust or CO₂ buildup can compromise oxygen saturation (SpO₂%).',
+    nominalSummary:
+      'Heart rate, blood pressure, and oxygen saturation SpO₂% remain aligned with your pre-flight terrestrial medical baseline.',
+    warningAction:
+      'Hydrate with electrolytes (500 ml), check cabin ventilation/CO₂ levels, and repeat oximeter scan in 15 minutes.',
+    criticalAction:
+      'Halt physical exertion immediately, deploy cabin supplemental oxygen, and transmit an urgent packet to the flight surgeon.',
+  },
+  immune: {
+    id: 'immune',
+    title: 'Immune System & Blood',
+    shortLabel: 'Blood & Defenses',
+    linkedTab: 'survival',
+    whySpaceAffectsIt:
+      'Cosmic radiation (mSv), microgravity, and stress cortisol alter white blood cell (leukocyte) distribution and can reactivate latent viruses.',
+    nominalSummary:
+      'Leukocyte count and cumulative radiation exposure remain inside the safe threshold for your clinical history.',
+    warningAction:
+      'Reinforce closed-cabin hygiene, prioritize 7.5+ hours of sleep, take antioxidant supplementation, and avoid unnecessary time outside shielded modules.',
+    criticalAction:
+      'Activate partial preventive crew isolation, shelter in the highest radiation-shielded module, and run hematology monitoring every 12h.',
+  },
+  metabolic: {
+    id: 'metabolic',
+    title: 'Metabolism, Nutrition & Glucose',
+    shortLabel: 'Glucose & Energy',
+    linkedTab: 'survival',
+    whySpaceAffectsIt:
+      'Microgravity induces temporary insulin resistance, while high-expenditure EVA operations can cause sharp drops in blood glucose (hypoglycemia).',
+    nominalSummary:
+      'Capillary blood glucose (mg/dL) aligned with your pre-flight resting metabolic baseline.',
+    warningAction:
+      'If low (<75 mg/dL), consume gel or freeze-dried fruit (15g fast carbs). If high (>135 mg/dL), hydrate and perform 15 min of light cycling.',
+    criticalAction:
+      'Suspend Rover driving or EVA operations immediately; correct severe hypoglycemia with emergency glucose ration and re-test after 15 minutes.',
+  },
+  musculoskeletal: {
+    id: 'musculoskeletal',
+    title: 'Bone Density, Muscles & Joints',
+    shortLabel: 'Bones & Muscle',
+    linkedTab: 'musculoskeletal',
+    whySpaceAffectsIt:
+      'Without constant 1g Earth loading, astronauts can lose 1% to 1.5% bone mineral density per month alongside postural muscle atrophy and stress on previously operated joints.',
+    nominalSummary:
+      'Optimal adherence to bone/muscle loading sessions while respecting prior surgery joint adaptations.',
+    warningAction:
+      'Complete today’s adapted resistance session and confirm Vitamin D (800 IU) and Calcium (1,000 mg) intake.',
+    criticalAction:
+      'Projected loss exceeds safe limit or acute joint pain present: switch to isometric unloading protocol and notify the rehabilitation medical team.',
+  },
+};
+
+export const BODY_SYSTEM_GUIDES_ES: Record<BodySystemId, BodySystemGuide> = {
   brain: {
     id: 'brain',
     title: 'Cerebro, Sueño y Salud Mental',
@@ -91,11 +166,17 @@ export const BODY_SYSTEM_GUIDES: Record<BodySystemId, BodySystemGuide> = {
   },
 };
 
+export const BODY_SYSTEM_GUIDES = BODY_SYSTEM_GUIDES_EN;
+
+export function getBodySystemGuides(lang: Language): Record<BodySystemId, BodySystemGuide> {
+  return lang === 'es' ? BODY_SYSTEM_GUIDES_ES : BODY_SYSTEM_GUIDES_EN;
+}
+
 export interface InspirationItemPreset {
   id: string;
   title: string;
   subtitle: string;
-  category: 'Familia' | 'Tierra' | 'Mensaje de Voz';
+  category: 'Family' | 'Earth' | 'Voice Message' | 'Familia' | 'Tierra' | 'Mensaje de Voz';
   durationOrDate: string;
   quote: string;
   palette: 'cyan' | 'emerald' | 'amber' | 'rose';
@@ -104,7 +185,56 @@ export interface InspirationItemPreset {
   audioUrl?: string;
 }
 
-export const DEFAULT_INSPIRATION_ITEMS: InspirationItemPreset[] = [
+export const DEFAULT_INSPIRATION_ITEMS_EN: InspirationItemPreset[] = [
+  {
+    id: 'insp-1',
+    title: 'Breakfast at Home — Family Video',
+    subtitle: 'Pre-launch message recorded by your family back on Earth',
+    category: 'Family',
+    durationOrDate: 'Family audio · Saved offline',
+    quote: '"Every night we step into the yard and look up at the sky. We are with you on every orbit!"',
+    palette: 'amber',
+    soundId: 'forest',
+    soundLabel: 'Play: Breakfast at Home',
+    audioUrl: '/audio/video_familiar.mp3',
+  },
+  {
+    id: 'insp-2',
+    title: 'Rain Over the South Pacific',
+    subtitle: 'High-definition Earth soundscape and bioacoustic rain audio',
+    category: 'Earth',
+    durationOrDate: 'Relaxing loop · Cortisol reduction',
+    quote: 'The sound of rainfall and ocean waves lowers heart rate inside sealed spacecraft cabins.',
+    palette: 'cyan',
+    soundId: 'rain',
+    soundLabel: 'Audio: Earth Rainfall',
+  },
+  {
+    id: 'insp-3',
+    title: 'Sunset Waves Along the Coast',
+    subtitle: 'Visual Earth anchor designed for Third-Quarter mission windows',
+    category: 'Earth',
+    durationOrDate: 'Immersive loop · Circadian therapy',
+    quote: 'Recalling open terrestrial horizons mitigates psychological fatigue during prolonged confinement.',
+    palette: 'emerald',
+    soundId: 'ocean',
+    soundLabel: 'Audio: Ocean Waves',
+  },
+  {
+    id: 'insp-4',
+    title: 'Voice Letter — Ground Team & Friends',
+    subtitle: 'Encouragement compilation for high-workload flight shifts',
+    category: 'Voice Message',
+    durationOrDate: 'Recorded audio · Synced',
+    quote: '"Your daily medical discipline is the safe bridge bringing you home."',
+    palette: 'rose',
+    soundId: 'heartbeat',
+    soundLabel: 'Play: Voice Letter',
+    audioUrl: '/audio/carta_de_voz.mp3',
+  },
+];
+
+export const DEFAULT_INSPIRATION_ITEMS_ES: InspirationItemPreset[] = [
   {
     id: 'insp-1',
     title: 'Desayuno en Casa — Video Familiar',
@@ -153,7 +283,32 @@ export const DEFAULT_INSPIRATION_ITEMS: InspirationItemPreset[] = [
   },
 ];
 
-export const MEDICAL_TOOLTIPS = {
+export const DEFAULT_INSPIRATION_ITEMS = DEFAULT_INSPIRATION_ITEMS_EN;
+
+export function getDefaultInspirationItems(lang: Language): InspirationItemPreset[] {
+  return lang === 'es' ? DEFAULT_INSPIRATION_ITEMS_ES : DEFAULT_INSPIRATION_ITEMS_EN;
+}
+
+export const MEDICAL_TOOLTIPS_EN = {
+  glucose: {
+    why: 'In space, metabolic shifts and flight stress raise insulin resistance; during intense EVAs, high caloric burn can plummet blood glucose and impair decision-making.',
+    how: 'Maintain fasting/pre-EVA levels between 75 and 125 mg/dL. Adjust snacks and hydration.',
+  },
+  radiation: {
+    why: 'Outside Earth’s protective atmosphere, cosmic rays and solar storms damage cellular DNA and suppress immune defenses (measured in millisieverts, mSv).',
+    how: 'Monitor cumulative dose and shelter inside the highest-shielded core (water/polyethylene walls) during solar alerts.',
+  },
+  immune: {
+    why: 'Up to 50% of astronauts on long-duration missions experience immune dysregulation driven by elevated cortisol, confinement, and radiation exposure.',
+    how: 'Cross-reference white blood cell counts (cells/µL) with pre-launch clinical predispositions.',
+  },
+  boneMuscle: {
+    why: 'Microgravity (0g) or partial gravity reduces mechanical loading on bones and muscles, accelerating demineralization.',
+    how: 'Complete daily resistive workouts adapted to prior injuries and supplement Vitamin D + Calcium.',
+  },
+};
+
+export const MEDICAL_TOOLTIPS_ES = {
   glucose: {
     why: 'En el espacio, los cambios metabólicos y el estrés elevan la resistencia a la insulina; durante caminatas espaciales el gasto calórico puede desplomar la glucosa y nublar la toma de decisiones.',
     how: 'Mantener entre 75 y 125 mg/dL en ayunas/pre-EVA. Ajustar colaciones y rehidratación.',
@@ -171,3 +326,9 @@ export const MEDICAL_TOOLTIPS = {
     how: 'Cumplir ejercicio resistivo adaptado a lesiones previas y suplementar Vitamina D + Calcio.',
   },
 };
+
+export const MEDICAL_TOOLTIPS = MEDICAL_TOOLTIPS_EN;
+
+export function getMedicalTooltips(lang: Language) {
+  return lang === 'es' ? MEDICAL_TOOLTIPS_ES : MEDICAL_TOOLTIPS_EN;
+}

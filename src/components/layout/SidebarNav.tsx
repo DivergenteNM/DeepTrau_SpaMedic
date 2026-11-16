@@ -31,6 +31,7 @@ export function SidebarNav({
   onCloseMobile,
 }: SidebarNavProps) {
   const {
+    language,
     activeTab,
     setActiveTab,
     routines,
@@ -70,36 +71,36 @@ export function SidebarNav({
   }[] = [
     {
       id: 'dashboard',
-      label: 'Centro de Comando',
-      subtitle: 'Cuerpo humano y rutinas',
+      label: language === 'es' ? 'Centro de Comando' : 'Command Center',
+      subtitle: language === 'es' ? 'Cuerpo humano y rutinas' : 'Human body & daily routines',
       icon: <LayoutDashboard className="h-5 w-5" />,
       badge: `${completedRoutines}/${routines.length}`,
     },
     {
       id: 'sensors',
-      label: 'Conectar Herramientas',
-      subtitle: 'Hub de sensores y pruebas',
+      label: language === 'es' ? 'Conectar Herramientas' : 'Connect Tools',
+      subtitle: language === 'es' ? 'Hub de sensores y pruebas' : 'Sensor hub & diagnostics',
       icon: <Cpu className="h-5 w-5" />,
       badge: `${connectedCount}/${availableDevices.length}`,
     },
     {
       id: 'psychology',
-      label: 'Salud Mental y Psicología',
-      subtitle: 'Video-diario y ancla terrestre',
+      label: language === 'es' ? 'Salud Mental y Psicología' : 'Mental Health & Psychology',
+      subtitle: language === 'es' ? 'Video-diario y ancla terrestre' : 'Video-diary & Earth anchor',
       icon: <Brain className="h-5 w-5" />,
       alert: systemStatuses.brain !== 'nominal',
     },
     {
       id: 'musculoskeletal',
-      label: 'Densidad Ósea y Músculo',
-      subtitle: 'Ejercicio adaptado por gravedad',
+      label: language === 'es' ? 'Densidad Ósea y Músculo' : 'Bone & Muscle Density',
+      subtitle: language === 'es' ? 'Ejercicio adaptado por gravedad' : 'Gravity-adapted training',
       icon: <Dumbbell className="h-5 w-5" />,
       alert: systemStatuses.musculoskeletal !== 'nominal',
     },
     {
       id: 'survival',
-      label: 'Monitoreo de Misión',
-      subtitle: 'Radiación, sangre y glucosa',
+      label: language === 'es' ? 'Monitoreo de Misión' : 'Mission Monitoring',
+      subtitle: language === 'es' ? 'Radiación, sangre y glucosa' : 'Radiation, blood & glucose',
       icon: <Radiation className="h-5 w-5" />,
       alert: systemStatuses.immune !== 'nominal' || systemStatuses.metabolic !== 'nominal',
     },
@@ -113,7 +114,7 @@ export function SidebarNav({
           <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-outline bg-surface-container p-1">
             <Image
               src="/DeepTrau_logo.webp"
-              alt="Logo de DeepTrau"
+              alt={language === 'es' ? 'Logo de DeepTrau' : 'DeepTrau Logo'}
               width={40}
               height={40}
               className="h-full w-full object-contain"
@@ -125,7 +126,7 @@ export function SidebarNav({
               DeepTrau
             </p>
             <p className="truncate text-[11px] text-on-surface-variant">
-              SpaMedic · Medicina Espacial
+              {language === 'es' ? 'SpaMedic · Medicina Espacial' : 'SpaMedic · Space Medicine'}
             </p>
           </div>
         </div>
@@ -133,8 +134,24 @@ export function SidebarNav({
         <button
           type="button"
           onClick={isMobileDrawer ? onCloseMobile : onToggleDesktop}
-          aria-label={isMobileDrawer ? 'Cerrar menú lateral' : 'Ocultar barra lateral'}
-          title={isMobileDrawer ? 'Cerrar menú lateral' : 'Ocultar barra lateral'}
+          aria-label={
+            isMobileDrawer
+              ? language === 'es'
+                ? 'Cerrar menú lateral'
+                : 'Close side menu'
+              : language === 'es'
+                ? 'Ocultar barra lateral'
+                : 'Collapse sidebar'
+          }
+          title={
+            isMobileDrawer
+              ? language === 'es'
+                ? 'Cerrar menú lateral'
+                : 'Close side menu'
+              : language === 'es'
+                ? 'Ocultar barra lateral'
+                : 'Collapse sidebar'
+          }
           className="inline-flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-xl border border-outline bg-surface-container-low text-on-surface-variant dt-transition hover:border-primary/35 hover:bg-surface-container-high hover:text-on-surface active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35"
         >
           {isMobileDrawer ? (
@@ -212,15 +229,17 @@ export function SidebarNav({
         <div className="flex items-center justify-between">
           <span className="flex items-center gap-1.5 text-xs font-semibold text-on-surface font-display">
             <Activity className="h-4 w-4 text-primary" />
-            Índice de Preparación
+            {language === 'es' ? 'Índice de Preparación' : 'Readiness Index'}
           </span>
           <span className="font-mono text-sm font-bold text-primary">{readinessScore}%</span>
         </div>
 
         <div className="space-y-1.5">
           <div className="flex items-center justify-between text-[11px] text-on-surface-variant">
-            <span>Rutinas del día</span>
-            <span className="font-mono">{routinePct}% completado</span>
+            <span>{language === 'es' ? 'Rutinas del día' : 'Daily routines'}</span>
+            <span className="font-mono">
+              {routinePct}% {language === 'es' ? 'completado' : 'done'}
+            </span>
           </div>
           <div className="h-2 w-full overflow-hidden rounded-full bg-surface-container-high">
             <div
@@ -234,16 +253,16 @@ export function SidebarNav({
           <div className="rounded-xl border border-warning/25 bg-warning-container p-2.5">
             <div className="flex items-center gap-1.5 text-[11px] font-semibold text-on-warning-container">
               <Flame className="h-3.5 w-3.5 text-warning" />
-              Racha
+              {language === 'es' ? 'Racha' : 'Streak'}
             </div>
             <p className="mt-0.5 font-mono text-sm font-bold text-on-warning-container">
-              {streakDays} días
+              {streakDays} {language === 'es' ? 'días' : 'days'}
             </p>
           </div>
           <div className="rounded-xl border border-primary/25 bg-primary-container p-2.5">
             <div className="flex items-center gap-1.5 text-[11px] font-semibold text-on-primary-container">
               <Trophy className="h-3.5 w-3.5 text-primary" />
-              Puntos
+              {language === 'es' ? 'Puntos' : 'Points'}
             </div>
             <p className="mt-0.5 font-mono text-sm font-bold text-on-primary-container">
               {healthPoints}
@@ -271,14 +290,14 @@ export function SidebarNav({
         </div>
       </aside>
 
-      {/* Desktop Reopen Handle (outside navbar, shown only when sidebar is collapsed) */}
+      {/* Desktop Reopen Handle */}
       {!isDesktopOpen && (
         <div className="hidden shrink-0 pl-3 pt-4 dt-animate-panel lg:block">
           <button
             type="button"
             onClick={onToggleDesktop}
-            aria-label="Mostrar barra lateral"
-            title="Mostrar barra lateral"
+            aria-label={language === 'es' ? 'Mostrar barra lateral' : 'Expand sidebar'}
+            title={language === 'es' ? 'Mostrar barra lateral' : 'Expand sidebar'}
             className="sticky top-[70px] inline-flex h-9 w-9 cursor-pointer items-center justify-center rounded-xl border border-outline bg-surface-container text-on-surface-variant dt-transition hover:scale-105 hover:border-primary/45 hover:bg-surface-container-low hover:text-on-surface active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35"
           >
             <PanelLeftOpen className="h-4 w-4" />

@@ -15,12 +15,15 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { DeviceConnection, useMission } from '@/context/MissionContext';
-import { BODY_SYSTEM_GUIDES, MEDICAL_TOOLTIPS, TriageLevel } from '@/data/medicalKnowledge';
+import { isLowImmuneStatus } from '@/data/astronautsData';
+import { getBodySystemGuides, getMedicalTooltips, TriageLevel } from '@/data/medicalKnowledge';
+import { formatNumberLocale, Language } from '@/i18n/types';
 
-function getTriageLabel(status: TriageLevel): string {
-  if (status === 'critical') return 'Crítico';
-  if (status === 'warning') return 'Precaución';
-  return 'Óptimo';
+function getTriageLabel(status: TriageLevel, lang: Language): string {
+  const isEs = lang === 'es';
+  if (status === 'critical') return isEs ? 'Crítico' : 'Critical';
+  if (status === 'warning') return isEs ? 'Precaución' : 'Caution';
+  return isEs ? 'Óptimo' : 'Optimal';
 }
 
 function getTriageContainerClasses(status: TriageLevel): string {
@@ -33,10 +36,11 @@ function getTriageContainerClasses(status: TriageLevel): string {
   return 'border-primary/30 bg-primary-container text-on-primary-container';
 }
 
-function getDeviceBadge(device: DeviceConnection | undefined) {
+function getDeviceBadge(device: DeviceConnection | undefined, lang: Language) {
+  const isEs = lang === 'es';
   if (!device || !device.availableInMission) {
     return {
-      label: 'No embarcado',
+      label: isEs ? 'No embarcado' : 'Not onboard',
       classes: 'border-outline bg-surface-container-high text-on-surface-variant',
       available: false,
       connected: false,
@@ -44,14 +48,14 @@ function getDeviceBadge(device: DeviceConnection | undefined) {
   }
   if (device.connected) {
     return {
-      label: `En vivo · ${device.lastUpdated}`,
+      label: `${isEs ? 'En vivo' : 'Live'} · ${device.lastUpdated}`,
       classes: 'border-primary/30 bg-primary-container text-on-primary-container',
       available: true,
       connected: true,
     };
   }
   return {
-    label: 'Modo manual (sensor offline)',
+    label: isEs ? 'Modo manual (sensor offline)' : 'Manual mode (sensor offline)',
     classes: 'border-warning/35 bg-warning-container/70 text-on-warning-container',
     available: true,
     connected: false,
@@ -60,6 +64,7 @@ function getDeviceBadge(device: DeviceConnection | undefined) {
 
 export function MissionMonitorTab() {
   const {
+    language,
     mission,
     astronaut,
     missionDay,
@@ -71,18 +76,22 @@ export function MissionMonitorTab() {
     openSosOverlay,
   } = useMission();
 
+  const isEs = language === 'es';
+  const bodySystemGuides = useMemo(() => getBodySystemGuides(language), [language]);
+  const medicalTooltips = useMemo(() => getMedicalTooltips(language), [language]);
+
   const [inspectedRadDayIdx, setInspectedRadDayIdx] = useState<number | null>(null);
   const [inspectedGlucDayIdx, setInspectedGlucDayIdx] = useState<number | null>(null);
   const [inspectedWbcDayIdx, setInspectedWbcDayIdx] = useState<number | null>(null);
 
-  const isLowImmune = astronaut.clinicalHistory.immuneStatus !== 'Normal';
+  const isLowImmune = isLowImmuneStatus(astronaut.clinicalHistory.immuneStatus);
   const dosimeterDevice = devices.find((d) => d.id === 'dosimeter');
   const glucometerDevice = devices.find((d) => d.id === 'glucometer');
   const hematologyDevice = devices.find((d) => d.id === 'hematology');
 
-  const dosimeterBadge = getDeviceBadge(dosimeterDevice);
-  const glucometerBadge = getDeviceBadge(glucometerDevice);
-  const hematologyBadge = getDeviceBadge(hematologyDevice);
+  const dosimeterBadge = getDeviceBadge(dosimeterDevice, language);
+  const glucometerBadge = getDeviceBadge(glucometerDevice, language);
+  const hematologyBadge = getDeviceBadge(hematologyDevice, language);
 
   // --- Radiation & Mission Survival Calculations ---
   const rawRadPct = Math.round(
@@ -151,16 +160,28 @@ export function MissionMonitorTab() {
 
   const glucoseStatusText =
     biomarkers.glucoseMgDl < 65
-      ? 'Hipoglucemia Crítica: Riesgo de síncope y fallo cognitivo en EVA/Rover.'
+      ? isEs
+        ? 'Hipoglucemia Crítica: Riesgo de síncope y fallo cognitivo en EVA/Rover.'
+        : 'Critical Hypoglycemia: Risk of syncope and cognitive impairment in EVA/Rover.'
       : biomarkers.glucoseMgDl < 75
-        ? 'Glucosa Baja (Precaución): Ingiere 15g de carbohidratos rápidos.'
+        ? isEs
+          ? 'Glucosa Baja (Precaución): Ingiere 15g de carbohidratos rápidos.'
+          : 'Low Glucose (Caution): Ingest 15g of fast-acting carbohydrates.'
         : biomarkers.glucoseMgDl >= 175
-          ? 'Hiperglucemia Crítica: Hidratar y notificar a médico de vuelo.'
+          ? isEs
+            ? 'Hiperglucemia Crítica: Hidratar y notificar a médico de vuelo.'
+            : 'Critical Hyperglycemia: Hydrate and notify flight surgeon.'
           : biomarkers.glucoseMgDl >= 135
-            ? 'Glucosa Elevada: Posible resistencia insulínica por estrés o microgravedad.'
+            ? isEs
+              ? 'Glucosa Elevada: Posible resistencia insulínica por estrés o microgravedad.'
+              : 'Elevated Glucose: Possible stress- or microgravity-induced insulin resistance.'
             : hasLowBaselineEvaRisk
-              ? 'Glucemia Óptima · Vigilar basal baja (<85 mg/dL) antes de caminatas EVA.'
-              : 'Glucemia Óptima: Metabolismo energético estable respecto a tu línea base.';
+              ? isEs
+                ? 'Glucemia Óptima · Vigilar basal baja (<85 mg/dL) antes de caminatas EVA.'
+                : 'Optimal Glycemia · Monitor low baseline (<85 mg/dL) before EVAs.'
+              : isEs
+                ? 'Glucemia Óptima: Metabolismo energético estable respecto a tu línea base.'
+                : 'Optimal Glycemia: Energy metabolism stable relative to your baseline.';
 
   // --- Immune / WBC Calculations ---
   const wbcCriticalLimit = isLowImmune ? 3600 : 3200;
@@ -175,23 +196,37 @@ export function MissionMonitorTab() {
   const immuneDiagnosisText = useMemo(() => {
     if (systemStatuses.immune === 'critical') {
       if (wbcStatus === 'critical' && radStatus === 'critical') {
-        return 'Alerta Crítica Combinada: Leucocitos deprimidos junto a límite de radiación superado. Inicia aislamiento preventivo, refugio blindado y monitoreo cada 12h.';
+        return isEs
+          ? 'Alerta Crítica Combinada: Leucocitos deprimidos junto a límite de radiación superado. Inicia aislamiento preventivo, refugio blindado y monitoreo cada 12h.'
+          : 'Combined Critical Alert: Depressed leukocytes alongside exceeded radiation limit. Initiate preventive isolation, storm shelter, and 12h monitoring.';
       }
       if (wbcStatus === 'critical') {
-        return `Alerta Crítica Hematológica: Conteo de leucocitos bajo umbral crítico (≤${wbcCriticalLimit.toLocaleString('es-ES')} cél/µL). Inicia aislamiento preventivo y repite control en 12h.`;
+        return isEs
+          ? `Alerta Crítica Hematológica: Conteo de leucocitos bajo umbral crítico (≤${formatNumberLocale(wbcCriticalLimit, language)} cél/µL). Inicia aislamiento preventivo y repite control en 12h.`
+          : `Critical Hematologic Alert: Leukocyte count below critical threshold (≤${formatNumberLocale(wbcCriticalLimit, language)} cells/µL). Initiate preventive isolation and recheck in 12h.`;
       }
-      return 'Alerta Crítica por Estrés Radiativo: Dosis o tasa solar sobre límite operacional con riesgo de depresión medular e inmune. Mantén refugio blindado y controla leucocitos cada 12h.';
+      return isEs
+        ? 'Alerta Crítica por Estrés Radiativo: Dosis o tasa solar sobre límite operacional con riesgo de depresión medular e inmune. Mantén refugio blindado y controla leucocitos cada 12h.'
+        : 'Critical Radiation Stress Alert: Dose or solar rate above operational limit with risk of marrow and immune suppression. Remain in shielded shelter and monitor WBC every 12h.';
     }
     if (systemStatuses.immune === 'warning') {
       if (wbcStatus !== 'nominal' && radStatus !== 'nominal') {
-        return 'Precaución Inmuno-Radiativa: Descenso de glóbulos blancos combinado con dosis elevada de radiación. Refuerza descanso, hidratación y permanencia en módulo blindado.';
+        return isEs
+          ? 'Precaución Inmuno-Radiativa: Descenso de glóbulos blancos combinado con dosis elevada de radiación. Refuerza descanso, hidratación y permanencia en módulo blindado.'
+          : 'Immuno-Radiation Caution: White cell decline paired with elevated radiation dose. Reinforce rest, hydration, and stay inside shielded core.';
       }
       if (wbcStatus !== 'nominal') {
-        return `Precaución Inmune: Leucocitos en zona de vigilancia (${biomarkers.wbcCount.toLocaleString('es-ES')} cél/µL${isLowImmune ? ', umbral EHR temprano' : ''}). Refuerza descanso nocturno y control en cabina.`;
+        return isEs
+          ? `Precaución Inmune: Leucocitos en zona de vigilancia (${formatNumberLocale(biomarkers.wbcCount, language)} cél/µL${isLowImmune ? ', umbral EHR temprano' : ''}). Refuerza descanso nocturno y control en cabina.`
+          : `Immune Caution: Leukocytes in watch range (${formatNumberLocale(biomarkers.wbcCount, language)} cells/µL${isLowImmune ? ', early EHR threshold' : ''}). Prioritize sleep and cabin follow-up.`;
       }
-      return 'Vigilancia Inmune por Radiación: La exposición ionizante acumulada o tasa diaria elevada puede deprimir linfocitos T; limita exposición fuera de zona blindada.';
+      return isEs
+        ? 'Vigilancia Inmune por Radiación: La exposición ionizante acumulada o tasa diaria elevada puede deprimir linfocitos T; limita exposición fuera de zona blindada.'
+        : 'Radiation Immune Watch: Cumulative ionizing exposure or high daily rate can suppress T-lymphocytes; limit time outside shielded core.';
     }
-    return 'Conteo inmunológico y carga radiativa estables dentro del margen seguro para tu historial clínico.';
+    return isEs
+      ? 'Conteo inmunológico y carga radiativa estables dentro del margen seguro para tu historial clínico.'
+      : 'Immune count and radiation load stable within safe margins for your clinical profile.';
   }, [
     systemStatuses.immune,
     wbcStatus,
@@ -199,6 +234,8 @@ export function MissionMonitorTab() {
     wbcCriticalLimit,
     biomarkers.wbcCount,
     isLowImmune,
+    isEs,
+    language,
   ]);
 
   // --- SVG Chart Geometry (Radiation & Glucose) ---
@@ -345,29 +382,46 @@ export function MissionMonitorTab() {
           <div>
             <div className="flex flex-wrap items-center gap-2">
               <p className="text-xs font-semibold uppercase tracking-[0.06em] text-warning font-display">
-                Dosimetría Operacional CSA &amp; Límites NASA HRP
+                {isEs
+                  ? 'Dosimetría Operacional CSA & Límites NASA HRP'
+                  : 'CSA Operational Dosimetry & NASA HRP Limits'}
               </p>
               <span
                 className={`rounded-full border px-2.5 py-0.5 text-[10px] font-bold font-display ${getTriageContainerClasses(
                   radStatus
                 )}`}
               >
-                Estado: {getTriageLabel(radStatus)}
+                {isEs ? 'Estado:' : 'Status:'} {getTriageLabel(radStatus, language)}
               </span>
               <span
                 className={`rounded-full border px-2.5 py-0.5 text-[10px] font-semibold font-mono ${dosimeterBadge.classes}`}
               >
-                Dosímetro: {dosimeterBadge.label}
+                {isEs ? 'Dosímetro:' : 'Dosimeter:'} {dosimeterBadge.label}
               </span>
             </div>
             <h2 className="mt-1 text-[22px] leading-[28px] font-bold text-on-surface flex items-center gap-2 font-display">
               <Radiation className="h-5 w-5 text-warning" />
-              Supervivencia de Misión y Radiación Acumulada (mSv)
+              {isEs
+                ? 'Supervivencia de Misión y Radiación Acumulada (mSv)'
+                : 'Mission Survival & Cumulative Radiation (mSv)'}
             </h2>
             <p className="mt-1 text-xs text-on-surface-variant">
-              Seguimiento continuo en <span className="font-semibold text-on-surface">{mission.name}</span>{' '}
-              (Riesgo {mission.radiationRiskLevel.toLowerCase()} · Día {missionDay}/{mission.durationDays})
-              frente al límite seguro ({mission.missionLimitMsv} mSv).
+              {isEs ? (
+                <>
+                  Seguimiento continuo en{' '}
+                  <span className="font-semibold text-on-surface">{mission.name}</span> (Riesgo{' '}
+                  {mission.radiationRiskLevel.toLowerCase()} · Día {missionDay}/
+                  {mission.durationDays}) frente al límite seguro ({mission.missionLimitMsv} mSv).
+                </>
+              ) : (
+                <>
+                  Continuous tracking on{' '}
+                  <span className="font-semibold text-on-surface">{mission.name}</span> (
+                  {mission.radiationRiskLevel.toLowerCase()} risk · Day {missionDay}/
+                  {mission.durationDays}) against the safe dose limit ({mission.missionLimitMsv}{' '}
+                  mSv).
+                </>
+              )}
             </p>
           </div>
 
@@ -377,7 +431,9 @@ export function MissionMonitorTab() {
                 cumulativeRadStatus
               )}`}
             >
-              <span className="block text-[10px] font-medium">Dosis Acumulada</span>
+              <span className="block text-[10px] font-medium">
+                {isEs ? 'Dosis Acumulada' : 'Cumulative Dose'}
+              </span>
               <span className="font-mono text-lg font-bold">
                 {biomarkers.cumulativeRadiationMsv.toFixed(1)} mSv
               </span>
@@ -389,7 +445,9 @@ export function MissionMonitorTab() {
                   : getTriageContainerClasses(dailyRadStatus)
               }`}
             >
-              <span className="block text-[10px] font-medium">Tasa Actual</span>
+              <span className="block text-[10px] font-medium">
+                {isEs ? 'Tasa Actual' : 'Current Rate'}
+              </span>
               <span className="font-mono text-lg font-bold">
                 {biomarkers.dailyRadiationMsv.toFixed(2)} mSv/d
               </span>
@@ -403,7 +461,9 @@ export function MissionMonitorTab() {
                     : 'border-primary/30 bg-primary-container text-on-primary-container'
               }`}
             >
-              <span className="block text-[10px] font-medium">Margen de Supervivencia</span>
+              <span className="block text-[10px] font-medium">
+                {isEs ? 'Margen de Supervivencia' : 'Survival Margin'}
+              </span>
               <span className="font-mono text-lg font-bold">{survivalMarginPct}%</span>
             </div>
           </div>
@@ -425,13 +485,21 @@ export function MissionMonitorTab() {
               <div>
                 <p className="font-bold font-display">
                   {radStatus === 'critical'
-                    ? 'Alerta Crítica de Radiación · Protocolo de Refugio Blindado Activo'
-                    : 'Precaución Operacional de Radiación · Vigilancia Solar'}
+                    ? isEs
+                      ? 'Alerta Crítica de Radiación · Protocolo de Refugio Blindado Activo'
+                      : 'Critical Radiation Alert · Shielded Storm Shelter Protocol Active'
+                    : isEs
+                      ? 'Precaución Operacional de Radiación · Vigilancia Solar'
+                      : 'Operational Radiation Caution · Solar Weather Watch'}
                 </p>
                 <p className="mt-0.5 leading-relaxed">
                   {radStatus === 'critical'
-                    ? 'Suspende salidas EVA de inmediato, trasládate al núcleo blindado con tanques de agua/polietileno y repite lectura de dosímetro + hemograma cada 2–12 h.'
-                    : 'Tasa diaria o dosis acumulada sobre el umbral de alerta. Limita operaciones fuera de blindaje y verifica el dosímetro CSA al iniciar turno.'}
+                    ? isEs
+                      ? 'Suspende salidas EVA de inmediato, trasládate al núcleo blindado con tanques de agua/polietileno y repite lectura de dosímetro + hemograma cada 2–12 h.'
+                      : 'Abort EVAs immediately, relocate to shielded core behind water/polyethylene tanks, and repeat dosimeter + CBC readings every 2–12 h.'
+                    : isEs
+                      ? 'Tasa diaria o dosis acumulada sobre el umbral de alerta. Limita operaciones fuera de blindaje y verifica el dosímetro CSA al iniciar turno.'
+                      : 'Daily rate or cumulative dose exceeds alert threshold. Limit unshielded operations and verify the CSA dosimeter at shift start.'}
                 </p>
               </div>
             </div>
@@ -440,7 +508,7 @@ export function MissionMonitorTab() {
               onClick={() => setActiveTab('sensors')}
               className="shrink-0 cursor-pointer rounded-lg border border-outline bg-surface-container px-3 py-1.5 text-[11px] font-bold text-on-surface font-display dt-transition hover:-translate-y-px hover:border-primary/45 hover:bg-surface-container-low active:translate-y-0 active:scale-[0.985] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35"
             >
-              Verificar Dosímetro →
+              {isEs ? 'Verificar Dosímetro →' : 'Verify Dosimeter →'}
             </button>
           </div>
         )}
@@ -449,10 +517,13 @@ export function MissionMonitorTab() {
         <div className="space-y-2.5">
           <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
             <span className="text-on-surface font-semibold font-display">
-              Consumo del Presupuesto Seguro de Radiación ({rawRadPct}%)
+              {isEs
+                ? `Consumo del Presupuesto Seguro de Radiación (${rawRadPct}%)`
+                : `Safe Radiation Budget Consumed (${rawRadPct}%)`}
             </span>
             <span className="text-on-surface-variant font-mono">
-              Alerta: {mission.warningLimitMsv} mSv · Crítico: {mission.missionLimitMsv} mSv
+              {isEs ? 'Alerta:' : 'Alert:'} {mission.warningLimitMsv} mSv ·{' '}
+              {isEs ? 'Crítico:' : 'Critical:'} {mission.missionLimitMsv} mSv
             </span>
           </div>
           <div className="relative h-3 w-full overflow-hidden rounded-full bg-surface-container-high">
@@ -468,7 +539,7 @@ export function MissionMonitorTab() {
             />
             <span
               aria-hidden="true"
-              title={`Umbral de alerta: ${mission.warningLimitMsv} mSv`}
+              title={`${isEs ? 'Umbral de alerta:' : 'Alert threshold:'} ${mission.warningLimitMsv} mSv`}
               className="absolute top-0 bottom-0 w-0.5 bg-on-surface/45"
               style={{ left: `${warningMarkPct}%` }}
             />
@@ -477,7 +548,13 @@ export function MissionMonitorTab() {
           <div className="grid gap-2.5 sm:grid-cols-3 text-xs">
             <div className="rounded-xl border border-outline bg-surface-container-low px-3.5 py-2">
               <span className="text-[10px] font-medium text-on-surface-variant block">
-                {excessMsv > 0 ? 'Exceso sobre Límite' : 'Presupuesto Restante'}
+                {excessMsv > 0
+                  ? isEs
+                    ? 'Exceso sobre Límite'
+                    : 'Dose Over Limit'
+                  : isEs
+                    ? 'Presupuesto Restante'
+                    : 'Remaining Budget'}
               </span>
               <span
                 className={`font-mono text-xs font-bold ${
@@ -485,13 +562,13 @@ export function MissionMonitorTab() {
                 }`}
               >
                 {excessMsv > 0
-                  ? `+${excessMsv.toFixed(1)} mSv excedidos`
-                  : `${remainingMsv.toFixed(1)} mSv disponibles`}
+                  ? `+${excessMsv.toFixed(1)} mSv ${isEs ? 'excedidos' : 'exceeded'}`
+                  : `${remainingMsv.toFixed(1)} mSv ${isEs ? 'disponibles' : 'available'}`}
               </span>
             </div>
             <div className="rounded-xl border border-outline bg-surface-container-low px-3.5 py-2">
               <span className="text-[10px] font-medium text-on-surface-variant block">
-                Autonomía Segura al Ritmo Actual
+                {isEs ? 'Autonomía Segura al Ritmo Actual' : 'Safe Autonomy at Current Rate'}
               </span>
               <span
                 className={`font-mono text-xs font-bold ${
@@ -503,13 +580,19 @@ export function MissionMonitorTab() {
                 }`}
               >
                 {excessMsv > 0
-                  ? '0 días (refugio requerido)'
-                  : `${safeDaysAtCurrentRate} días vs ${daysRemainingInMission}d restantes`}
+                  ? isEs
+                    ? '0 días (refugio requerido)'
+                    : '0 days (shelter required)'
+                  : isEs
+                    ? `${safeDaysAtCurrentRate} días vs ${daysRemainingInMission}d restantes`
+                    : `${safeDaysAtCurrentRate} days vs ${daysRemainingInMission}d left`}
               </span>
             </div>
             <div className="rounded-xl border border-outline bg-surface-container-low px-3.5 py-2">
               <span className="text-[10px] font-medium text-on-surface-variant block">
-                Proyección Fin de Misión (Día {mission.durationDays})
+                {isEs
+                  ? `Proyección Fin de Misión (Día ${mission.durationDays})`
+                  : `End-of-Mission Projection (Day ${mission.durationDays})`}
               </span>
               <span
                 className={`font-mono text-xs font-bold ${
@@ -520,7 +603,7 @@ export function MissionMonitorTab() {
                       : 'text-primary'
                 }`}
               >
-                ~{projectedEndDoseMsv} mSv estimados
+                ~{projectedEndDoseMsv} mSv {isEs ? 'estimados' : 'estimated'}
               </span>
             </div>
           </div>
@@ -530,19 +613,22 @@ export function MissionMonitorTab() {
         <div className="space-y-2.5">
           <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
             <span className="text-on-surface-variant">
-              Haz clic o pasa el cursor sobre cualquier día para inspeccionar la dosis acumulada.
+              {isEs
+                ? 'Haz clic o pasa el cursor sobre cualquier día para inspeccionar la dosis acumulada.'
+                : 'Click or hover over any day to inspect cumulative dose.'}
             </span>
             <div className="flex flex-wrap items-center gap-3 font-semibold">
               <span className="inline-flex items-center gap-1.5 text-warning">
-                <span className="h-2.5 w-2.5 rounded-full bg-warning" /> Dosis (mSv)
+                <span className="h-2.5 w-2.5 rounded-full bg-warning" />{' '}
+                {isEs ? 'Dosis (mSv)' : 'Dose (mSv)'}
               </span>
               <span className="inline-flex items-center gap-1.5 text-on-surface-variant">
-                <span className="h-0.5 w-3 border-t-2 border-dashed border-warning" /> Alerta (
-                {mission.warningLimitMsv})
+                <span className="h-0.5 w-3 border-t-2 border-dashed border-warning" />{' '}
+                {isEs ? 'Alerta' : 'Alert'} ({mission.warningLimitMsv})
               </span>
               <span className="inline-flex items-center gap-1.5 text-danger">
-                <span className="h-0.5 w-3 border-t-2 border-dashed border-danger" /> Límite (
-                {mission.missionLimitMsv})
+                <span className="h-0.5 w-3 border-t-2 border-dashed border-danger" />{' '}
+                {isEs ? 'Límite' : 'Limit'} ({mission.missionLimitMsv})
               </span>
             </div>
           </div>
@@ -550,14 +636,14 @@ export function MissionMonitorTab() {
           {activeRadPoint && (
             <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-outline bg-surface-container-low px-3.5 py-2 text-xs">
               <span className="font-mono font-bold text-on-surface">
-                Inspección Día {activeRadPoint.day}
+                {isEs ? 'Inspección Día' : 'Inspecting Day'} {activeRadPoint.day}
               </span>
               <div className="flex flex-wrap items-center gap-3 font-mono">
                 <span className="font-semibold text-warning">
-                  Acumulado: {activeRadPoint.radiationMsv.toFixed(1)} mSv
+                  {isEs ? 'Acumulado:' : 'Cumulative:'} {activeRadPoint.radiationMsv.toFixed(1)} mSv
                 </span>
                 <span className="text-on-surface-variant">
-                  Uso límite: {activeRadPct}%
+                  {isEs ? 'Uso límite:' : 'Limit usage:'} {activeRadPct}%
                 </span>
                 <span
                   className={`rounded-md border px-2 py-0.5 text-[11px] font-bold ${getTriageContainerClasses(
@@ -569,10 +655,16 @@ export function MissionMonitorTab() {
                   )}`}
                 >
                   {activeRadPoint.radiationMsv >= mission.missionLimitMsv
-                    ? 'Sobre Límite'
+                    ? isEs
+                      ? 'Sobre Límite'
+                      : 'Over Limit'
                     : activeRadPoint.radiationMsv >= mission.warningLimitMsv
-                      ? 'Sobre Alerta'
-                      : 'Dentro de Margen'}
+                      ? isEs
+                        ? 'Sobre Alerta'
+                        : 'Above Alert'
+                      : isEs
+                        ? 'Dentro de Margen'
+                        : 'Within Margin'}
                 </span>
               </div>
             </div>
@@ -583,7 +675,11 @@ export function MissionMonitorTab() {
               viewBox={`0 0 ${chartW} ${chartH}`}
               className="w-full min-w-[460px] h-56"
               role="img"
-              aria-label="Gráfica interactiva de radiación acumulada en milisieverts"
+              aria-label={
+                isEs
+                  ? 'Gráfica interactiva de radiación acumulada en milisieverts'
+                  : 'Interactive cumulative radiation chart in millisieverts'
+              }
             >
               <defs>
                 <linearGradient id="radAreaGrad" x1="0" y1="0" x2="0" y2="1">
@@ -630,7 +726,7 @@ export function MissionMonitorTab() {
                 fontWeight="600"
                 fontFamily="var(--font-mono)"
               >
-                Límite Crítico ({mission.missionLimitMsv} mSv)
+                {isEs ? 'Límite Crítico' : 'Critical Limit'} ({mission.missionLimitMsv} mSv)
               </text>
 
               <line
@@ -651,7 +747,7 @@ export function MissionMonitorTab() {
                 fontWeight="600"
                 fontFamily="var(--font-mono)"
               >
-                Alerta ({mission.warningLimitMsv} mSv)
+                {isEs ? 'Alerta' : 'Alert'} ({mission.warningLimitMsv} mSv)
               </text>
 
               {radArea && <path d={radArea} fill="url(#radAreaGrad)" />}
@@ -668,7 +764,11 @@ export function MissionMonitorTab() {
                     key={`${pt.day}-${i}`}
                     role="button"
                     tabIndex={0}
-                    aria-label={`Inspeccionar Día ${pt.day}: ${pt.radiationMsv.toFixed(1)} mSv acumulados`}
+                    aria-label={
+                      isEs
+                        ? `Inspeccionar Día ${pt.day}: ${pt.radiationMsv.toFixed(1)} mSv acumulados`
+                        : `Inspect Day ${pt.day}: ${pt.radiationMsv.toFixed(1)} mSv cumulative`
+                    }
                     onMouseEnter={() => setInspectedRadDayIdx(i)}
                     onClick={() => setInspectedRadDayIdx(i)}
                     onFocus={() => setInspectedRadDayIdx(i)}
@@ -717,13 +817,13 @@ export function MissionMonitorTab() {
           <div className="rounded-xl border border-outline bg-surface-container-low p-3.5 space-y-1.5">
             <p className="font-bold text-primary flex items-center gap-1.5 font-display">
               <Info className="h-4 w-4" />
-              ¿Por qué importa la radiación (mSv)?
+              {isEs ? '¿Por qué importa la radiación (mSv)?' : 'Why does radiation (mSv) matter?'}
             </p>
             <p className="leading-relaxed text-on-surface-variant">
-              {MEDICAL_TOOLTIPS.radiation.why}
+              {medicalTooltips.radiation.why}
             </p>
             <p className="text-[11px] text-on-surface font-medium">
-              Entorno actual: {mission.cabinEnvironment}.
+              {isEs ? 'Entorno actual:' : 'Current environment:'} {mission.cabinEnvironment}.
             </p>
           </div>
           <div
@@ -751,19 +851,24 @@ export function MissionMonitorTab() {
               ) : (
                 <ShieldCheck className="h-4 w-4 text-primary" />
               )}
-              Protocolo de Blindaje y Tormenta Solar
+              {isEs ? 'Protocolo de Blindaje y Tormenta Solar' : 'Shielding & Solar Storm Protocol'}
             </p>
             <p className="leading-relaxed">
               {radStatus === 'critical'
-                ? '¡ALERTA CRÍTICA! Suspende caminatas EVA, trasládate al núcleo blindado con tanques de agua/polietileno y repite dosimetría cada 2 horas.'
+                ? isEs
+                  ? '¡ALERTA CRÍTICA! Suspende caminatas EVA, trasládate al núcleo blindado con tanques de agua/polietileno y repite dosimetría cada 2 horas.'
+                  : 'CRITICAL ALERT! Abort EVAs, relocate to the shielded core with water/polyethylene tanks, and repeat dosimetry every 2 hours.'
                 : radStatus === 'warning'
-                  ? '¡PRECAUCIÓN ACTIVA! Evita exposición innecesaria fuera del módulo blindado, mantén ruta directa al refugio solar y registra el dosímetro CSA.'
-                  : MEDICAL_TOOLTIPS.radiation.how}
+                  ? isEs
+                    ? '¡PRECAUCIÓN ACTIVA! Evita exposición innecesaria fuera del módulo blindado, mantén ruta directa al refugio solar y registra el dosímetro CSA.'
+                    : 'ACTIVE CAUTION! Avoid unnecessary unshielded exposure, maintain a direct path to the storm shelter, and log CSA dosimetry.'
+                  : medicalTooltips.radiation.how}
             </p>
             {!dosimeterBadge.connected && (
               <p className="text-[11px] font-semibold">
-                Dosímetro en modo manual: registra el tiempo fuera de blindaje y verifica avisos de
-                clima espacial.
+                {isEs
+                  ? 'Dosímetro en modo manual: registra el tiempo fuera de blindaje y verifica avisos de clima espacial.'
+                  : 'Dosimeter in manual mode: log unshielded exposure time and monitor space weather alerts.'}
               </p>
             )}
           </div>
@@ -778,7 +883,9 @@ export function MissionMonitorTab() {
               <div className="flex flex-wrap items-center gap-2">
                 <h3 className="text-base font-bold text-on-surface flex items-center gap-2 font-display">
                   <Droplets className="h-5 w-5 text-telemetry" />
-                  Panel Detallado de Glucosa en Sangre (mg/dL)
+                  {isEs
+                    ? 'Panel Detallado de Glucosa en Sangre (mg/dL)'
+                    : 'Detailed Blood Glucose Panel (mg/dL)'}
                 </h3>
                 <span
                   className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold font-mono ${glucometerBadge.classes}`}
@@ -787,7 +894,9 @@ export function MissionMonitorTab() {
                 </span>
               </div>
               <p className="mt-0.5 text-xs text-on-surface-variant">
-                Comparado contra tu línea base pre-misión ({baselineGlucose} mg/dL).
+                {isEs
+                  ? `Comparado contra tu línea base pre-misión (${baselineGlucose} mg/dL).`
+                  : `Compared against pre-mission baseline (${baselineGlucose} mg/dL).`}
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-1.5">
@@ -813,13 +922,17 @@ export function MissionMonitorTab() {
           {/* Personal Baseline vs Live Telemetry Comparison */}
           <div className="grid grid-cols-3 gap-2.5 text-xs">
             <div className="rounded-xl border border-outline bg-surface-container-low p-2.5">
-              <span className="text-[10px] text-on-surface-variant block">Línea Base EHR</span>
+              <span className="text-[10px] text-on-surface-variant block">
+                {isEs ? 'Línea Base EHR' : 'EHR Baseline'}
+              </span>
               <span className="mt-0.5 block font-mono text-sm font-bold text-on-surface">
                 {baselineGlucose} mg/dL
               </span>
             </div>
             <div className="rounded-xl border border-outline bg-surface-container-low p-2.5">
-              <span className="text-[10px] text-on-surface-variant block">Desviación vs Base</span>
+              <span className="text-[10px] text-on-surface-variant block">
+                {isEs ? 'Desviación vs Base' : 'Delta vs Baseline'}
+              </span>
               <span
                 className={`mt-0.5 block font-mono text-sm font-bold ${
                   glucoseStatus === 'critical'
@@ -833,7 +946,9 @@ export function MissionMonitorTab() {
               </span>
             </div>
             <div className="rounded-xl border border-outline bg-surface-container-low p-2.5">
-              <span className="text-[10px] text-on-surface-variant block">Corredor Óptimo</span>
+              <span className="text-[10px] text-on-surface-variant block">
+                {isEs ? 'Corredor Óptimo' : 'Optimal Corridor'}
+              </span>
               <span className="mt-0.5 block font-mono text-sm font-bold text-primary">
                 75 – 125
               </span>
@@ -844,19 +959,22 @@ export function MissionMonitorTab() {
           <div className="space-y-2">
             <div className="flex flex-wrap items-center justify-between gap-2 text-[11px]">
               <span className="text-on-surface-variant">
-                Haz clic o pasa el cursor para inspeccionar cada medición:
+                {isEs
+                  ? 'Haz clic o pasa el cursor para inspeccionar cada medición:'
+                  : 'Click or hover to inspect each measurement:'}
               </span>
               <div className="flex flex-wrap items-center gap-3 font-semibold">
                 <span className="inline-flex items-center gap-1.5 text-telemetry">
-                  <span className="h-2.5 w-2.5 rounded-full bg-telemetry" /> Glucosa
+                  <span className="h-2.5 w-2.5 rounded-full bg-telemetry" />{' '}
+                  {isEs ? 'Glucosa' : 'Glucose'}
                 </span>
                 <span className="inline-flex items-center gap-1.5 text-primary">
-                  <span className="h-0.5 w-3 border-t-2 border-dashed border-primary" /> Base (
-                  {baselineGlucose})
+                  <span className="h-0.5 w-3 border-t-2 border-dashed border-primary" />{' '}
+                  {isEs ? 'Base' : 'Baseline'} ({baselineGlucose})
                 </span>
                 <span className="inline-flex items-center gap-1.5 text-on-surface-variant">
                   <span className="h-2.5 w-2.5 rounded-sm bg-primary/20 border border-primary/40" />{' '}
-                  Zona 75–125
+                  {isEs ? 'Zona 75–125' : 'Zone 75–125'}
                 </span>
               </div>
             </div>
@@ -864,14 +982,15 @@ export function MissionMonitorTab() {
             {activeGlucPoint && (
               <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-outline bg-surface-container-low px-3 py-1.5 text-xs">
                 <span className="font-mono font-bold text-on-surface">
-                  Inspección Día {activeGlucPoint.day}
+                  {isEs ? 'Inspección Día' : 'Inspecting Day'} {activeGlucPoint.day}
                 </span>
                 <div className="flex flex-wrap items-center gap-3 font-mono">
                   <span className="font-semibold text-telemetry">
                     {activeGlucPoint.glucoseMgDl} mg/dL
                   </span>
                   <span className="text-on-surface-variant">
-                    {activeGlucDelta >= 0 ? `+${activeGlucDelta}` : activeGlucDelta} vs base
+                    {activeGlucDelta >= 0 ? `+${activeGlucDelta}` : activeGlucDelta}{' '}
+                    {isEs ? 'vs base' : 'vs baseline'}
                   </span>
                 </div>
               </div>
@@ -882,7 +1001,11 @@ export function MissionMonitorTab() {
                 viewBox={`0 0 ${chartW} ${chartH}`}
                 className="w-full min-w-[440px] h-52"
                 role="img"
-                aria-label="Gráfica histórica interactiva de glucosa capilar"
+                aria-label={
+                  isEs
+                    ? 'Gráfica histórica interactiva de glucosa capilar'
+                    : 'Interactive capillary blood glucose trajectory chart'
+                }
               >
                 {/* Safe Corridor 75 - 125 mg/dL */}
                 <rect
@@ -940,7 +1063,7 @@ export function MissionMonitorTab() {
                       fontWeight="600"
                       fontFamily="var(--font-mono)"
                     >
-                      Crítico ≥175 mg/dL
+                      {isEs ? 'Crítico' : 'Critical'} ≥175 mg/dL
                     </text>
                   </>
                 )}
@@ -965,7 +1088,7 @@ export function MissionMonitorTab() {
                   fontWeight="600"
                   fontFamily="var(--font-mono)"
                 >
-                  Crítico &lt;65 mg/dL
+                  {isEs ? 'Crítico' : 'Critical'} &lt;65 mg/dL
                 </text>
 
                 {/* Personal Baseline Reference */}
@@ -996,7 +1119,11 @@ export function MissionMonitorTab() {
                       key={`${pt.day}-${i}`}
                       role="button"
                       tabIndex={0}
-                      aria-label={`Inspeccionar Día ${pt.day}: Glucosa ${pt.glucoseMgDl} mg/dL`}
+                      aria-label={
+                        isEs
+                          ? `Inspeccionar Día ${pt.day}: Glucosa ${pt.glucoseMgDl} mg/dL`
+                          : `Inspect Day ${pt.day}: Glucose ${pt.glucoseMgDl} mg/dL`
+                      }
                       onMouseEnter={() => setInspectedGlucDayIdx(i)}
                       onClick={() => setInspectedGlucDayIdx(i)}
                       onFocus={() => setInspectedGlucDayIdx(i)}
@@ -1067,10 +1194,10 @@ export function MissionMonitorTab() {
               }
             >
               {glucoseStatus === 'critical'
-                ? BODY_SYSTEM_GUIDES.metabolic.criticalAction
+                ? bodySystemGuides.metabolic.criticalAction
                 : glucoseStatus === 'warning'
-                  ? BODY_SYSTEM_GUIDES.metabolic.warningAction
-                  : `${MEDICAL_TOOLTIPS.glucose.how} ${MEDICAL_TOOLTIPS.glucose.why}`}
+                  ? bodySystemGuides.metabolic.warningAction
+                  : `${medicalTooltips.glucose.how} ${medicalTooltips.glucose.why}`}
             </p>
 
             {glucoseStatus === 'critical' && (
@@ -1085,7 +1212,7 @@ export function MissionMonitorTab() {
                   className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg bg-danger px-3 py-1.5 text-[11px] font-bold text-on-primary font-display dt-transition hover:-translate-y-px hover:bg-danger-hover active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger/40"
                 >
                   <AlertOctagon className="h-3.5 w-3.5" />
-                  <span>Abrir Protocolo SOS</span>
+                  <span>{isEs ? 'Abrir Protocolo SOS' : 'Open SOS Protocol'}</span>
                 </button>
                 <button
                   type="button"
@@ -1093,7 +1220,7 @@ export function MissionMonitorTab() {
                   className="inline-flex cursor-pointer items-center gap-1 rounded-lg border border-danger/35 bg-surface-container px-3 py-1.5 text-[11px] font-semibold text-on-danger-container font-display dt-transition hover:-translate-y-px hover:bg-surface-container-low active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger/40"
                 >
                   <Cpu className="h-3.5 w-3.5" />
-                  <span>Validar en Glucómetro</span>
+                  <span>{isEs ? 'Validar en Glucómetro' : 'Verify on Glucometer'}</span>
                 </button>
               </div>
             )}
@@ -1107,10 +1234,12 @@ export function MissionMonitorTab() {
               <div>
                 <h3 className="text-base font-bold text-on-surface flex items-center gap-2 font-display">
                   <Activity className="h-5 w-5 text-danger" />
-                  Inmunidad y Sangre
+                  {isEs ? 'Inmunidad y Sangre' : 'Immunity & Hematology'}
                 </h3>
                 <p className="text-xs text-on-surface-variant">
-                  Cruce de leucocitos con expediente médico ({astronaut.bloodType}).
+                  {isEs
+                    ? `Cruce de leucocitos con expediente médico (${astronaut.bloodType}).`
+                    : `Leukocyte cross-check against medical record (${astronaut.bloodType}).`}
                 </p>
               </div>
               <div className="flex flex-wrap items-center gap-1.5">
@@ -1119,19 +1248,27 @@ export function MissionMonitorTab() {
                 >
                   {hematologyBadge.available
                     ? hematologyBadge.connected
-                      ? 'Analizador: En vivo'
-                      : 'Modo manual'
-                    : 'No embarcado'}
+                      ? isEs
+                        ? 'Analizador: En vivo'
+                        : 'Analyzer: Live'
+                      : isEs
+                        ? 'Modo manual'
+                        : 'Manual mode'
+                    : isEs
+                      ? 'No embarcado'
+                      : 'Not onboard'}
                 </span>
                 <span className="rounded-lg border border-danger/30 bg-danger-container px-2.5 py-1 font-bold text-xs text-on-danger-container font-mono">
-                  Sangre {astronaut.bloodType}
+                  {isEs ? 'Sangre' : 'Blood'} {astronaut.bloodType}
                 </span>
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-3 text-xs">
               <div className="rounded-xl border border-outline bg-surface-container-low p-3">
-                <span className="text-on-surface-variant block">Leucocitos Actuales</span>
+                <span className="text-on-surface-variant block">
+                  {isEs ? 'Leucocitos Actuales' : 'Current Leukocytes'}
+                </span>
                 <span
                   className={`mt-1 block font-mono text-lg font-bold ${
                     wbcStatus === 'critical'
@@ -1141,24 +1278,32 @@ export function MissionMonitorTab() {
                         : 'text-on-surface'
                   }`}
                 >
-                  {biomarkers.wbcCount.toLocaleString('es-ES')}
+                  {formatNumberLocale(biomarkers.wbcCount, language)}
                 </span>
                 <span className="text-[10px] text-on-surface-variant font-mono">
-                  células/µL · {getTriageLabel(wbcStatus)}
+                  {isEs ? 'células/µL' : 'cells/µL'} · {getTriageLabel(wbcStatus, language)}
                 </span>
               </div>
               <div className="rounded-xl border border-outline bg-surface-container-low p-3">
-                <span className="text-on-surface-variant block">Condición Pre-Misión</span>
+                <span className="text-on-surface-variant block">
+                  {isEs ? 'Condición Pre-Misión' : 'Pre-Mission Status'}
+                </span>
                 <span
                   className={`mt-1 block text-xs font-bold font-display ${
                     isLowImmune ? 'text-warning' : 'text-primary'
                   }`}
                 >
-                  {isLowImmune ? 'Defensas Bajas' : 'Inmunidad Normal'}
+                  {isLowImmune
+                    ? isEs
+                      ? 'Defensas Bajas'
+                      : 'Low Defenses'
+                    : isEs
+                      ? 'Inmunidad Normal'
+                      : 'Normal Immunity'}
                 </span>
                 <span className="text-[10px] text-on-surface-variant font-mono block mt-0.5">
-                  Alerta ≤{wbcWarningLimit.toLocaleString('es-ES')} · Crítico ≤
-                  {wbcCriticalLimit.toLocaleString('es-ES')}
+                  {isEs ? 'Alerta' : 'Alert'} ≤{formatNumberLocale(wbcWarningLimit, language)} ·{' '}
+                  {isEs ? 'Crítico' : 'Crit'} ≤{formatNumberLocale(wbcCriticalLimit, language)}
                 </span>
               </div>
             </div>
@@ -1167,11 +1312,12 @@ export function MissionMonitorTab() {
             <div className="rounded-xl border border-outline bg-surface-container-low p-3 space-y-2">
               <div className="flex flex-wrap items-center justify-between gap-1 text-[11px]">
                 <span className="font-semibold text-on-surface font-display">
-                  Tendencia de Leucocitos (cél/µL)
+                  {isEs ? 'Tendencia de Leucocitos (cél/µL)' : 'Leukocyte Trend (cells/µL)'}
                 </span>
                 {activeWbcPoint && (
                   <span className="font-mono font-bold text-telemetry">
-                    Día {activeWbcPoint.day}: {activeWbcPoint.wbcCount.toLocaleString('es-ES')}/µL
+                    {isEs ? 'Día' : 'Day'} {activeWbcPoint.day}:{' '}
+                    {formatNumberLocale(activeWbcPoint.wbcCount, language)}/µL
                   </span>
                 )}
               </div>
@@ -1181,7 +1327,11 @@ export function MissionMonitorTab() {
                   viewBox={`0 0 ${wbcChartW} ${wbcChartH}`}
                   className="w-full min-w-[300px] h-36"
                   role="img"
-                  aria-label="Gráfica de tendencia de leucocitos por día"
+                  aria-label={
+                    isEs
+                      ? 'Gráfica de tendencia de leucocitos por día'
+                      : 'Daily leukocyte trend chart'
+                  }
                 >
                   {/* Warning & Critical threshold reference lines */}
                   <line
@@ -1221,7 +1371,7 @@ export function MissionMonitorTab() {
                           fontSize="9"
                           fontFamily="var(--font-mono)"
                         >
-                          {v.toLocaleString('es-ES')}
+                          {formatNumberLocale(v, language)}
                         </text>
                       </g>
                     );
@@ -1246,7 +1396,11 @@ export function MissionMonitorTab() {
                         key={`${pt.day}-${i}`}
                         role="button"
                         tabIndex={0}
-                        aria-label={`Inspeccionar Día ${pt.day}: ${pt.wbcCount.toLocaleString('es-ES')} leucocitos por µL`}
+                        aria-label={
+                          isEs
+                            ? `Inspeccionar Día ${pt.day}: ${formatNumberLocale(pt.wbcCount, language)} leucocitos por µL`
+                            : `Inspect Day ${pt.day}: ${formatNumberLocale(pt.wbcCount, language)} leukocytes per µL`
+                        }
                         onMouseEnter={() => setInspectedWbcDayIdx(i)}
                         onClick={() => setInspectedWbcDayIdx(i)}
                         onFocus={() => setInspectedWbcDayIdx(i)}
@@ -1309,13 +1463,14 @@ export function MissionMonitorTab() {
                 ) : (
                   <ShieldCheck className="h-4 w-4 text-primary" />
                 )}
-                Diagnóstico Inmunitario Autónomo
+                {isEs ? 'Diagnóstico Inmunitario Autónomo' : 'Autonomous Immune Assessment'}
               </p>
               <p className="leading-relaxed">{immuneDiagnosisText}</p>
               {!hematologyBadge.available && (
                 <p className="text-[11px] font-medium pt-0.5">
-                  Nota de cabina ({mission.shortName}): {hematologyDevice?.unavailableReason}.
-                  Aplica control manual de síntomas y ganglios.
+                  {isEs
+                    ? `Nota de cabina (${mission.shortName}): ${hematologyDevice?.unavailableReason}. Aplica control manual de síntomas y ganglios.`
+                    : `Cabin note (${mission.shortName}): ${hematologyDevice?.unavailableReason}. Apply manual symptom and lymph node checks.`}
                 </p>
               )}
             </div>
@@ -1323,10 +1478,10 @@ export function MissionMonitorTab() {
             <div className="rounded-xl border border-outline bg-surface-container-low p-3.5 text-xs">
               <p className="font-semibold text-primary flex items-center gap-1.5 font-display">
                 <Sparkles className="h-3.5 w-3.5" />
-                ¿Por qué importa en el espacio?
+                {isEs ? '¿Por qué importa en el espacio?' : 'Why does this matter in space?'}
               </p>
               <p className="mt-1 text-on-surface-variant leading-relaxed">
-                {MEDICAL_TOOLTIPS.immune.why}
+                {medicalTooltips.immune.why}
               </p>
             </div>
           </div>
@@ -1337,8 +1492,12 @@ export function MissionMonitorTab() {
             className="w-full cursor-pointer rounded-xl bg-primary px-4 py-2.5 text-xs font-bold text-on-primary dt-transition hover:-translate-y-0.5 hover:bg-primary-hover hover:shadow-[0_8px_18px_-8px_rgba(47,93,70,0.45)] active:translate-y-0 active:scale-[0.985] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35 font-display"
           >
             {hematologyBadge.available
-              ? 'Simular Nueva Muestra de Sangre / Dosimetría →'
-              : 'Ir al Hub de Sensores (Dosimetría y Glucosa) →'}
+              ? isEs
+                ? 'Simular Nueva Muestra de Sangre / Dosimetría →'
+                : 'Simulate New Blood Sample / Dosimetry →'
+              : isEs
+                ? 'Ir al Hub de Sensores (Dosimetría y Glucosa) →'
+                : 'Open Sensor Hub (Dosimetry & Glucose) →'}
           </button>
         </div>
       </section>

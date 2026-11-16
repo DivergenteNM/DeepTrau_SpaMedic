@@ -23,17 +23,20 @@ import {
   Zap,
 } from 'lucide-react';
 import { useMission } from '@/context/MissionContext';
+import { LanguageSwitcher } from '@/components/layout/LanguageSwitcher';
+import { hasKnownAllergies } from '@/data/astronautsData';
 import {
-  EMERGENCY_PROTOCOLS,
   EmergencyProtocol,
   EmergencyVitalKey,
   MiniBodyZoneId,
-  QUICK_SYMPTOM_TAGS,
-  SIMULATED_CAPTURES,
   buildDynamicContraindications,
   evaluateSymptomTriage,
+  getEmergencyProtocols,
+  getQuickSymptomTags,
+  getSimulatedCaptures,
 } from '@/data/emergencyProtocolsData';
 import { EmergencyMiniBodyMap } from '@/components/emergency/EmergencyMiniBodyMap';
+import { Language } from '@/i18n/types';
 
 interface SosCommandWorkspaceProps {
   mode: 'overlay' | 'page';
@@ -106,26 +109,28 @@ function evaluateVitalSeverity(
   }
 }
 
-const SEVERITY_STYLE_MAP: Record<
-  VitalSeverity,
-  { label: string; badgeClasses: string; dotClass: string }
-> = {
-  nominal: {
+function getSeverityStyle(severity: VitalSeverity, lang: Language) {
+  const isEs = lang === 'es';
+  if (severity === 'critical') {
+    return {
+      label: isEs ? 'Crítico' : 'Critical',
+      badgeClasses: 'bg-danger-container text-on-danger-container',
+      dotClass: 'bg-danger',
+    };
+  }
+  if (severity === 'warning') {
+    return {
+      label: isEs ? 'Precaución' : 'Caution',
+      badgeClasses: 'bg-warning-container text-on-warning-container',
+      dotClass: 'bg-warning',
+    };
+  }
+  return {
     label: 'Nominal',
     badgeClasses: 'bg-primary-container text-on-primary-container',
     dotClass: 'bg-primary',
-  },
-  warning: {
-    label: 'Precaución',
-    badgeClasses: 'bg-warning-container text-on-warning-container',
-    dotClass: 'bg-warning',
-  },
-  critical: {
-    label: 'Crítico',
-    badgeClasses: 'bg-danger-container text-on-danger-container',
-    dotClass: 'bg-danger',
-  },
-};
+  };
+}
 
 const EpisodeStopwatch = React.forwardRef<
   StopwatchHandle,
@@ -133,8 +138,13 @@ const EpisodeStopwatch = React.forwardRef<
     autoStartTrigger: boolean;
     onConsumeAutoStart: () => void;
     onRunningChange?: (running: boolean) => void;
+    language: Language;
   }
->(function EpisodeStopwatch({ autoStartTrigger, onConsumeAutoStart, onRunningChange }, ref) {
+>(function EpisodeStopwatch(
+  { autoStartTrigger, onConsumeAutoStart, onRunningChange, language },
+  ref
+) {
+  const isEs = language === 'es';
   const [elapsedMs, setElapsedMs] = useState(0);
   const [isRunning, setIsRunning] = useState(false);
   const [laps, setLaps] = useState<string[]>([]);
@@ -192,14 +202,15 @@ const EpisodeStopwatch = React.forwardRef<
           aria-hidden="true"
         />
         <span className="hidden text-[11px] font-medium text-on-surface-variant xl:inline">
-          Episodio
+          {isEs ? 'Episodio' : 'Episode'}
         </span>
         <span className="font-mono text-sm font-semibold tabular-nums text-on-surface">
           {formatElapsedTime(elapsedMs)}
         </span>
         {laps.length > 0 && (
           <span className="hidden border-l border-outline pl-2 font-mono text-[11px] text-on-surface-variant 2xl:inline">
-            M{laps.length}: {laps[laps.length - 1]}
+            {isEs ? 'M' : 'L'}
+            {laps.length}: {laps[laps.length - 1]}
           </span>
         )}
       </div>
@@ -216,12 +227,20 @@ const EpisodeStopwatch = React.forwardRef<
         {isRunning ? (
           <>
             <Pause className="h-3.5 w-3.5" aria-hidden="true" />
-            <span>Pausar</span>
+            <span>{isEs ? 'Pausar' : 'Pause'}</span>
           </>
         ) : (
           <>
             <Play className="h-3.5 w-3.5" aria-hidden="true" />
-            <span>{elapsedMs > 0 ? 'Reanudar' : 'Iniciar reloj'}</span>
+            <span>
+              {elapsedMs > 0
+                ? isEs
+                  ? 'Reanudar'
+                  : 'Resume'
+                : isEs
+                  ? 'Iniciar reloj'
+                  : 'Start Timer'}
+            </span>
           </>
         )}
       </button>
@@ -232,7 +251,7 @@ const EpisodeStopwatch = React.forwardRef<
         disabled={elapsedMs === 0 && !isRunning}
         className="inline-flex min-h-[34px] cursor-pointer items-center rounded-xl border border-outline bg-surface-container-low px-2.5 py-1.5 text-xs font-semibold text-on-surface font-display dt-transition hover:border-primary/45 hover:bg-surface-container active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35"
       >
-        Marca
+        {isEs ? 'Marca' : 'Lap'}
       </button>
 
       <button
@@ -242,8 +261,8 @@ const EpisodeStopwatch = React.forwardRef<
           setElapsedMs(0);
           setLaps([]);
         }}
-        title="Reiniciar cronómetro"
-        aria-label="Reiniciar cronómetro"
+        title={isEs ? 'Reiniciar cronómetro' : 'Reset stopwatch'}
+        aria-label={isEs ? 'Reiniciar cronómetro' : 'Reset stopwatch'}
         className="inline-flex min-h-[34px] cursor-pointer items-center justify-center rounded-xl border border-outline bg-surface-container-low px-2 py-1.5 text-xs font-medium text-on-surface-variant dt-transition hover:border-primary/45 hover:bg-surface-container hover:text-on-surface active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35"
       >
         <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />
@@ -258,6 +277,7 @@ export default function SosCommandWorkspace({
   titleId = 'sos-emergency-heading',
 }: SosCommandWorkspaceProps) {
   const {
+    language,
     activeEmergencyProtocolId,
     setActiveEmergencyProtocolId,
     activeCrisisScenario,
@@ -271,6 +291,11 @@ export default function SosCommandWorkspace({
     biomarkers,
     missionDay,
   } = useMission();
+
+  const isEs = language === 'es';
+  const protocols = useMemo(() => getEmergencyProtocols(language), [language]);
+  const quickSymptomTags = useMemo(() => getQuickSymptomTags(language), [language]);
+  const simulatedCaptures = useMemo(() => getSimulatedCaptures(language), [language]);
 
   const stopwatchRef = useRef<StopwatchHandle | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -291,9 +316,8 @@ export default function SosCommandWorkspace({
   const [sentPacket, setSentPacket] = useState<EarthPacketSnapshot | null>(null);
 
   const activeProtocol: EmergencyProtocol = useMemo(
-    () =>
-      EMERGENCY_PROTOCOLS.find((p) => p.id === activeEmergencyProtocolId) ?? EMERGENCY_PROTOCOLS[0],
-    [activeEmergencyProtocolId]
+    () => protocols.find((p) => p.id === activeEmergencyProtocolId) ?? protocols[0],
+    [protocols, activeEmergencyProtocolId]
   );
 
   useEffect(() => {
@@ -343,7 +367,7 @@ export default function SosCommandWorkspace({
     }> = [
       {
         key: 'bp',
-        label: 'Presión arterial',
+        label: isEs ? 'Presión arterial' : 'Blood Pressure',
         value: `${biomarkers.systolicBP}/${biomarkers.diastolicBP}`,
         unit: 'mmHg',
         severity: evaluateVitalSeverity(
@@ -358,9 +382,9 @@ export default function SosCommandWorkspace({
       },
       {
         key: 'hr',
-        label: 'Frecuencia cardíaca',
+        label: isEs ? 'Frecuencia cardíaca' : 'Heart Rate',
         value: `${biomarkers.heartRateBpm}`,
-        unit: 'lpm',
+        unit: isEs ? 'lpm' : 'bpm',
         severity: evaluateVitalSeverity(
           'hr',
           biomarkers.systolicBP,
@@ -373,7 +397,7 @@ export default function SosCommandWorkspace({
       },
       {
         key: 'spo2',
-        label: 'Saturación O₂',
+        label: isEs ? 'Saturación O₂' : 'O₂ Saturation',
         value: `${biomarkers.spo2Percent}%`,
         unit: 'SpO₂',
         severity: evaluateVitalSeverity(
@@ -388,7 +412,7 @@ export default function SosCommandWorkspace({
       },
       {
         key: 'glucose',
-        label: 'Glucosa capilar',
+        label: isEs ? 'Glucosa capilar' : 'Capillary Glucose',
         value: `${biomarkers.glucoseMgDl}`,
         unit: 'mg/dL',
         severity: evaluateVitalSeverity(
@@ -403,7 +427,7 @@ export default function SosCommandWorkspace({
       },
       {
         key: 'temp',
-        label: 'Temperatura central',
+        label: isEs ? 'Temperatura central' : 'Core Temperature',
         value: `${biomarkers.bodyTempC.toFixed(1)}`,
         unit: '°C',
         severity: evaluateVitalSeverity(
@@ -418,18 +442,17 @@ export default function SosCommandWorkspace({
       },
     ];
     return items;
-  }, [biomarkers]);
+  }, [biomarkers, isEs]);
 
   const triageRecommendation = useMemo(
-    () => evaluateSymptomTriage(submittedQuery, vitalsSnapshot, astronaut, mission),
-    [submittedQuery, vitalsSnapshot, astronaut, mission]
+    () => evaluateSymptomTriage(submittedQuery, vitalsSnapshot, astronaut, mission, language),
+    [submittedQuery, vitalsSnapshot, astronaut, mission, language]
   );
 
   const recommendedProtocol = useMemo(
     () =>
-      EMERGENCY_PROTOCOLS.find((p) => p.id === triageRecommendation.recommendedProtocolId) ??
-      EMERGENCY_PROTOCOLS[0],
-    [triageRecommendation.recommendedProtocolId]
+      protocols.find((p) => p.id === triageRecommendation.recommendedProtocolId) ?? protocols[0],
+    [protocols, triageRecommendation.recommendedProtocolId]
   );
 
   const gravitySteps = useMemo(() => {
@@ -441,17 +464,16 @@ export default function SosCommandWorkspace({
   }, [activeProtocol, mission.gravityG]);
 
   const dynamicSafety = useMemo(
-    () => buildDynamicContraindications(activeProtocol, astronaut),
-    [activeProtocol, astronaut]
+    () => buildDynamicContraindications(activeProtocol, astronaut, language),
+    [activeProtocol, astronaut, language]
   );
 
-  const allergies = useMemo(
-    () =>
-      astronaut.clinicalHistory.allergies.filter(
-        (a) => !a.toLowerCase().includes('ninguna')
-      ),
-    [astronaut.clinicalHistory.allergies]
-  );
+  const allergies = useMemo(() => {
+    if (!hasKnownAllergies(astronaut.clinicalHistory.allergies)) return [];
+    return astronaut.clinicalHistory.allergies.filter(
+      (a) => !['ninguna', 'none'].includes(a.trim().toLowerCase())
+    );
+  }, [astronaut.clinicalHistory.allergies]);
 
   const handleToggleStep = (stepKey: string) => {
     setCheckedSteps((prev) =>
@@ -461,7 +483,10 @@ export default function SosCommandWorkspace({
 
   const handleTriageSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    setSubmittedQuery(symptomQuery.trim() || 'evaluación rápida signos vitales');
+    setSubmittedQuery(
+      symptomQuery.trim() ||
+        (isEs ? 'evaluación rápida signos vitales' : 'rapid vital signs assessment')
+    );
   };
 
   const handleSelectTag = (tagQuery: string) => {
@@ -470,7 +495,7 @@ export default function SosCommandWorkspace({
   };
 
   const handleSelectSimulatedCapture = (captureId: string) => {
-    const found = SIMULATED_CAPTURES.find((c) => c.id === captureId);
+    const found = simulatedCaptures.find((c) => c.id === captureId);
     if (!found) return;
     setSelectedCaptureUrl(found.dataUrl);
     setSelectedCaptureLabel(`${found.modality}: ${found.caption}`);
@@ -485,9 +510,11 @@ export default function SosCommandWorkspace({
     reader.onload = () => {
       if (typeof reader.result === 'string') {
         setSelectedCaptureUrl(reader.result);
-        setSelectedCaptureLabel(`Captura local: ${file.name}`);
+        setSelectedCaptureLabel(`${isEs ? 'Captura local' : 'Local capture'}: ${file.name}`);
         setSelectedCaptureFinding(
-          'Imagen cargada por el tripulante para inspección visual y adjunto al paquete de Control en Tierra.'
+          isEs
+            ? 'Imagen cargada por el tripulante para inspección visual y adjunto al paquete de Control en Tierra.'
+            : 'Crew-uploaded image ready for visual inspection and Earth Mission Control downlink attachment.'
         );
         setIsSimulatedCapture(false);
       }
@@ -503,19 +530,34 @@ export default function SosCommandWorkspace({
     setSentPacket({
       timestampUtc: nowUtc,
       protocolTitle: activeProtocol.title,
-      severityLabel: activeProtocol.urgency === 'critical' ? 'CRÍTICA' : 'ALTA',
+      severityLabel:
+        activeProtocol.urgency === 'critical'
+          ? isEs
+            ? 'CRÍTICA'
+            : 'CRITICAL'
+          : isEs
+            ? 'ALTA'
+            : 'HIGH',
       astronautName: astronaut.name,
       bloodType: astronaut.bloodType,
       gravityLabel: mission.gravityLabel,
       commDelay: mission.commDelay,
-      vitalsSummary: `PA ${biomarkers.systolicBP}/${biomarkers.diastolicBP} mmHg · FC ${biomarkers.heartRateBpm} lpm · SpO2 ${biomarkers.spo2Percent}% · Glucosa ${biomarkers.glucoseMgDl} mg/dL · Temp ${biomarkers.bodyTempC.toFixed(1)} °C`,
+      vitalsSummary: isEs
+        ? `PA ${biomarkers.systolicBP}/${biomarkers.diastolicBP} mmHg · FC ${biomarkers.heartRateBpm} lpm · SpO2 ${biomarkers.spo2Percent}% · Glucosa ${biomarkers.glucoseMgDl} mg/dL · Temp ${biomarkers.bodyTempC.toFixed(1)} °C`
+        : `BP ${biomarkers.systolicBP}/${biomarkers.diastolicBP} mmHg · HR ${biomarkers.heartRateBpm} bpm · SpO2 ${biomarkers.spo2Percent}% · Glucose ${biomarkers.glucoseMgDl} mg/dL · Temp ${biomarkers.bodyTempC.toFixed(1)} °C`,
       elapsedFormatted: formatElapsedTime(currentElapsed),
-      checklistSummary: `${checkedSteps.length} / ${gravitySteps.length} pasos completados`,
+      checklistSummary: isEs
+        ? `${checkedSteps.length} / ${gravitySteps.length} pasos completados`
+        : `${checkedSteps.length} / ${gravitySteps.length} steps completed`,
       lapsCount,
       allergyWarning:
         allergies.length > 0
-          ? `Alergia activa: ${allergies.join(', ')}`
-          : 'Sin alergias farmacológicas activas',
+          ? isEs
+            ? `Alergia activa: ${allergies.join(', ')}`
+            : `Active allergy: ${allergies.join(', ')}`
+          : isEs
+            ? 'Sin alergias farmacológicas activas'
+            : 'No active drug allergies',
     });
   };
 
@@ -537,13 +579,13 @@ export default function SosCommandWorkspace({
                 <div className="flex items-center gap-2">
                   <span className="inline-flex items-center gap-1 rounded-md bg-danger px-1.5 py-0.5 font-mono text-[10px] font-bold tracking-wider text-white">
                     <span className="h-1.5 w-1.5 rounded-full bg-white animate-pulse" />
-                    SOS ACTIVO
+                    {isEs ? 'SOS ACTIVO' : 'SOS ACTIVE'}
                   </span>
                   <h1
                     id={titleId}
                     className="truncate text-sm font-bold tracking-tight text-on-surface font-display sm:text-base"
                   >
-                    Consola Médica de Emergencia
+                    {isEs ? 'Consola Médica de Emergencia' : 'Emergency Medical Console'}
                   </h1>
                 </div>
                 <p className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-on-surface-variant">
@@ -554,14 +596,16 @@ export default function SosCommandWorkspace({
                   </span>
                   <span>·</span>
                   <span>
-                    {mission.shortName} (Día {missionDay})
+                    {mission.shortName} ({isEs ? 'Día' : 'Day'} {missionDay})
                   </span>
                   <span className="hidden sm:inline">·</span>
                   <span className="hidden sm:inline font-medium text-on-surface">
                     {mission.gravityLabel}
                   </span>
                   <span className="hidden md:inline">·</span>
-                  <span className="hidden md:inline">Retardo Tierra: {mission.commDelay}</span>
+                  <span className="hidden md:inline">
+                    {isEs ? 'Retardo Tierra:' : 'Earth Delay:'} {mission.commDelay}
+                  </span>
                 </p>
               </div>
             </div>
@@ -573,17 +617,21 @@ export default function SosCommandWorkspace({
                 className="inline-flex cursor-pointer items-center gap-1 rounded-lg border border-danger/35 bg-danger-container px-2.5 py-1 text-xs font-semibold text-on-danger-container dt-transition hover:bg-danger-container/80 active:scale-[0.985] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger/40"
               >
                 <ShieldAlert className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-                <span>Alergia: {allergies.join(', ')}</span>
+                <span>
+                  {isEs ? 'Alergia' : 'Allergy'}: {allergies.join(', ')}
+                </span>
               </button>
             )}
           </div>
 
-          {/* Right: Stopwatch + Simulate Crisis Demo + Exit */}
+          {/* Right: Language + Stopwatch + Simulate Crisis Demo + Exit */}
           <div className="flex flex-wrap items-center gap-2">
+            <LanguageSwitcher />
             <EpisodeStopwatch
               ref={stopwatchRef}
               autoStartTrigger={shouldAutoStartTimer}
               onConsumeAutoStart={clearAutoStartTimerFlag}
+              language={language}
             />
 
             <div ref={crisisMenuRef} className="relative">
@@ -598,7 +646,9 @@ export default function SosCommandWorkspace({
                 }`}
               >
                 <Zap className="h-3.5 w-3.5 text-warning" aria-hidden="true" />
-                <span className="hidden sm:inline">Simular crisis</span>
+                <span className="hidden sm:inline">
+                  {isEs ? 'Simular crisis' : 'Simulate crisis'}
+                </span>
                 <ChevronDown className="h-3 w-3 opacity-75" aria-hidden="true" />
               </button>
 
@@ -606,7 +656,7 @@ export default function SosCommandWorkspace({
                 <div className="dt-animate-panel absolute right-0 top-[calc(100%+8px)] z-40 w-80 rounded-2xl border border-outline bg-surface-container p-3 shadow-[0_14px_32px_-12px_rgba(26,36,30,0.20)] space-y-2">
                   <div className="flex items-center justify-between">
                     <span className="text-[11px] font-bold uppercase tracking-[0.06em] text-on-surface-variant font-display">
-                      Escenarios de Demostración
+                      {isEs ? 'Escenarios de Demostración' : 'Demo Crisis Scenarios'}
                     </span>
                     <span className="font-mono text-[10px] font-semibold text-warning">SIM</span>
                   </div>
@@ -620,10 +670,14 @@ export default function SosCommandWorkspace({
                     className="w-full cursor-pointer rounded-xl border border-danger/35 bg-danger-container/60 p-2.5 text-left dt-transition hover:-translate-y-px hover:border-danger hover:bg-danger-container active:scale-[0.985] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger/40"
                   >
                     <p className="text-xs font-bold text-on-danger-container font-display">
-                      1. Síncope / Shock Hipoglucémico
+                      {isEs
+                        ? '1. Síncope / Shock Hipoglucémico'
+                        : '1. Hypoglycemic Syncope / Shock'}
                     </p>
                     <p className="mt-0.5 text-[11px] text-on-danger-container/90">
-                      Glucosa 52 mg/dL, PA 82/50 mmHg, alerta crítica y reloj activo.
+                      {isEs
+                        ? 'Glucosa 52 mg/dL, PA 82/50 mmHg, alerta crítica y reloj activo.'
+                        : 'Glucose 52 mg/dL, BP 82/50 mmHg, critical alert & timer running.'}
                     </p>
                   </button>
 
@@ -636,10 +690,14 @@ export default function SosCommandWorkspace({
                     className="w-full cursor-pointer rounded-xl border border-warning/40 bg-warning-container/65 p-2.5 text-left dt-transition hover:-translate-y-px hover:border-warning hover:bg-warning-container active:scale-[0.985] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-warning/40"
                   >
                     <p className="text-xs font-bold text-on-warning-container font-display">
-                      2. Crisis Convulsiva en Microgravedad
+                      {isEs
+                        ? '2. Crisis Convulsiva en Microgravedad'
+                        : '2. Microgravity Seizure Episode'}
                     </p>
                     <p className="mt-0.5 text-[11px] text-on-warning-container/90">
-                      Protocolo de contención 0g preseleccionado y cronómetro corriendo.
+                      {isEs
+                        ? 'Protocolo de contención 0g preseleccionado y cronómetro corriendo.'
+                        : '0g restraint protocol preselected with episode timer running.'}
                     </p>
                   </button>
 
@@ -652,7 +710,9 @@ export default function SosCommandWorkspace({
                     className="flex w-full cursor-pointer items-center justify-center gap-1.5 rounded-xl border border-primary/35 bg-primary-container px-3 py-2 text-xs font-bold text-on-primary-container font-display dt-transition hover:bg-primary hover:text-on-primary active:scale-[0.985] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35"
                   >
                     <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />
-                    <span>Restablecer Signos Nominales</span>
+                    <span>
+                      {isEs ? 'Restablecer Signos Nominales' : 'Restore Nominal Vitals'}
+                    </span>
                   </button>
                 </div>
               )}
@@ -667,7 +727,15 @@ export default function SosCommandWorkspace({
                 className="h-3.5 w-3.5 text-on-surface-variant dt-transition group-hover:-translate-x-0.5"
                 aria-hidden="true"
               />
-              <span>{mode === 'overlay' ? 'Salir de SOS' : 'Volver al Panel'}</span>
+              <span>
+                {mode === 'overlay'
+                  ? isEs
+                    ? 'Salir de SOS'
+                    : 'Exit SOS'
+                  : isEs
+                    ? 'Volver al Panel'
+                    : 'Back to Dashboard'}
+              </span>
             </button>
           </div>
         </div>
@@ -694,17 +762,17 @@ export default function SosCommandWorkspace({
               className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl border border-danger/40 bg-surface-container px-3 py-1.5 text-xs font-semibold text-on-danger-container dt-transition hover:bg-surface active:scale-[0.985] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger/40"
             >
               <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />
-              <span>Restablecer signos</span>
+              <span>{isEs ? 'Restablecer signos' : 'Restore vitals'}</span>
             </button>
           </div>
         )}
 
         {/* 1. Unified 5-Sensor Live Vital Telemetry Strip */}
-        <section aria-label="Signos vitales en vivo">
+        <section aria-label={isEs ? 'Signos vitales en vivo' : 'Live vital signs'}>
           <div className="overflow-hidden rounded-2xl border border-outline bg-surface-container">
             <div className="grid grid-cols-2 divide-y divide-outline-variant sm:grid-cols-3 sm:divide-y-0 sm:divide-x lg:grid-cols-5">
               {vitalCards.map((vital) => {
-                const style = SEVERITY_STYLE_MAP[vital.severity];
+                const style = getSeverityStyle(vital.severity, language);
                 const isProtocolTarget = activeProtocol.verifyNow.vitalKeys.includes(vital.key);
                 return (
                   <div
@@ -738,7 +806,7 @@ export default function SosCommandWorkspace({
                       </div>
                       {isProtocolTarget && (
                         <span className="font-mono text-[10px] font-semibold uppercase tracking-wide text-primary">
-                          Clave
+                          {isEs ? 'Clave' : 'Key'}
                         </span>
                       )}
                     </div>
@@ -750,18 +818,25 @@ export default function SosCommandWorkspace({
         </section>
 
         {/* 2. Quick 6-Protocol Selector Strip */}
-        <section aria-label="Selector rápido de protocolos de emergencia">
+        <section
+          aria-label={
+            isEs ? 'Selector rápido de protocolos de emergencia' : 'Quick emergency protocol selector'
+          }
+        >
           <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
             <h2 className="text-xs font-bold uppercase tracking-[0.06em] text-on-surface-variant font-display">
-              Protocolos de Respuesta Rápida (6)
+              {isEs ? 'Protocolos de Respuesta Rápida (6)' : 'Rapid Response Protocols (6)'}
             </h2>
             <span className="text-xs text-on-surface-variant">
-              Pasos adaptados automáticamente a <strong>{mission.gravityLabel}</strong>
+              {isEs
+                ? 'Pasos adaptados automáticamente a '
+                : 'Steps automatically adapted to '}
+              <strong>{mission.gravityLabel}</strong>
             </span>
           </div>
 
           <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-6">
-            {EMERGENCY_PROTOCOLS.map((protocol) => {
+            {protocols.map((protocol) => {
               const isSelected = protocol.id === activeProtocol.id;
               const isCritical = protocol.urgency === 'critical';
               return (
@@ -792,7 +867,13 @@ export default function SosCommandWorkspace({
                           isCritical ? 'bg-danger' : 'bg-warning'
                         }`}
                       />
-                      {isCritical ? 'CRÍTICA' : 'ALTA'}
+                      {isCritical
+                        ? isEs
+                          ? 'CRÍTICA'
+                          : 'CRITICAL'
+                        : isEs
+                          ? 'ALTA'
+                          : 'HIGH'}
                     </span>
                   </div>
                   <p className="text-xs font-semibold leading-snug text-on-surface font-display sm:text-[13px]">
@@ -808,7 +889,7 @@ export default function SosCommandWorkspace({
         <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-12">
           {/* Left Primary Protocol Execution Panel (8 cols) */}
           <section
-            aria-label="Guía clínica del protocolo activo"
+            aria-label={isEs ? 'Guía clínica del protocolo activo' : 'Active protocol clinical guide'}
             className="overflow-hidden rounded-2xl border border-outline bg-surface-container lg:col-span-8"
           >
             <div key={activeProtocol.id} className="dt-animate-enter">
@@ -823,11 +904,17 @@ export default function SosCommandWorkspace({
                           : 'bg-warning-container text-on-warning-container'
                       }`}
                     >
-                      {activeProtocol.code} · PRIORIDAD{' '}
-                      {activeProtocol.urgency === 'critical' ? 'CRÍTICA' : 'ALTA'}
+                      {activeProtocol.code} · {isEs ? 'PRIORIDAD' : 'PRIORITY'}{' '}
+                      {activeProtocol.urgency === 'critical'
+                        ? isEs
+                          ? 'CRÍTICA'
+                          : 'CRITICAL'
+                        : isEs
+                          ? 'ALTA'
+                          : 'HIGH'}
                     </span>
                     <span className="text-xs font-medium text-on-surface-variant">
-                      Entorno: {mission.gravityLabel}
+                      {isEs ? 'Entorno:' : 'Environment:'} {mission.gravityLabel}
                     </span>
                   </div>
                   <h2 className="text-lg font-semibold tracking-tight text-on-surface font-display sm:text-xl">
@@ -840,7 +927,7 @@ export default function SosCommandWorkspace({
 
                 <div className="flex items-center gap-2">
                   <span className="rounded-lg border border-outline bg-surface-container px-2.5 py-1 font-mono text-xs font-semibold text-on-surface">
-                    {checkedSteps.length} / {gravitySteps.length} pasos
+                    {checkedSteps.length} / {gravitySteps.length} {isEs ? 'pasos' : 'steps'}
                   </span>
                   {checkedSteps.length > 0 && (
                     <button
@@ -848,7 +935,7 @@ export default function SosCommandWorkspace({
                       onClick={() => setCheckedSteps([])}
                       className="cursor-pointer rounded-lg border border-outline bg-surface-container-low px-2.5 py-1 text-xs font-semibold text-on-surface-variant dt-transition hover:border-primary/45 hover:bg-surface-container hover:text-on-surface active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35"
                     >
-                      Limpiar
+                      {isEs ? 'Limpiar' : 'Clear'}
                     </button>
                   )}
                 </div>
@@ -860,7 +947,7 @@ export default function SosCommandWorkspace({
                 <div className="space-y-3 p-4 md:col-span-5">
                   <div className="space-y-1">
                     <p className="font-mono text-[11px] font-bold uppercase tracking-wider text-primary">
-                      1. Qué verificar ya
+                      {isEs ? '1. Qué verificar ya' : '1. Verify immediately'}
                     </p>
                     <p className="text-sm leading-snug text-on-surface">
                       {activeProtocol.verifyNow.quickCheckSummary}
@@ -879,10 +966,14 @@ export default function SosCommandWorkspace({
                 <div className="space-y-2.5 p-4 md:col-span-7">
                   <div className="space-y-0.5">
                     <p className="font-mono text-[11px] font-bold uppercase tracking-wider text-primary">
-                      2. Pasos de acción en {mission.gravityLabel}
+                      {isEs
+                        ? `2. Pasos de acción en ${mission.gravityLabel}`
+                        : `2. Action steps in ${mission.gravityLabel}`}
                     </p>
                     <p className="text-xs text-on-surface-variant">
-                      Marca cada maniobra al completarla en cabina.
+                      {isEs
+                        ? 'Marca cada maniobra al completarla en cabina.'
+                        : 'Check off each maneuver as completed in cabin.'}
                     </p>
                   </div>
 
@@ -929,15 +1020,18 @@ export default function SosCommandWorkspace({
               >
                 <div className="flex flex-wrap items-center justify-between gap-2 border-b border-outline-variant pb-2.5 text-xs text-on-surface">
                   <span className="font-mono text-[11px] font-bold uppercase tracking-wider text-on-surface-variant">
-                    3. Qué NO hacer y escalado a Tierra
+                    {isEs
+                      ? '3. Qué NO hacer y escalado a Tierra'
+                      : '3. Contraindications & Earth escalation'}
                   </span>
                   <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
                     <span>
-                      <strong>Cirugías:</strong>{' '}
+                      <strong>{isEs ? 'Cirugías:' : 'Surgeries:'}</strong>{' '}
                       {astronaut.clinicalHistory.priorSurgeries.join('; ')}
                     </span>
                     <span>
-                      <strong>Inmunidad:</strong> {astronaut.clinicalHistory.immuneStatus}
+                      <strong>{isEs ? 'Inmunidad:' : 'Immunity:'}</strong>{' '}
+                      {astronaut.clinicalHistory.immuneStatus}
                     </span>
                   </div>
                 </div>
@@ -946,7 +1040,7 @@ export default function SosCommandWorkspace({
                   {/* Dynamic EHR Rules */}
                   <div className="space-y-2 border-l-2 border-danger pl-3">
                     <h3 className="text-xs font-bold uppercase tracking-wide text-on-danger-container font-display">
-                      Alertas por expediente EHR
+                      {isEs ? 'Alertas por expediente EHR' : 'EHR Profile Alerts'}
                     </h3>
                     <ul className="space-y-1.5 text-xs leading-relaxed text-on-surface">
                       {dynamicSafety.ehrRules.map((rule, idx) => (
@@ -958,7 +1052,7 @@ export default function SosCommandWorkspace({
                   {/* Base Contraindications */}
                   <div className="space-y-2 border-l-2 border-warning pl-3">
                     <h3 className="text-xs font-bold uppercase tracking-wide text-on-warning-container font-display">
-                      Qué NO hacer en cabina
+                      {isEs ? 'Qué NO hacer en cabina' : 'Cabin Contraindications'}
                     </h3>
                     <ul className="space-y-1.5 text-xs leading-relaxed text-on-surface">
                       {dynamicSafety.baseRules.map((rule, idx) => (
@@ -970,7 +1064,7 @@ export default function SosCommandWorkspace({
                   {/* Earth Escalation Criteria */}
                   <div className="space-y-2 border-l-2 border-telemetry pl-3">
                     <h3 className="text-xs font-bold uppercase tracking-wide text-on-telemetry-container font-display">
-                      Cuándo escalar a Tierra
+                      {isEs ? 'Cuándo escalar a Tierra' : 'When to Escalate to Earth'}
                     </h3>
                     <ul className="space-y-1.5 text-xs leading-relaxed text-on-surface">
                       {activeProtocol.earthEscalation.map((criterion, idx) => (
@@ -987,24 +1081,26 @@ export default function SosCommandWorkspace({
           <aside className="space-y-4 lg:col-span-4">
             {/* Copiloto IA de Triaje Rápido y Captura ADUM */}
             <section
-              aria-label="Copiloto de triaje y óptica ADUM"
+              aria-label={
+                isEs ? 'Copiloto de triaje y óptica ADUM' : 'AI triage copilot & ADUM optics'
+              }
               className="space-y-3.5 rounded-2xl border border-outline bg-surface-container p-4"
             >
               <div className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
                   <Sparkles className="h-4 w-4 text-primary" aria-hidden="true" />
                   <h2 className="text-sm font-bold text-on-surface font-display">
-                    Copiloto IA de Triaje
+                    {isEs ? 'Copiloto IA de Triaje' : 'AI Triage Copilot'}
                   </h2>
                 </div>
                 <span className="font-mono text-[11px] font-medium text-on-surface-variant">
-                  EHR + Vitales
+                  {isEs ? 'EHR + Vitales' : 'EHR + Vitals'}
                 </span>
               </div>
 
               <form onSubmit={handleTriageSubmit} className="flex gap-2">
                 <label htmlFor="sos-symptom-input" className="sr-only">
-                  Describe síntoma observado
+                  {isEs ? 'Describe síntoma observado' : 'Describe observed symptom'}
                 </label>
                 <div className="relative min-w-0 flex-1">
                   <Search
@@ -1016,7 +1112,11 @@ export default function SosCommandWorkspace({
                     type="text"
                     value={symptomQuery}
                     onChange={(e) => setSymptomQuery(e.target.value)}
-                    placeholder="Ej: mareo tras EVA, dolor pecho..."
+                    placeholder={
+                      isEs
+                        ? 'Ej: mareo tras EVA, dolor pecho...'
+                        : 'e.g., post-EVA dizziness, chest pain...'
+                    }
                     className="min-h-[42px] w-full rounded-xl border border-outline bg-surface py-2 pl-9 pr-3 text-sm text-on-surface placeholder:text-on-surface-variant focus-visible:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/25"
                   />
                 </div>
@@ -1024,12 +1124,12 @@ export default function SosCommandWorkspace({
                   type="submit"
                   className="inline-flex min-h-[42px] shrink-0 cursor-pointer items-center justify-center rounded-xl bg-primary px-4 py-2 text-xs font-semibold text-on-primary font-display dt-transition hover:bg-primary-hover active:scale-[0.985] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35"
                 >
-                  Analizar
+                  {isEs ? 'Analizar' : 'Analyze'}
                 </button>
               </form>
 
               <div className="flex flex-wrap gap-1.5">
-                {QUICK_SYMPTOM_TAGS.slice(0, 4).map((tag) => (
+                {quickSymptomTags.slice(0, 4).map((tag) => (
                   <button
                     key={tag.id}
                     type="button"
@@ -1052,7 +1152,7 @@ export default function SosCommandWorkspace({
               >
                 <div className="flex items-center justify-between gap-2">
                   <span className="font-bold font-display">
-                    Sugerencia: {recommendedProtocol.shortTitle}
+                    {isEs ? 'Sugerencia:' : 'Suggested:'} {recommendedProtocol.shortTitle}
                   </span>
                   <span
                     className={`rounded-md px-1.5 py-0.5 font-mono text-[10px] font-bold ${
@@ -1061,7 +1161,13 @@ export default function SosCommandWorkspace({
                         : 'bg-warning text-white'
                     }`}
                   >
-                    {triageRecommendation.urgency === 'critical' ? 'ROJO' : 'AMARILLO'}
+                    {triageRecommendation.urgency === 'critical'
+                      ? isEs
+                        ? 'ROJO'
+                        : 'RED'
+                      : isEs
+                        ? 'AMARILLO'
+                        : 'AMBER'}
                   </span>
                 </div>
 
@@ -1077,7 +1183,7 @@ export default function SosCommandWorkspace({
                     onClick={() => setActiveEmergencyProtocolId(recommendedProtocol.id)}
                     className="inline-flex cursor-pointer items-center rounded-lg border border-primary/35 bg-surface-container px-2.5 py-1.5 text-xs font-semibold text-on-primary-container dt-transition hover:bg-primary hover:text-on-primary active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35"
                   >
-                    Aplicar protocolo {recommendedProtocol.code}
+                    {isEs ? 'Aplicar protocolo' : 'Apply protocol'} {recommendedProtocol.code}
                   </button>
                 )}
               </div>
@@ -1087,7 +1193,7 @@ export default function SosCommandWorkspace({
                 <div className="flex items-center justify-between gap-2">
                   <span className="inline-flex items-center gap-1.5 text-xs font-bold text-on-surface font-display">
                     <Eye className="h-4 w-4 text-telemetry" aria-hidden="true" />
-                    <span>Captura ADUM / Óptica</span>
+                    <span>{isEs ? 'Captura ADUM / Óptica' : 'ADUM / Optical Capture'}</span>
                   </span>
                   <button
                     type="button"
@@ -1095,7 +1201,7 @@ export default function SosCommandWorkspace({
                     className="inline-flex cursor-pointer items-center gap-1 rounded-lg border border-outline bg-surface-container-low px-2.5 py-1 text-xs font-semibold text-on-surface dt-transition hover:border-primary/45 hover:bg-surface-container active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35"
                   >
                     <Upload className="h-3.5 w-3.5" aria-hidden="true" />
-                    <span>Subir foto</span>
+                    <span>{isEs ? 'Subir foto' : 'Upload image'}</span>
                   </button>
                   <input
                     ref={fileInputRef}
@@ -1107,7 +1213,7 @@ export default function SosCommandWorkspace({
                 </div>
 
                 <div className="flex flex-wrap gap-1.5">
-                  {SIMULATED_CAPTURES.map((cap) => (
+                  {simulatedCaptures.map((cap) => (
                     <button
                       key={cap.id}
                       type="button"
@@ -1115,7 +1221,13 @@ export default function SosCommandWorkspace({
                       title={cap.label}
                       className="cursor-pointer rounded-lg border border-outline bg-surface-container-low px-2.5 py-1 text-xs font-medium text-on-surface dt-transition hover:border-telemetry/50 hover:bg-telemetry-container/40 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35"
                     >
-                      {cap.id.includes('eye') ? 'Sim: Pupilar / O₂' : 'Sim: Piel / Lesión'}
+                      {cap.id.includes('optical')
+                        ? isEs
+                          ? 'Sim: Pupilar / O₂'
+                          : 'Sim: Pupil / O₂'
+                        : isEs
+                          ? 'Sim: Eco FAST / Trauma'
+                          : 'Sim: FAST Ultrasound'}
                     </button>
                   ))}
                 </div>
@@ -1127,7 +1239,7 @@ export default function SosCommandWorkspace({
                       <div className="flex shrink-0 items-center gap-2">
                         {isSimulatedCapture && (
                           <span className="rounded bg-primary px-1.5 py-0.5 font-mono text-[10px] font-semibold text-on-primary">
-                            SIMULADA
+                            {isEs ? 'SIMULADA' : 'SIMULATED'}
                           </span>
                         )}
                         <button
@@ -1138,7 +1250,7 @@ export default function SosCommandWorkspace({
                             setSelectedCaptureFinding(null);
                           }}
                           className="cursor-pointer text-[var(--color-on-viewport)] dt-transition hover:opacity-75 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-                          aria-label="Cerrar captura"
+                          aria-label={isEs ? 'Cerrar captura' : 'Close capture'}
                         >
                           <X className="h-3.5 w-3.5" />
                         </button>
@@ -1146,7 +1258,10 @@ export default function SosCommandWorkspace({
                     </div>
                     <img
                       src={selectedCaptureUrl}
-                      alt={selectedCaptureLabel ?? 'Captura médica de cabina'}
+                      alt={
+                        selectedCaptureLabel ??
+                        (isEs ? 'Captura médica de cabina' : 'Cabin medical capture')
+                      }
                       width={360}
                       height={220}
                       className="h-[112px] w-full bg-[var(--color-viewport-surface)] object-contain"
@@ -1163,14 +1278,18 @@ export default function SosCommandWorkspace({
 
             {/* Enlace Crítico a Control de Misión en Tierra */}
             <section
-              aria-label="Transmisión de paquete crítico a Tierra"
+              aria-label={
+                isEs
+                  ? 'Transmisión de paquete crítico a Tierra'
+                  : 'Critical packet transmission to Earth'
+              }
               className="space-y-3 rounded-2xl border border-outline bg-surface-container p-4"
             >
               <div className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
                   <Radio className="h-4 w-4 text-telemetry" aria-hidden="true" />
                   <h2 className="text-sm font-bold text-on-surface font-display">
-                    Enlace Control en Tierra
+                    {isEs ? 'Enlace Control en Tierra' : 'Earth Mission Control Link'}
                   </h2>
                 </div>
                 <span className="rounded-md bg-telemetry-container px-2 py-0.5 font-mono text-[11px] font-semibold text-on-telemetry-container">
@@ -1180,19 +1299,26 @@ export default function SosCommandWorkspace({
 
               <div className="divide-y divide-outline-variant text-xs">
                 <div className="flex items-center justify-between gap-2 py-1.5">
-                  <span className="text-on-surface-variant">Protocolo</span>
+                  <span className="text-on-surface-variant">
+                    {isEs ? 'Protocolo' : 'Protocol'}
+                  </span>
                   <span className="font-semibold text-on-surface">{activeProtocol.shortTitle}</span>
                 </div>
                 <div className="flex items-center justify-between gap-2 py-1.5">
-                  <span className="text-on-surface-variant">Progreso</span>
+                  <span className="text-on-surface-variant">
+                    {isEs ? 'Progreso' : 'Progress'}
+                  </span>
                   <span className="font-mono font-semibold text-on-surface">
-                    {checkedSteps.length} / {gravitySteps.length} en {mission.gravityLabel}
+                    {checkedSteps.length} / {gravitySteps.length} {isEs ? 'en' : 'in'}{' '}
+                    {mission.gravityLabel}
                   </span>
                 </div>
                 <div className="flex items-center justify-between gap-2 py-1.5">
-                  <span className="text-on-surface-variant">Adjunto óptico</span>
+                  <span className="text-on-surface-variant">
+                    {isEs ? 'Adjunto óptico' : 'Optical attachment'}
+                  </span>
                   <span className="truncate max-w-[190px] font-medium text-on-surface">
-                    {selectedCaptureLabel ?? 'Solo telemetría + EHR'}
+                    {selectedCaptureLabel ?? (isEs ? 'Solo telemetría + EHR' : 'Telemetry + EHR only')}
                   </span>
                 </div>
               </div>
@@ -1205,8 +1331,12 @@ export default function SosCommandWorkspace({
                 <Radio className="h-4 w-4" aria-hidden="true" />
                 <span>
                   {sentPacket
-                    ? 'Reenviar paquete actualizado'
-                    : 'Transmitir paquete crítico a Tierra'}
+                    ? isEs
+                      ? 'Reenviar paquete actualizado'
+                      : 'Resend updated packet'
+                    : isEs
+                      ? 'Transmitir paquete crítico a Tierra'
+                      : 'Transmit critical packet to Earth'}
                 </span>
               </button>
 
@@ -1215,13 +1345,16 @@ export default function SosCommandWorkspace({
                   <div className="flex items-center justify-between gap-2 font-semibold text-on-primary-container">
                     <span className="inline-flex items-center gap-1.5">
                       <CheckCircle2 className="h-4 w-4 text-primary" aria-hidden="true" />
-                      Paquete enviado a Control Médico
+                      {isEs
+                        ? 'Paquete enviado a Control Médico'
+                        : 'Packet sent to Medical Control'}
                     </span>
                     <span className="font-mono text-[11px]">ETA {sentPacket.commDelay}</span>
                   </div>
                   <p className="font-mono text-[11px] text-on-surface-variant">
-                    UTC: {sentPacket.timestampUtc} · Episodio {sentPacket.elapsedFormatted} (
-                    {sentPacket.lapsCount} marcas)
+                    UTC: {sentPacket.timestampUtc} · {isEs ? 'Episodio' : 'Episode'}{' '}
+                    {sentPacket.elapsedFormatted} ({sentPacket.lapsCount}{' '}
+                    {isEs ? 'marcas' : 'laps'})
                   </p>
                   <p className="font-mono text-[11px] text-on-surface">{sentPacket.vitalsSummary}</p>
                   <p className="font-medium text-on-danger-container">{sentPacket.allergyWarning}</p>

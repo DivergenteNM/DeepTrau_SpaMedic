@@ -30,6 +30,7 @@ interface DockFlightState {
 
 export function CommandDashboard() {
   const {
+    language,
     mission,
     astronaut,
     missionDay,
@@ -217,37 +218,58 @@ export function CommandDashboard() {
 
   const kpiCards = [
     {
-      label: 'Glucosa Capilar',
+      label: language === 'es' ? 'Glucosa Capilar' : 'Capillary Glucose',
       value: `${biomarkers.glucoseMgDl} mg/dL`,
-      sub: `Base EHR: ${astronaut.clinicalHistory.baselineGlucose} mg/dL`,
-      why: 'Evita hipoglucemia en tareas EVA y detecta resistencia insulínica en 0g.',
+      sub:
+        language === 'es'
+          ? `Base EHR: ${astronaut.clinicalHistory.baselineGlucose} mg/dL`
+          : `EHR Baseline: ${astronaut.clinicalHistory.baselineGlucose} mg/dL`,
+      why:
+        language === 'es'
+          ? 'Evita hipoglucemia en tareas EVA y detecta resistencia insulínica en 0g.'
+          : 'Prevents hypoglycemia during EVA ops and detects insulin resistance in 0g.',
       status: systemStatuses.metabolic,
       icon: <Droplets className="h-4 w-4 text-telemetry" />,
       tab: 'survival' as const,
     },
     {
-      label: 'Radiación Acumulada',
+      label: language === 'es' ? 'Radiación Acumulada' : 'Cumulative Radiation',
       value: `${biomarkers.cumulativeRadiationMsv.toFixed(1)} mSv`,
-      sub: `Límite misión: ${mission.missionLimitMsv} mSv`,
-      why: 'Controla la exposición ionizante acumulada (dosimetría CSA).',
+      sub:
+        language === 'es'
+          ? `Límite misión: ${mission.missionLimitMsv} mSv`
+          : `Mission limit: ${mission.missionLimitMsv} mSv`,
+      why:
+        language === 'es'
+          ? 'Controla la exposición ionizante acumulada (dosimetría CSA).'
+          : 'Monitors cumulative ionizing radiation exposure (CSA dosimetry).',
       status: systemStatuses.immune,
       icon: <Radiation className="h-4 w-4 text-warning" />,
       tab: 'survival' as const,
     },
     {
-      label: 'Oxígeno y Pulso',
+      label: language === 'es' ? 'Oxígeno y Pulso' : 'Oxygen & Pulse',
       value: `${biomarkers.spo2Percent}% SpO₂`,
       sub: `${biomarkers.systolicBP}/${biomarkers.diastolicBP} mmHg · ${biomarkers.heartRateBpm} bpm`,
-      why: 'Supervisa aire de cabina y respuesta cardiovascular en misión.',
+      why:
+        language === 'es'
+          ? 'Supervisa aire de cabina y respuesta cardiovascular en misión.'
+          : 'Tracks cabin breathing air quality and cardiovascular response in-flight.',
       status: systemStatuses.cardiovascular,
       icon: <HeartPulse className="h-4 w-4 text-primary" />,
       tab: 'sensors' as const,
     },
     {
-      label: 'Conservación Ósea',
+      label: language === 'es' ? 'Conservación Ósea' : 'Bone Preservation',
       value: `${biomarkers.boneDensityRetentionPercent}%`,
-      sub: `Músculo: ${biomarkers.muscleMassRetentionPercent}% · ${mission.gravityLabel}`,
-      why: 'Previene descalcificación por baja o nula gravedad.',
+      sub:
+        language === 'es'
+          ? `Músculo: ${biomarkers.muscleMassRetentionPercent}% · ${mission.gravityLabel}`
+          : `Muscle: ${biomarkers.muscleMassRetentionPercent}% · ${mission.gravityLabel}`,
+      why:
+        language === 'es'
+          ? 'Previene descalcificación por baja o nula gravedad.'
+          : 'Prevents bone demineralization caused by zero or partial gravity.',
       status: systemStatuses.musculoskeletal,
       icon: <Sparkles className="h-4 w-4 text-secondary" />,
       tab: 'musculoskeletal' as const,
@@ -265,7 +287,7 @@ export function CommandDashboard() {
 
   return (
     <div className="space-y-6">
-      {/* Active Crisis Alert Banner (when a live crisis is triggered) */}
+      {/* Active Crisis Alert Banner */}
       {crisisAlertBanner && (
         <section className="dt-animate-panel flex flex-col gap-3 rounded-2xl border-2 border-danger bg-danger-container p-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-start gap-3">
@@ -286,7 +308,7 @@ export function CommandDashboard() {
               className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl bg-danger px-3.5 py-2 text-xs font-bold text-on-primary font-display dt-transition hover:-translate-y-px hover:bg-danger-hover active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger/40"
             >
               <AlertOctagon className="h-3.5 w-3.5" />
-              <span>Abrir Panel SOS</span>
+              <span>{language === 'es' ? 'Abrir Panel SOS' : 'Open SOS Panel'}</span>
             </button>
             <button
               type="button"
@@ -294,13 +316,15 @@ export function CommandDashboard() {
               className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl border border-danger/35 bg-surface-container px-3 py-2 text-xs font-semibold text-on-danger-container font-display dt-transition hover:-translate-y-px hover:bg-surface-container-low active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger/40"
             >
               <RotateCcw className="h-3.5 w-3.5" />
-              <span>Restablecer Signos Nominales</span>
+              <span>
+                {language === 'es' ? 'Restablecer Signos Nominales' : 'Restore Nominal Vitals'}
+              </span>
             </button>
           </div>
         </section>
       )}
 
-      {/* Discrete Jury Demo Strip: Simular Crisis en Vivo */}
+      {/* Discrete Jury Demo Strip: Simulate Live Crisis */}
       <section className="rounded-2xl border border-outline bg-surface-container px-4 py-3 flex flex-col gap-2.5 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex items-center gap-2 text-xs">
           <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-warning/35 bg-warning-container text-warning">
@@ -308,10 +332,14 @@ export function CommandDashboard() {
           </span>
           <div>
             <span className="font-bold text-on-surface font-display">
-              Simular Crisis en Vivo (Demo):
+              {language === 'es'
+                ? 'Simular Crisis en Vivo (Demo):'
+                : 'Simulate Live Crisis (Demo):'}
             </span>{' '}
             <span className="text-on-surface-variant">
-              Prueba alertas en cabina, cambio de sistemas a Rojo en el mapa corporal y guía SOS.
+              {language === 'es'
+                ? 'Prueba alertas en cabina, cambio de sistemas a Rojo en el mapa corporal y guía SOS.'
+                : 'Test cabin alerts, Code Red anatomical triage updates, and guided SOS intervention.'}
             </span>
           </div>
         </div>
@@ -321,14 +349,18 @@ export function CommandDashboard() {
             onClick={() => simulateLiveCrisis('syncope_hypoglycemic')}
             className="cursor-pointer rounded-xl border border-danger/35 bg-danger-container/65 px-2.5 py-1.5 text-xs font-semibold text-on-danger-container font-display dt-transition hover:-translate-y-px hover:border-danger hover:bg-danger-container active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger/40"
           >
-            Escenario 1: Síncope / Hipoglucemia
+            {language === 'es'
+              ? 'Escenario 1: Síncope / Hipoglucemia'
+              : 'Scenario 1: Syncope / Hypoglycemia'}
           </button>
           <button
             type="button"
             onClick={() => simulateLiveCrisis('microgravity_seizure')}
             className="cursor-pointer rounded-xl border border-warning/40 bg-warning-container/70 px-2.5 py-1.5 text-xs font-semibold text-on-warning-container font-display dt-transition hover:-translate-y-px hover:border-warning hover:bg-warning-container active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-warning/40"
           >
-            Escenario 2: Crisis Convulsiva 0g
+            {language === 'es'
+              ? 'Escenario 2: Crisis Convulsiva 0g'
+              : 'Scenario 2: 0g Seizure Episode'}
           </button>
           {(activeCrisisScenario || globalTriage !== 'nominal') && (
             <button
@@ -337,7 +369,9 @@ export function CommandDashboard() {
               className="inline-flex cursor-pointer items-center gap-1 rounded-xl border border-primary/35 bg-primary-container px-2.5 py-1.5 text-xs font-bold text-on-primary-container font-display dt-transition hover:-translate-y-px hover:bg-primary hover:text-on-primary active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35"
             >
               <RotateCcw className="h-3.5 w-3.5" />
-              <span>Restablecer Signos Nominales</span>
+              <span>
+                {language === 'es' ? 'Restablecer Signos Nominales' : 'Restore Nominal Vitals'}
+              </span>
             </button>
           )}
         </div>
@@ -384,10 +418,14 @@ export function CommandDashboard() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.06em] text-primary font-display">
-                  Motivación y Adherencia Médica
+                  {language === 'es'
+                    ? 'Motivación y Adherencia Médica'
+                    : 'Motivation & Medical Adherence'}
                 </p>
                 <h2 className="mt-0.5 text-[18px] leading-[24px] font-bold text-on-surface font-display">
-                  Racha de Misión y Estado Operativo
+                  {language === 'es'
+                    ? 'Racha de Misión y Estado Operativo'
+                    : 'Mission Streak & Readiness Status'}
                 </h2>
               </div>
               <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-warning/30 bg-warning-container">
@@ -398,15 +436,15 @@ export function CommandDashboard() {
             <div className="mt-4 grid grid-cols-3 gap-2.5 text-center">
               <div className="rounded-xl border border-warning/25 bg-warning-container p-3">
                 <span className="text-[11px] font-medium text-on-warning-container block">
-                  Racha Activa
+                  {language === 'es' ? 'Racha Activa' : 'Active Streak'}
                 </span>
                 <span className="mt-1 block text-base font-bold text-on-warning-container font-mono">
-                  {streakDays} días
+                  {streakDays} {language === 'es' ? 'días' : 'days'}
                 </span>
               </div>
               <div className="rounded-xl border border-primary/25 bg-primary-container p-3">
                 <span className="text-[11px] font-medium text-on-primary-container block">
-                  Puntos Salud
+                  {language === 'es' ? 'Puntos Salud' : 'Health Points'}
                 </span>
                 <span className="mt-1 flex items-center justify-center gap-1 text-base font-bold text-on-primary-container font-mono">
                   <Trophy className="h-4 w-4 text-primary" />
@@ -415,7 +453,7 @@ export function CommandDashboard() {
               </div>
               <div className="rounded-xl border border-telemetry/25 bg-telemetry-container p-3">
                 <span className="text-[11px] font-medium text-on-telemetry-container block">
-                  Aptitud Hoy
+                  {language === 'es' ? 'Aptitud Hoy' : 'Readiness'}
                 </span>
                 <span className="mt-1 block text-base font-bold text-on-telemetry-container font-mono">
                   {readinessScore}%
@@ -440,7 +478,9 @@ export function CommandDashboard() {
           <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
           <div className="text-xs">
             <p className="font-semibold text-on-surface font-display">
-              Expediente Clínico Pre-Misión Activo: {astronaut.name} ({astronaut.bloodType})
+              {language === 'es'
+                ? `Expediente Clínico Pre-Misión Activo: ${astronaut.name} (${astronaut.bloodType})`
+                : `Active Pre-Mission Clinical Record: ${astronaut.name} (${astronaut.bloodType})`}
             </p>
             <p className="mt-0.5 text-on-surface-variant">{astronaut.clinicalHistory.notes}</p>
           </div>
@@ -465,13 +505,17 @@ export function CommandDashboard() {
               }`}
             >
               <AlertTriangle className="h-3 w-3" />
-              <span>Briefing de riesgos ({detectedRisks.length})</span>
+              <span>
+                {language === 'es'
+                  ? `Briefing de riesgos (${detectedRisks.length})`
+                  : `Risk Briefing (${detectedRisks.length})`}
+              </span>
             </button>
           )}
         </div>
       </section>
 
-      {/* Step 1 Startup Modal (Conditional: only when risks exist) */}
+      {/* Step 1 Startup Modal */}
       <RiskBriefingModal
         isOpen={shouldShowRiskBriefing}
         risks={detectedRisks}
@@ -483,14 +527,14 @@ export function CommandDashboard() {
         onConfirm={acknowledgeRiskBriefing}
       />
 
-      {/* Step 2 (or Step 1 if 0 risks) Startup Focus Modal */}
+      {/* Step 2 Startup Focus Modal */}
       <RoutineFocusModal
         isOpen={shouldShowRoutineModal && !dockFlight}
         showStepIndicator={wasChainedAfterBriefing}
         onRequestDock={handleRequestDock}
       />
 
-      {/* Native FLIP Docking Flight Layer (Modal -> Dashboard Routine Widget) */}
+      {/* Native FLIP Docking Flight Layer */}
       {dockFlight &&
         typeof document !== 'undefined' &&
         createPortal(

@@ -17,9 +17,11 @@ import {
 import { InspirationItem, useMission } from '@/context/MissionContext';
 
 type SoundId = 'rain' | 'ocean' | 'forest' | 'heartbeat';
+type AnchorCategoryKey = 'family' | 'earth' | 'voice';
 
 export function EarthAnchorVault() {
-  const { inspirationItems, addInspirationItem, removeInspirationItem } = useMission();
+  const { language, inspirationItems, addInspirationItem, removeInspirationItem } = useMission();
+  const isEs = language === 'es';
 
   const audioCtxRef = useRef<AudioContext | null>(null);
   const masterGainRef = useRef<GainNode | null>(null);
@@ -39,8 +41,7 @@ export function EarthAnchorVault() {
 
   const [newAnchorTitle, setNewAnchorTitle] = useState('');
   const [newAnchorQuote, setNewAnchorQuote] = useState('');
-  const [newAnchorCategory, setNewAnchorCategory] =
-    useState<InspirationItem['category']>('Familia');
+  const [newAnchorCategory, setNewAnchorCategory] = useState<AnchorCategoryKey>('family');
   const [newAnchorSound, setNewAnchorSound] = useState<SoundId>('forest');
   const [newAnchorImage, setNewAnchorImage] = useState<string | undefined>(undefined);
 
@@ -397,24 +398,40 @@ export function EarthAnchorVault() {
   const handleAddAnchor = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newAnchorTitle.trim()) return;
-    const soundLabels: Record<SoundId, string> = {
-      forest: 'Audio: Mañana en el bosque',
-      rain: 'Audio: Lluvia terrestre',
-      ocean: 'Audio: Olas del océano',
-      heartbeat: 'Audio: Pulso calmante 60 bpm',
+    const soundLabels: Record<SoundId, string> = isEs
+      ? {
+          forest: 'Audio: Mañana en el bosque',
+          rain: 'Audio: Lluvia terrestre',
+          ocean: 'Audio: Olas del océano',
+          heartbeat: 'Audio: Pulso calmante 60 bpm',
+        }
+      : {
+          forest: 'Audio: Forest morning',
+          rain: 'Audio: Earth rainfall',
+          ocean: 'Audio: Ocean waves',
+          heartbeat: 'Audio: 60 bpm calming pulse',
+        };
+    const categoryLabelMap: Record<AnchorCategoryKey, InspirationItem['category']> = {
+      family: isEs ? 'Familia' : 'Family',
+      earth: isEs ? 'Tierra' : 'Earth',
+      voice: isEs ? 'Mensaje de Voz' : 'Voice Message',
     };
-    const paletteMap: Record<InspirationItem['category'], InspirationItem['palette']> = {
-      Familia: 'amber',
-      Tierra: 'cyan',
-      'Mensaje de Voz': 'rose',
+    const paletteMap: Record<AnchorCategoryKey, InspirationItem['palette']> = {
+      family: 'amber',
+      earth: 'cyan',
+      voice: 'rose',
     };
 
     addInspirationItem({
       title: newAnchorTitle.trim(),
-      subtitle: 'Recuerdo personal cargado a bordo',
-      category: newAnchorCategory,
-      durationOrDate: 'Guardado localmente · Offline',
-      quote: newAnchorQuote.trim() || '"Siempre mirando las mismas estrellas."',
+      subtitle: isEs ? 'Recuerdo personal cargado a bordo' : 'Personal memory loaded onboard',
+      category: categoryLabelMap[newAnchorCategory],
+      durationOrDate: isEs ? 'Guardado localmente · Offline' : 'Saved locally · Offline',
+      quote:
+        newAnchorQuote.trim() ||
+        (isEs
+          ? '"Siempre mirando las mismas estrellas."'
+          : '"Always looking at the same stars."'),
       imageUrl: newAnchorImage,
       palette: paletteMap[newAnchorCategory],
       soundId: newAnchorSound,
@@ -441,11 +458,14 @@ export function EarthAnchorVault() {
         <div>
           <h2 className="text-base font-bold text-on-surface flex items-center gap-2 font-display">
             <Heart className="h-5 w-5 text-danger" />
-            Muro de Inspiración y Conexión Terrestre (&quot;Mi Ancla en la Tierra&quot;)
+            {isEs
+              ? 'Muro de Inspiración y Conexión Terrestre ("Mi Ancla en la Tierra")'
+              : 'Inspiration & Earth Connection Vault ("My Earth Anchor")'}
           </h2>
           <p className="text-xs text-on-surface-variant">
-            Audios familiares reales offline, vista inmersiva de calma y paisajes sonoros
-            bioacústicos para reducir el cortisol en cabina.
+            {isEs
+              ? 'Audios familiares reales offline, vista inmersiva de calma y paisajes sonoros bioacústicos para reducir el cortisol en cabina.'
+              : 'Offline family recordings, immersive calm focus mode, and bioacoustic Earth soundscapes to reduce cabin cortisol.'}
           </p>
         </div>
 
@@ -460,7 +480,11 @@ export function EarthAnchorVault() {
               step={0.05}
               value={volume}
               onChange={(e) => setVolume(Number(e.target.value))}
-              aria-label="Volumen maestro de audios y paisajes sonoros"
+              aria-label={
+                isEs
+                  ? 'Volumen maestro de audios y paisajes sonoros'
+                  : 'Master volume for family audio and soundscapes'
+              }
               className="w-20 cursor-pointer accent-primary"
             />
             <span className="font-mono text-[10px] font-semibold text-on-surface-variant">
@@ -481,7 +505,7 @@ export function EarthAnchorVault() {
                     : 'text-on-surface-variant hover:bg-surface-container hover:text-on-surface'
                 }`}
               >
-                {mins === 0 ? 'Continuo' : `${mins}m`}
+                {mins === 0 ? (isEs ? 'Continuo' : 'Continuous') : `${mins}m`}
               </button>
             ))}
             {playingItemId && timerRemainingSec > 0 && (
@@ -498,7 +522,7 @@ export function EarthAnchorVault() {
               className="dt-animate-panel inline-flex cursor-pointer items-center gap-1.5 rounded-xl border border-danger/35 bg-danger-container px-3 py-1.5 text-xs font-semibold text-on-danger-container dt-transition hover:-translate-y-px hover:border-danger active:translate-y-0 active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger/35"
             >
               <VolumeX className="h-4 w-4 text-danger" />
-              Silenciar
+              {isEs ? 'Silenciar' : 'Mute'}
             </button>
           )}
         </div>
@@ -547,7 +571,7 @@ export function EarthAnchorVault() {
                       <button
                         type="button"
                         onClick={() => removeInspirationItem(item.id)}
-                        title="Eliminar recuerdo"
+                        title={isEs ? 'Eliminar recuerdo' : 'Remove memory'}
                         className="cursor-pointer rounded-lg p-1 text-on-surface-variant dt-transition hover:bg-danger-container hover:text-danger"
                       >
                         <Trash2 className="h-3.5 w-3.5" />
@@ -569,7 +593,7 @@ export function EarthAnchorVault() {
                       step={0.5}
                       value={trackTime.current}
                       onChange={(e) => handleSeekTrack(Number(e.target.value))}
-                      aria-label={`Progreso de ${item.title}`}
+                      aria-label={isEs ? `Progreso de ${item.title}` : `Progress for ${item.title}`}
                       className="w-full cursor-pointer accent-primary"
                     />
                     <div className="flex justify-between font-mono text-[10px] text-on-surface-variant">
@@ -595,7 +619,7 @@ export function EarthAnchorVault() {
                   ) : (
                     <Volume2 className="h-3.5 w-3.5" />
                   )}
-                  {isPlaying ? 'Reproduciendo (Pausar)' : item.soundLabel}
+                  {isPlaying ? (isEs ? 'Reproduciendo (Pausar)' : 'Playing (Pause)') : item.soundLabel}
                 </button>
 
                 <button
@@ -604,7 +628,7 @@ export function EarthAnchorVault() {
                   className="inline-flex w-full cursor-pointer items-center justify-center gap-1.5 rounded-lg border border-outline bg-surface-container-low px-2.5 py-1.5 text-[11px] font-medium text-on-surface-variant dt-transition hover:border-primary/40 hover:bg-surface-container hover:text-on-surface active:scale-[0.98]"
                 >
                   <Maximize2 className="h-3 w-3" />
-                  Abrir en Vista Calma
+                  {isEs ? 'Abrir en Vista Calma' : 'Open Calm View'}
                 </button>
               </div>
             </div>
@@ -619,61 +643,69 @@ export function EarthAnchorVault() {
       >
         <div className="md:col-span-2">
           <label className="mb-1 block text-[11px] font-semibold text-on-surface-variant">
-            Título del recuerdo o foto
+            {isEs ? 'Título del recuerdo o foto' : 'Memory or photo title'}
           </label>
           <input
             type="text"
             value={newAnchorTitle}
             onChange={(e) => setNewAnchorTitle(e.target.value)}
-            placeholder="Ej. Foto con mi hija en la playa"
+            placeholder={
+              isEs ? 'Ej. Foto con mi hija en la playa' : 'e.g., Photo with my daughter at the beach'
+            }
             className="w-full rounded-lg border border-outline bg-surface-container px-3 py-2 text-xs text-on-surface outline-none dt-transition focus:border-primary focus:ring-2 focus:ring-primary/15"
           />
         </div>
         <div className="md:col-span-1">
           <label className="mb-1 block text-[11px] font-semibold text-on-surface-variant">
-            Paisaje sonoro
+            {isEs ? 'Paisaje sonoro' : 'Soundscape'}
           </label>
           <select
             value={newAnchorSound}
             onChange={(e) => setNewAnchorSound(e.target.value as SoundId)}
             className="w-full cursor-pointer rounded-lg border border-outline bg-surface-container px-2.5 py-2 text-xs text-on-surface outline-none dt-transition focus:border-primary"
           >
-            <option value="forest">Bosque tranquilo</option>
-            <option value="rain">Lluvia terrestre</option>
-            <option value="ocean">Olas del océano</option>
-            <option value="heartbeat">Pulso 60 bpm</option>
+            <option value="forest">{isEs ? 'Bosque tranquilo' : 'Quiet forest'}</option>
+            <option value="rain">{isEs ? 'Lluvia terrestre' : 'Earth rainfall'}</option>
+            <option value="ocean">{isEs ? 'Olas del océano' : 'Ocean waves'}</option>
+            <option value="heartbeat">{isEs ? 'Pulso 60 bpm' : '60 bpm pulse'}</option>
           </select>
         </div>
         <div className="md:col-span-1">
           <label className="mb-1 block text-[11px] font-semibold text-on-surface-variant">
-            Categoría
+            {isEs ? 'Categoría' : 'Category'}
           </label>
           <select
             value={newAnchorCategory}
-            onChange={(e) => setNewAnchorCategory(e.target.value as InspirationItem['category'])}
+            onChange={(e) => setNewAnchorCategory(e.target.value as AnchorCategoryKey)}
             className="w-full cursor-pointer rounded-lg border border-outline bg-surface-container px-2.5 py-2 text-xs text-on-surface outline-none dt-transition focus:border-primary"
           >
-            <option value="Familia">Familia</option>
-            <option value="Tierra">Tierra</option>
-            <option value="Mensaje de Voz">Mensaje</option>
+            <option value="family">{isEs ? 'Familia' : 'Family'}</option>
+            <option value="earth">{isEs ? 'Tierra' : 'Earth'}</option>
+            <option value="voice">{isEs ? 'Mensaje' : 'Voice Message'}</option>
           </select>
         </div>
         <div className="md:col-span-2">
           <label className="mb-1 block text-[11px] font-semibold text-on-surface-variant">
-            Mensaje de ánimo
+            {isEs ? 'Mensaje de ánimo' : 'Uplifting message'}
           </label>
           <input
             type="text"
             value={newAnchorQuote}
             onChange={(e) => setNewAnchorQuote(e.target.value)}
-            placeholder="Ej. ¡Nos vemos al regreso!"
+            placeholder={isEs ? 'Ej. ¡Nos vemos al regreso!' : 'e.g., See you on return!'}
             className="w-full rounded-lg border border-outline bg-surface-container px-3 py-2 text-xs text-on-surface outline-none dt-transition focus:border-primary focus:ring-2 focus:ring-primary/15"
           />
         </div>
         <div className="md:col-span-3">
           <label className="flex cursor-pointer items-center justify-center gap-1.5 rounded-lg border border-outline bg-surface-container px-3 py-2 text-xs font-medium text-primary dt-transition hover:-translate-y-px hover:border-primary hover:bg-primary-container/35 active:translate-y-0 active:scale-[0.98]">
             <ImagePlus className="h-4 w-4" />
-            {newAnchorImage ? 'Imagen cargada ✓' : 'Subir foto familiar (opcional)'}
+            {newAnchorImage
+              ? isEs
+                ? 'Imagen cargada ✓'
+                : 'Image loaded ✓'
+              : isEs
+                ? 'Subir foto familiar (opcional)'
+                : 'Upload family photo (optional)'}
             <input
               type="file"
               accept="image/*"
@@ -688,7 +720,7 @@ export function EarthAnchorVault() {
             disabled={!newAnchorTitle.trim()}
             className="w-full cursor-pointer rounded-lg bg-primary px-4 py-2 text-xs font-bold text-on-primary dt-transition hover:-translate-y-px hover:bg-primary-hover hover:shadow-[0_6px_14px_-6px_rgba(47,93,70,0.45)] active:translate-y-0 active:scale-[0.985] disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35 font-display"
           >
-            Agregar a Mi Ancla (+15 pts)
+            {isEs ? 'Agregar a Mi Ancla (+15 pts)' : 'Add to My Anchor (+15 pts)'}
           </button>
         </div>
       </form>
@@ -700,7 +732,7 @@ export function EarthAnchorVault() {
           <div
             role="dialog"
             aria-modal="true"
-            aria-label={`Vista calma: ${focusedItem.title}`}
+            aria-label={isEs ? `Vista calma: ${focusedItem.title}` : `Calm view: ${focusedItem.title}`}
             onClick={(e) => {
               if (e.target === e.currentTarget) setFocusedItem(null);
             }}
@@ -710,7 +742,7 @@ export function EarthAnchorVault() {
               <header className="flex items-start justify-between gap-3 border-b border-outline-variant bg-surface-container-low/65 px-5 py-4">
                 <div>
                   <span className="inline-block rounded-full border border-primary/30 bg-primary-container px-2.5 py-0.5 text-[10px] font-bold text-on-primary-container font-display">
-                    {focusedItem.category} · Modo Calma
+                    {focusedItem.category} · {isEs ? 'Modo Calma' : 'Calm Mode'}
                   </span>
                   <h3 className="mt-1.5 text-lg font-bold text-on-surface font-display">
                     {focusedItem.title}
@@ -720,7 +752,7 @@ export function EarthAnchorVault() {
                 <button
                   type="button"
                   onClick={() => setFocusedItem(null)}
-                  aria-label="Cerrar vista calma"
+                  aria-label={isEs ? 'Cerrar vista calma' : 'Close calm view'}
                   className="cursor-pointer rounded-xl border border-outline bg-surface-container p-2 text-on-surface-variant dt-transition hover:border-primary/40 hover:bg-surface-container-high hover:text-on-surface active:scale-[0.97]"
                 >
                   <X className="h-4 w-4" />
@@ -777,7 +809,7 @@ export function EarthAnchorVault() {
                       step={0.5}
                       value={trackTime.current}
                       onChange={(e) => handleSeekTrack(Number(e.target.value))}
-                      aria-label={`Progreso de ${focusedItem.title}`}
+                      aria-label={isEs ? `Progreso de ${focusedItem.title}` : `Progress for ${focusedItem.title}`}
                       className="w-full cursor-pointer accent-primary"
                     />
                     <div className="flex justify-between font-mono text-[11px] text-on-surface-variant">
@@ -791,7 +823,7 @@ export function EarthAnchorVault() {
                 <div className="flex items-center justify-between gap-3 rounded-xl border border-outline bg-surface-container-low px-3.5 py-2.5">
                   <span className="text-xs font-medium text-on-surface-variant flex items-center gap-1.5">
                     <Volume2 className="h-3.5 w-3.5 text-primary" />
-                    Volumen del recuerdo
+                    {isEs ? 'Volumen del recuerdo' : 'Anchor playback volume'}
                   </span>
                   <div className="flex items-center gap-2">
                     <input
@@ -801,7 +833,7 @@ export function EarthAnchorVault() {
                       step={0.05}
                       value={volume}
                       onChange={(e) => setVolume(Number(e.target.value))}
-                      aria-label="Volumen en vista calma"
+                      aria-label={isEs ? 'Volumen en vista calma' : 'Calm view volume'}
                       className="w-28 cursor-pointer accent-primary"
                     />
                     <span className="w-9 text-right font-mono text-[11px] font-semibold text-on-surface">
@@ -829,7 +861,9 @@ export function EarthAnchorVault() {
                     <Volume2 className="h-4 w-4" />
                   )}
                   {playingItemId === focusedItem.id
-                    ? 'Pausar Audio'
+                    ? isEs
+                      ? 'Pausar Audio'
+                      : 'Pause Audio'
                     : focusedItem.soundLabel}
                 </button>
 
@@ -838,7 +872,7 @@ export function EarthAnchorVault() {
                   onClick={() => setFocusedItem(null)}
                   className="cursor-pointer rounded-xl border border-outline bg-surface-container px-4 py-2 text-xs font-semibold text-on-surface dt-transition hover:border-primary/40 hover:bg-surface-container-high active:scale-[0.985]"
                 >
-                  Cerrar Vista Calma
+                  {isEs ? 'Cerrar Vista Calma' : 'Close Calm View'}
                 </button>
               </footer>
             </div>

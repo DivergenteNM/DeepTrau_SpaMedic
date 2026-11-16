@@ -3,6 +3,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import Image from 'next/image';
 import { ArrowRight, ExternalLink, Orbit, Radio } from 'lucide-react';
+import { useMission } from '@/context/MissionContext';
+import { LanguageSwitcher } from '@/components/layout/LanguageSwitcher';
 
 interface WelcomeHomeProps {
   onStart: () => void;
@@ -13,6 +15,7 @@ const EASE_POWER4_IN_OUT = 'cubic-bezier(0.76, 0, 0.24, 1)';
 const EASE_POWER3_IN = 'cubic-bezier(0.7, 0, 0.84, 0)';
 
 export function WelcomeHome({ onStart }: WelcomeHomeProps) {
+  const { language } = useMission();
   const [isLaunching, setIsLaunching] = useState(false);
 
   const stageRef = useRef<HTMLElement>(null);
@@ -38,7 +41,7 @@ export function WelcomeHome({ onStart }: WelcomeHomeProps) {
   const repoLinkRef = useRef<HTMLAnchorElement>(null);
   const creditRef = useRef<HTMLParagraphElement>(null);
 
-  // Act I: Coreografía de entrada al montar la portada
+  // Act I: Entrance choreography when mounting welcome view
   useEffect(() => {
     const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     if (prefersReducedMotion) return;
@@ -124,7 +127,7 @@ export function WelcomeHome({ onStart }: WelcomeHomeProps) {
     );
   }, []);
 
-  // Act II & III: Coreografía espacial multi-etapa hacia Selección de Misión
+  // Act II & III: Multi-stage spatial choreography into Mission Selection
   const handleStartChoreography = () => {
     if (isLaunching) return;
 
@@ -136,7 +139,6 @@ export function WelcomeHome({ onStart }: WelcomeHomeProps) {
 
     setIsLaunching(true);
 
-    // 1. Onda expansiva y compresión cinética de controles inferiores (0ms - 380ms)
     shockwaveRef.current?.animate(
       [
         { transform: 'scale(0.55)', opacity: 0.85 },
@@ -178,7 +180,6 @@ export function WelcomeHome({ onStart }: WelcomeHomeProps) {
       { duration: 300, easing: EASE_POWER3_IN, fill: 'forwards' }
     );
 
-    // 2. Retracción en máscara del título principal (60ms - 460ms)
     wordLeftRef.current?.animate(
       [
         { transform: 'translate3d(0, 0%, 0)' },
@@ -195,7 +196,6 @@ export function WelcomeHome({ onStart }: WelcomeHomeProps) {
       { duration: 400, delay: 120, easing: EASE_POWER3_IN, fill: 'forwards' }
     );
 
-    // 3. Aceleración rotacional y apertura de anillos orbitales (120ms - 940ms)
     outerRingRef.current?.animate(
       [
         { transform: 'scale(1) rotate(0deg)', opacity: 1 },
@@ -220,7 +220,6 @@ export function WelcomeHome({ onStart }: WelcomeHomeProps) {
       { duration: 820, delay: 100, easing: EASE_POWER4_IN_OUT, fill: 'forwards' }
     );
 
-    // 4. Encendido de líneas de calibración y apertura de compuertas en 4 cuadrantes (240ms - 1140ms)
     seamHRef.current?.animate(
       [
         { transform: 'scaleX(0)', opacity: 0 },
@@ -275,7 +274,6 @@ export function WelcomeHome({ onStart }: WelcomeHomeProps) {
       shutterTiming
     );
 
-    // 5. Vuelo espacial FLIP del icono DeepTrau hacia el header de Selección de Misión (220ms - 980ms)
     const targetLogoEl = document.querySelector<HTMLElement>('[data-choreo="onboard-logo-target"]');
     if (logoFlightRef.current && targetLogoEl) {
       const fromRect = logoFlightRef.current.getBoundingClientRect();
@@ -290,7 +288,6 @@ export function WelcomeHome({ onStart }: WelcomeHomeProps) {
       const deltaY = toCenterY - fromCenterY;
       const scaleTarget = Math.max(0.28, toRect.width / fromRect.width);
 
-      // Ocultar temporalmente el logo destino mientras aterriza el icono en vuelo
       targetLogoEl.style.opacity = '0';
 
       const flightAnim = logoFlightRef.current.animate(
@@ -347,7 +344,6 @@ export function WelcomeHome({ onStart }: WelcomeHomeProps) {
       };
     }
 
-    // 6. Coreografía escalonada de entrada en los elementos de Selección de Misión (OnboardingFlow)
     const onboardHeader = document.querySelector<HTMLElement>('[data-choreo="onboard-header"]');
     const onboardHeading = document.querySelector<HTMLElement>('[data-choreo="onboard-heading"]');
     const missionCards = document.querySelectorAll<HTMLElement>('[data-choreo="mission-card"]');
@@ -416,10 +412,17 @@ export function WelcomeHome({ onStart }: WelcomeHomeProps) {
   return (
     <section
       ref={stageRef}
-      aria-label="Portada de bienvenida DeepTrau SpaMedic"
+      aria-label={
+        language === 'es'
+          ? 'Portada de bienvenida DeepTrau SpaMedic'
+          : 'DeepTrau SpaMedic welcome screen'
+      }
       className="fixed inset-0 z-50 flex min-h-screen flex-col items-center justify-center overflow-hidden px-4 py-12 text-on-surface sm:px-6 lg:px-8"
     >
-      {/* Compuertas arquitectónicas de 4 cuadrantes sobre el lienzo blanco hueso (#F7F5F0) */}
+      {/* Floating EN | ES Switcher */}
+      <LanguageSwitcher variant="floating" />
+
+      {/* 4-quadrant architectural shutters over mineral surface (#F7F5F0) */}
       <div aria-hidden="true" className="pointer-events-none fixed inset-0 z-0 overflow-hidden">
         <div
           ref={shutterTLRef}
@@ -438,7 +441,6 @@ export function WelcomeHome({ onStart }: WelcomeHomeProps) {
           className="absolute bottom-0 right-0 h-[50.5%] w-[50.5%] border-l border-t border-outline-variant/60 bg-surface will-change-transform"
         />
 
-        {/* Líneas de ignición de telemetría durante el desacoplamiento */}
         <div
           ref={seamHRef}
           className="absolute inset-x-0 top-1/2 h-px -translate-y-1/2 bg-primary/45 opacity-0"
@@ -449,7 +451,7 @@ export function WelcomeHome({ onStart }: WelcomeHomeProps) {
         />
       </div>
 
-      {/* Anillos orbitales de calibración espacial */}
+      {/* Orbital calibration rings */}
       <div
         aria-hidden="true"
         className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center"
@@ -492,9 +494,8 @@ export function WelcomeHome({ onStart }: WelcomeHomeProps) {
         />
       </div>
 
-      {/* Contenido central de la portada */}
+      {/* Central Welcome Content */}
       <div className="relative z-20 flex w-full max-w-2xl flex-col items-center text-center">
-        {/* Icono DeepTrau sin fondo blanco, fundido con bg-surface (#F7F5F0) y listo para vuelo FLIP */}
         <div
           ref={logoFlightRef}
           className="relative mb-2 flex h-36 w-44 items-center justify-center will-change-transform sm:h-44 sm:w-52"
@@ -505,7 +506,7 @@ export function WelcomeHome({ onStart }: WelcomeHomeProps) {
           >
             <Image
               src="/DeepTrau_logo.webp"
-              alt="Icono de DeepTrau SpaMedic"
+              alt={language === 'es' ? 'Icono de DeepTrau SpaMedic' : 'DeepTrau SpaMedic Icon'}
               width={220}
               height={220}
               priority
@@ -514,7 +515,6 @@ export function WelcomeHome({ onStart }: WelcomeHomeProps) {
           </div>
         </div>
 
-        {/* Título con máscara de recorte por palabra para coreografía de entrada/salida */}
         <h1 className="flex flex-wrap items-baseline justify-center gap-x-3 font-display text-4xl font-bold tracking-[-0.02em] text-on-surface sm:text-5xl">
           <span className="inline-block overflow-hidden py-1">
             <span ref={wordLeftRef} className="inline-block will-change-transform">
@@ -532,7 +532,9 @@ export function WelcomeHome({ onStart }: WelcomeHomeProps) {
           ref={descRef}
           className="mt-4 max-w-xl text-base leading-relaxed text-on-surface-variant will-change-transform sm:text-lg"
         >
-          Sistema autónomo de telemetría médica, psicología espacial y contramedidas por misión
+          {language === 'es'
+            ? 'Sistema autónomo de telemetría médica, psicología espacial y contramedidas por misión'
+            : 'Autonomous aerospace medical telemetry, space psychology, and mission countermeasures'}
         </p>
 
         <div ref={ctaWrapRef} className="mt-8 will-change-transform">
@@ -546,13 +548,15 @@ export function WelcomeHome({ onStart }: WelcomeHomeProps) {
               <>
                 <Orbit className="h-4 w-4 animate-spin text-primary-container" />
                 <span className="font-mono text-xs tracking-[0.06em] uppercase">
-                  Acoplando Entorno de Misión...
+                  {language === 'es'
+                    ? 'Acoplando Entorno de Misión...'
+                    : 'Docking Mission Environment...'}
                 </span>
                 <Radio className="h-4 w-4 text-primary-container" />
               </>
             ) : (
               <>
-                <span>Comenzar</span>
+                <span>{language === 'es' ? 'Comenzar' : 'Start'}</span>
                 <ArrowRight className="h-4 w-4 dt-transition group-hover:translate-x-1" />
               </>
             )}
@@ -567,7 +571,7 @@ export function WelcomeHome({ onStart }: WelcomeHomeProps) {
         rel="noopener noreferrer"
         className="absolute bottom-4 left-5 z-20 inline-flex items-center gap-1.5 text-xs font-medium tracking-wide text-on-surface-variant opacity-65 dt-transition hover:text-primary hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 rounded-md px-1 py-0.5 will-change-transform sm:bottom-6 sm:left-8"
       >
-        <span>Repositorio GitHub</span>
+        <span>{language === 'es' ? 'Repositorio GitHub' : 'GitHub Repository'}</span>
         <ExternalLink className="h-3 w-3" />
       </a>
 

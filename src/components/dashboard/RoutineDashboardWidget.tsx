@@ -44,6 +44,7 @@ export function RoutineDashboardWidget({
   onOpenFocusMode,
 }: RoutineDashboardWidgetProps) {
   const {
+    language,
     mission,
     astronaut,
     missionDay,
@@ -67,23 +68,25 @@ export function RoutineDashboardWidget({
     .filter((r) => r.completed)
     .reduce((acc, item) => acc + item.points, 0);
 
-  // In compact mode, show up to the 2 most critical pending items (already priority-sorted)
   const compactCriticalPreview = pendingTasks.slice(0, 2);
   const remainingHiddenCount = Math.max(0, routines.length - compactCriticalPreview.length);
 
   const statusBadge =
     pendingCount === 0
       ? {
-          label: '¡Completa!',
+          label: language === 'es' ? '¡Completa!' : 'Complete!',
           classes: 'border-primary/35 bg-primary-container text-on-primary-container',
         }
       : overduePendingCount > 0
         ? {
-            label: `${overduePendingCount} atrasada${overduePendingCount > 1 ? 's' : ''}`,
+            label:
+              language === 'es'
+                ? `${overduePendingCount} atrasada${overduePendingCount > 1 ? 's' : ''}`
+                : `${overduePendingCount} overdue`,
             classes: 'border-danger/40 bg-danger-container text-on-danger-container',
           }
         : {
-            label: `${pendingCount} pend.`,
+            label: language === 'es' ? `${pendingCount} pend.` : `${pendingCount} left`,
             classes: 'border-warning/35 bg-warning-container text-on-warning-container',
           };
 
@@ -99,7 +102,9 @@ export function RoutineDashboardWidget({
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             <h2 className="text-[17px] leading-[22px] font-bold text-on-surface font-display">
-              Rutina del Día · Día {missionDay}
+              {language === 'es'
+                ? `Rutina del Día · Día ${missionDay}`
+                : `Daily Routine · Day ${missionDay}`}
             </h2>
             <span
               className={`rounded-full border px-2 py-0.5 font-mono text-[11px] font-bold ${statusBadge.classes}`}
@@ -109,8 +114,13 @@ export function RoutineDashboardWidget({
           </div>
           <p className="mt-0.5 text-xs text-on-surface-variant">
             <span className="font-semibold text-primary">{mission.shortName}</span> ·{' '}
-            {availableDevices.length - disconnectedCount}/{availableDevices.length} sensores conectados
-            {disconnectedCount > 0 ? ' (modo manual activo)' : ''}
+            {availableDevices.length - disconnectedCount}/{availableDevices.length}{' '}
+            {language === 'es' ? 'sensores conectados' : 'sensors connected'}
+            {disconnectedCount > 0
+              ? language === 'es'
+                ? ' (modo manual activo)'
+                : ' (manual fallback active)'
+              : ''}
           </p>
         </div>
 
@@ -119,11 +129,15 @@ export function RoutineDashboardWidget({
             <button
               type="button"
               onClick={onOpenFocusMode}
-              title="Abrir rutina en vista de enfoque"
+              title={
+                language === 'es'
+                  ? 'Abrir rutina en vista de enfoque'
+                  : 'Open routine in focus mode'
+              }
               className="group inline-flex cursor-pointer items-center gap-1 rounded-lg border border-outline bg-surface-container-low px-2.5 py-1.5 text-[11px] font-semibold text-on-surface-variant font-display dt-transition hover:-translate-y-px hover:border-primary/45 hover:bg-surface-container-high hover:text-on-surface active:translate-y-0 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35"
             >
               <Maximize2 className="h-3.5 w-3.5 text-primary dt-transition group-hover:scale-105" />
-              <span className="hidden sm:inline">Enfoque</span>
+              <span className="hidden sm:inline">{language === 'es' ? 'Enfoque' : 'Focus'}</span>
             </button>
           )}
 
@@ -135,7 +149,15 @@ export function RoutineDashboardWidget({
             aria-controls="routine-expanded-detail"
             className="group inline-flex cursor-pointer items-center gap-1 rounded-lg border border-primary/30 bg-primary-container/65 px-2.5 py-1.5 text-[11px] font-bold text-on-primary-container font-display dt-transition hover:-translate-y-px hover:border-primary hover:bg-primary-container active:translate-y-0 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35 disabled:cursor-default"
           >
-            <span>{isExpanded ? 'Contraer' : 'Ver detalle'}</span>
+            <span>
+              {isExpanded
+                ? language === 'es'
+                  ? 'Contraer'
+                  : 'Collapse'
+                : language === 'es'
+                  ? 'Ver detalle'
+                  : 'Details'}
+            </span>
             <ChevronDown
               className={`h-3.5 w-3.5 text-primary dt-transition ${
                 isExpanded ? 'rotate-180' : 'rotate-0'
@@ -149,13 +171,15 @@ export function RoutineDashboardWidget({
       <div className="space-y-1.5">
         <div className="flex items-center justify-between text-[11px]">
           <span className="font-medium text-on-surface-variant">
-            Progreso:{' '}
+            {language === 'es' ? 'Progreso:' : 'Progress:'}{' '}
             <span className="font-mono font-bold text-on-surface">
               {completedCount}/{routines.length}
             </span>{' '}
             ({progressPct}%)
           </span>
-          <span className="font-mono font-semibold text-primary">+{earnedPoints} pts hoy</span>
+          <span className="font-mono font-semibold text-primary">
+            +{earnedPoints} {language === 'es' ? 'pts hoy' : 'pts today'}
+          </span>
         </div>
         <div className="h-2 w-full overflow-hidden rounded-full bg-surface-container-high">
           <div
@@ -196,13 +220,13 @@ export function RoutineDashboardWidget({
                         {task.priority === 'overdue' && (
                           <span className="inline-flex items-center gap-1 rounded-md border border-danger/40 bg-danger-container px-1.5 py-0.5 font-mono text-[10px] font-bold text-on-danger-container">
                             <AlertOctagon className="h-2.5 w-2.5 text-danger" />
-                            Atrasada
+                            {language === 'es' ? 'Atrasada' : 'Overdue'}
                           </span>
                         )}
                         {task.priority === 'urgent' && (
                           <span className="inline-flex items-center gap-1 rounded-md border border-warning/40 bg-warning-container px-1.5 py-0.5 font-mono text-[10px] font-bold text-on-warning-container">
                             <AlertTriangle className="h-2.5 w-2.5 text-warning" />
-                            Urgente
+                            {language === 'es' ? 'Urgente' : 'Urgent'}
                           </span>
                         )}
                         <span className="rounded-md border border-outline bg-surface-container px-1.5 py-0.5 font-mono text-[10px] font-semibold text-primary">
@@ -221,10 +245,13 @@ export function RoutineDashboardWidget({
                   className="flex w-full cursor-pointer items-center justify-between rounded-xl border border-dashed border-outline bg-surface-container-low/65 px-3 py-2 text-[11px] font-medium text-on-surface-variant dt-transition hover:border-primary/45 hover:bg-surface-container-low hover:text-on-surface active:scale-[0.995] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35"
                 >
                   <span>
-                    +{remainingHiddenCount} tarea{remainingHiddenCount > 1 ? 's' : ''} en la rutina (
-                    {completedCount} completada{completedCount === 1 ? '' : 's'})
+                    {language === 'es'
+                      ? `+${remainingHiddenCount} tarea${remainingHiddenCount > 1 ? 's' : ''} en la rutina (${completedCount} completada${completedCount === 1 ? '' : 's'})`
+                      : `+${remainingHiddenCount} task${remainingHiddenCount > 1 ? 's' : ''} in routine (${completedCount} completed)`}
                   </span>
-                  <span className="font-semibold text-primary font-display">Desplegar todas</span>
+                  <span className="font-semibold text-primary font-display">
+                    {language === 'es' ? 'Desplegar todas' : 'Show all'}
+                  </span>
                 </button>
               )}
             </>
@@ -232,7 +259,11 @@ export function RoutineDashboardWidget({
             <div className="flex items-center justify-between gap-3 rounded-xl border border-primary/30 bg-primary-container/55 px-3.5 py-2.5">
               <div className="flex items-center gap-2 text-xs font-semibold text-on-primary-container font-display">
                 <CheckCircle2 className="h-4 w-4 shrink-0 text-primary" />
-                <span>Rutina diaria completada al 100%</span>
+                <span>
+                  {language === 'es'
+                    ? 'Rutina diaria completada al 100%'
+                    : 'Daily routine 100% complete'}
+                </span>
               </div>
               {!isStaticPreview && (
                 <button
@@ -240,7 +271,7 @@ export function RoutineDashboardWidget({
                   onClick={() => setIsExpanded(true)}
                   className="cursor-pointer text-[11px] font-bold text-primary underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35"
                 >
-                  Revisar lista
+                  {language === 'es' ? 'Revisar lista' : 'Review list'}
                 </button>
               )}
             </div>
@@ -253,10 +284,13 @@ export function RoutineDashboardWidget({
               <Wrench className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
               <div>
                 <span className="font-semibold">
-                  {disconnectedCount} herramienta(s) desconectada(s):
+                  {language === 'es'
+                    ? `${disconnectedCount} herramienta(s) desconectada(s):`
+                    : `${disconnectedCount} tool(s) disconnected:`}
                 </span>{' '}
-                DeepTrau adaptó automáticamente esos escaneos a protocolos clínicos manuales sin
-                hardware.
+                {language === 'es'
+                  ? 'DeepTrau adaptó automáticamente esos escaneos a protocolos clínicos manuales sin hardware.'
+                  : 'DeepTrau automatically adapted those scans into manual hardware-free clinical protocols.'}
               </div>
             </div>
           )}
@@ -300,12 +334,12 @@ export function RoutineDashboardWidget({
                       {!task.completed && task.priority === 'urgent' && (
                         <span className="inline-flex items-center gap-1 rounded-md border border-warning/40 bg-warning-container px-1.5 py-0.5 font-mono text-[10px] font-bold text-on-warning-container">
                           <AlertTriangle className="h-2.5 w-2.5 text-warning" />
-                          Urgente
+                          {language === 'es' ? 'Urgente' : 'Urgent'}
                         </span>
                       )}
                       {task.usesManualFallback && (
                         <span className="rounded-md border border-warning/30 bg-warning-container px-1.5 py-0.5 text-[10px] font-semibold text-on-warning-container">
-                          Modo Manual
+                          {language === 'es' ? 'Modo Manual' : 'Manual Mode'}
                         </span>
                       )}
                       <span className="rounded-md border border-outline bg-surface-container px-1.5 py-0.5 font-mono text-[10px] font-semibold text-primary">
@@ -327,8 +361,12 @@ export function RoutineDashboardWidget({
             <span className="flex items-center gap-1.5 text-on-surface-variant">
               <AlertCircle className="h-3.5 w-3.5 text-primary" />
               {astronaut.clinicalHistory.immuneStatus !== 'Normal'
-                ? 'EHR: Alerta inmune temprana activa'
-                : 'EHR: Parámetros base sincronizados'}
+                ? language === 'es'
+                  ? 'EHR: Alerta inmune temprana activa'
+                  : 'EHR: Early immune alert active'
+                : language === 'es'
+                  ? 'EHR: Parámetros base sincronizados'
+                  : 'EHR: Baseline parameters synced'}
             </span>
             <button
               type="button"
@@ -336,7 +374,7 @@ export function RoutineDashboardWidget({
               className="group inline-flex cursor-pointer items-center gap-1 rounded-lg px-2 py-1 font-semibold text-primary dt-transition hover:-translate-y-px hover:bg-primary-container/60 hover:text-primary-hover active:translate-y-0 active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35"
             >
               <Cpu className="h-3.5 w-3.5 dt-transition group-hover:rotate-12" />
-              Gestionar sensores
+              {language === 'es' ? 'Gestionar sensores' : 'Manage sensors'}
             </button>
           </div>
         </div>

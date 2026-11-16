@@ -1,4 +1,52 @@
 import { MissionType } from '@/data/missionsData';
+import { Language } from '@/i18n/types';
+
+export type PvtStatusLabel =
+  | 'Optimal'
+  | 'Mild Fatigue'
+  | 'Circadian Alert'
+  | 'Óptima'
+  | 'Fatiga Leve'
+  | 'Alerta Circadiana';
+
+export type ConfinementStressLevel =
+  | 'Low'
+  | 'Moderate'
+  | 'High'
+  | 'Bajo'
+  | 'Moderado'
+  | 'Elevado';
+
+export function isCircadianAlertStatus(label: string | undefined): boolean {
+  return label === 'Circadian Alert' || label === 'Alerta Circadiana';
+}
+
+export function isMildFatigueStatus(label: string | undefined): boolean {
+  return label === 'Mild Fatigue' || label === 'Fatiga Leve';
+}
+
+export function isHighStressLevel(level: string | undefined): boolean {
+  return level === 'High' || level === 'Elevado';
+}
+
+export function isModerateStressLevel(level: string | undefined): boolean {
+  return level === 'Moderate' || level === 'Moderado';
+}
+
+export function localizePvtStatus(label: PvtStatusLabel, lang: Language): PvtStatusLabel {
+  if (isCircadianAlertStatus(label)) return lang === 'es' ? 'Alerta Circadiana' : 'Circadian Alert';
+  if (isMildFatigueStatus(label)) return lang === 'es' ? 'Fatiga Leve' : 'Mild Fatigue';
+  return lang === 'es' ? 'Óptima' : 'Optimal';
+}
+
+export function localizeStressLevel(
+  level: ConfinementStressLevel,
+  lang: Language
+): ConfinementStressLevel {
+  if (isHighStressLevel(level)) return lang === 'es' ? 'Elevado' : 'High';
+  if (isModerateStressLevel(level)) return lang === 'es' ? 'Moderado' : 'Moderate';
+  return lang === 'es' ? 'Bajo' : 'Low';
+}
 
 export interface PvtSessionResult {
   id: string;
@@ -10,13 +58,13 @@ export interface PvtSessionResult {
   lapses: number; // >= 500 ms
   falseStarts: number;
   alertnessScore: number; // 0 - 100
-  statusLabel: 'Óptima' | 'Fatiga Leve' | 'Alerta Circadiana';
+  statusLabel: PvtStatusLabel;
 }
 
 export interface DiaryLexicalAnalysis {
   emotionalTone: string;
   vocalFatigue: string;
-  confinementStress: 'Bajo' | 'Moderado' | 'Elevado';
+  confinementStress: ConfinementStressLevel;
   detectedThemes: string[];
   lexicalScore: number; // -3 .. +3
   clinicalRecommendation: string;
@@ -31,6 +79,7 @@ export interface MissionPhaseInsight {
 }
 
 const POSITIVE_MARKERS = [
+  // Spanish
   'bien',
   'calma',
   'tranquilo',
@@ -53,9 +102,28 @@ const POSITIVE_MARKERS = [
   'agradecido',
   'agradecida',
   'claro',
+  // English
+  'good',
+  'calm',
+  'focused',
+  'team',
+  'crew',
+  'success',
+  'rested',
+  'energy',
+  'motivated',
+  'family',
+  'steady',
+  'stable',
+  'resilient',
+  'grateful',
+  'clear',
+  'great',
+  'solid',
 ];
 
 const FATIGUE_MARKERS = [
+  // Spanish
   'cansado',
   'cansada',
   'agotado',
@@ -74,9 +142,25 @@ const FATIGUE_MARKERS = [
   'niebla',
   'ojos',
   'cefalea',
+  // English
+  'tired',
+  'exhausted',
+  'exhaustion',
+  'insomnia',
+  'sleepy',
+  'heavy',
+  'fatigue',
+  'fatigued',
+  'sluggish',
+  'slow',
+  'foggy',
+  'headache',
+  'drowsy',
+  'drained',
 ];
 
 const STRESS_MARKERS = [
+  // Spanish
   'estrés',
   'estres',
   'ansiedad',
@@ -99,12 +183,33 @@ const STRESS_MARKERS = [
   'preocupado',
   'preocupada',
   'conflicto',
+  // English
+  'stress',
+  'stressed',
+  'anxiety',
+  'anxious',
+  'isolated',
+  'isolation',
+  'confined',
+  'confinement',
+  'lonely',
+  'loneliness',
+  'frustrated',
+  'frustration',
+  'homesick',
+  'sad',
+  'pressure',
+  'overwhelmed',
+  'fear',
+  'worried',
+  'conflict',
 ];
 
 export function evaluatePvtSession(
   trialsMs: number[],
   falseStarts: number,
-  day: number
+  day: number,
+  lang: Language = 'en'
 ): PvtSessionResult {
   const valid = trialsMs.length > 0 ? trialsMs : [320];
   const sum = valid.reduce((acc, v) => acc + v, 0);
@@ -121,12 +226,12 @@ export function evaluatePvtSession(
     Math.min(100, Math.round(100 - rtPenalty - lapsePenalty - falseStartPenalty))
   );
 
-  const statusLabel: PvtSessionResult['statusLabel'] =
+  const rawStatus: PvtStatusLabel =
     alertnessScore >= 78 && lapses === 0
-      ? 'Óptima'
+      ? 'Optimal'
       : alertnessScore >= 55 && lapses <= 1
-        ? 'Fatiga Leve'
-        : 'Alerta Circadiana';
+        ? 'Mild Fatigue'
+        : 'Circadian Alert';
 
   const now = new Date();
   const hh = String(now.getHours()).padStart(2, '0');
@@ -135,14 +240,14 @@ export function evaluatePvtSession(
   return {
     id: `pvt-${Date.now()}`,
     day,
-    timestamp: `Día ${day} · ${hh}:${mm} local`,
+    timestamp: lang === 'es' ? `Día ${day} · ${hh}:${mm} local` : `Day ${day} · ${hh}:${mm} local`,
     trialsMs: valid.map((v) => Math.round(v)),
     meanRtMs,
     fastestRtMs,
     lapses,
     falseStarts,
     alertnessScore,
-    statusLabel,
+    statusLabel: localizePvtStatus(rawStatus, lang),
   };
 }
 
@@ -156,7 +261,9 @@ export function analyzeDiaryEntryLocally(params: {
   durationSeconds?: number;
   voiceActiveRatio?: number; // 0..1 measured from AnalyserNode
   usedRealMic?: boolean;
+  lang?: Language;
 }): DiaryLexicalAnalysis {
+  const lang = params.lang ?? 'en';
   const combined = `${params.title} ${params.notes}`.toLowerCase();
   const words = combined.split(/\s+/).filter(Boolean);
 
@@ -171,6 +278,15 @@ export function analyzeDiaryEntryLocally(params: {
     if (STRESS_MARKERS.some((m) => clean.includes(m))) stressHits += 1;
   }
 
+  const sleepThemeLabel =
+    lang === 'es' ? 'Higiene Circadiana / Sueño' : 'Circadian Hygiene / Sleep';
+  const earthThemeLabel =
+    lang === 'es' ? 'Vínculo Terrestre / Nostalgia' : 'Earth Bond / Nostalgia';
+  const crewThemeLabel = lang === 'es' ? 'Cohesión de Tripulación' : 'Crew Cohesion';
+  const opsThemeLabel = lang === 'es' ? 'Carga Operativa' : 'Operational Workload';
+  const posThemeLabel = lang === 'es' ? 'Regulación Positiva' : 'Positive Regulation';
+  const fallbackThemeLabel = lang === 'es' ? 'Bitácora de Seguimiento' : 'Follow-up Log';
+
   const detectedThemes: string[] = [];
   if (
     combined.includes('sueñ') ||
@@ -178,105 +294,160 @@ export function analyzeDiaryEntryLocally(params: {
     combined.includes('dorm') ||
     combined.includes('insom') ||
     combined.includes('luz') ||
+    combined.includes('sleep') ||
+    combined.includes('nap') ||
+    combined.includes('rest') ||
+    combined.includes('light') ||
+    combined.includes('circad') ||
     params.sleepHours < 6.5
   ) {
-    detectedThemes.push('Higiene Circadiana / Sueño');
+    detectedThemes.push(sleepThemeLabel);
   }
   if (
     combined.includes('famil') ||
     combined.includes('casa') ||
     combined.includes('tierra') ||
     combined.includes('nostalg') ||
-    combined.includes('extrañ')
+    combined.includes('extrañ') ||
+    combined.includes('home') ||
+    combined.includes('earth') ||
+    combined.includes('miss')
   ) {
-    detectedThemes.push('Vínculo Terrestre / Nostalgia');
+    detectedThemes.push(earthThemeLabel);
   }
   if (
     combined.includes('equipo') ||
     combined.includes('tripul') ||
     combined.includes('compañ') ||
-    combined.includes('cabina')
+    combined.includes('cabina') ||
+    combined.includes('crew') ||
+    combined.includes('team') ||
+    combined.includes('cabin')
   ) {
-    detectedThemes.push('Cohesión de Tripulación');
+    detectedThemes.push(crewThemeLabel);
   }
   if (
     combined.includes('eva') ||
     combined.includes('caminata') ||
+    combined.includes('spacewalk') ||
     combined.includes('turno') ||
+    combined.includes('shift') ||
     combined.includes('maniobra') ||
+    combined.includes('maneuver') ||
     combined.includes('rover')
   ) {
-    detectedThemes.push('Carga Operativa');
+    detectedThemes.push(opsThemeLabel);
   }
   if (posHits > 0 && stressHits === 0) {
-    detectedThemes.push('Regulación Positiva');
+    detectedThemes.push(posThemeLabel);
   }
   if (detectedThemes.length === 0) {
-    detectedThemes.push('Bitácora de Seguimiento');
+    detectedThemes.push(fallbackThemeLabel);
   }
 
   const lexicalRaw = posHits - stressHits * 1.2 - fatHits * 0.8;
   const lexicalScore = Math.max(-3, Math.min(3, Math.round(lexicalRaw)));
 
   const compositeStress =
-    params.stressLevel + stressHits * 1.1 + fatHits * 0.7 - posHits * 0.6 + (params.moodRating <= 5 ? 1.5 : 0);
+    params.stressLevel +
+    stressHits * 1.1 +
+    fatHits * 0.7 -
+    posHits * 0.6 +
+    (params.moodRating <= 5 ? 1.5 : 0);
 
-  const confinementStress: 'Bajo' | 'Moderado' | 'Elevado' =
+  const rawStress: ConfinementStressLevel =
     compositeStress >= 7.5 || params.moodRating <= 4
-      ? 'Elevado'
+      ? 'High'
       : compositeStress >= 5 || params.moodRating <= 6
-        ? 'Moderado'
-        : 'Bajo';
+        ? 'Moderate'
+        : 'Low';
+  const confinementStress = localizeStressLevel(rawStress, lang);
 
-  let emotionalTone = 'Equilibrio emocional positivo';
-  if (confinementStress === 'Elevado') {
+  let emotionalTone =
+    lang === 'es' ? 'Equilibrio emocional positivo' : 'Positive emotional equilibrium';
+  if (rawStress === 'High') {
     emotionalTone =
       stressHits > fatHits
-        ? 'Sobrecarga emocional / aislamiento detectado'
-        : 'Desgaste anímico y fatiga acumulada';
-  } else if (confinementStress === 'Moderado') {
+        ? lang === 'es'
+          ? 'Sobrecarga emocional / aislamiento detectado'
+          : 'Emotional overload / isolation detected'
+        : lang === 'es'
+          ? 'Desgaste anímico y fatiga acumulada'
+          : 'Mood wear and cumulative fatigue';
+  } else if (rawStress === 'Moderate') {
     emotionalTone =
       fatHits > 0
-        ? 'Cansancio leve con alerta de descanso'
-        : 'Oscilación anímica moderada (monitoreo activo)';
+        ? lang === 'es'
+          ? 'Cansancio leve con alerta de descanso'
+          : 'Mild fatigue with rest advisory'
+        : lang === 'es'
+          ? 'Oscilación anímica moderada (monitoreo activo)'
+          : 'Moderate mood fluctuation (active monitoring)';
   } else if (posHits >= 2) {
-    emotionalTone = 'Resiliencia alta y enfoque operativo';
+    emotionalTone =
+      lang === 'es'
+        ? 'Resiliencia alta y enfoque operativo'
+        : 'High resilience and operational focus';
   }
 
-  let vocalFatigue = 'N/A (Bitácora escrita)';
+  let vocalFatigue = lang === 'es' ? 'N/A (Bitácora escrita)' : 'N/A (Written log)';
   if (params.mode === 'video') {
     const duration = params.durationSeconds ?? 0;
     const ratio = params.voiceActiveRatio;
     if (params.usedRealMic && typeof ratio === 'number' && duration >= 2) {
       const pct = Math.round(ratio * 100);
       if (ratio < 0.28 || params.sleepHours < 6) {
-        vocalFatigue = `Elevada · micro-pausas frecuentes (${pct}% voz activa, ${duration}s)`;
+        vocalFatigue =
+          lang === 'es'
+            ? `Elevada · micro-pausas frecuentes (${pct}% voz activa, ${duration}s)`
+            : `High · frequent micro-pauses (${pct}% active voice, ${duration}s)`;
       } else if (ratio < 0.48 || fatHits > 0) {
-        vocalFatigue = `Moderada · cadencia pausada (${pct}% voz activa, ${duration}s)`;
+        vocalFatigue =
+          lang === 'es'
+            ? `Moderada · cadencia pausada (${pct}% voz activa, ${duration}s)`
+            : `Moderate · slower cadence (${pct}% active voice, ${duration}s)`;
       } else {
-        vocalFatigue = `Baja · prosodia fluida (${pct}% voz activa, ${duration}s)`;
+        vocalFatigue =
+          lang === 'es'
+            ? `Baja · prosodia fluida (${pct}% voz activa, ${duration}s)`
+            : `Low · fluid prosody (${pct}% active voice, ${duration}s)`;
       }
     } else if (duration >= 2) {
       vocalFatigue =
         params.sleepHours < 6.5 || fatHits > 0
-          ? `Moderada estimada en simulador (${duration}s)`
-          : `Baja estimada en simulador (${duration}s)`;
+          ? lang === 'es'
+            ? `Moderada estimada en simulador (${duration}s)`
+            : `Moderate estimated in simulator (${duration}s)`
+          : lang === 'es'
+            ? `Baja estimada en simulador (${duration}s)`
+            : `Low estimated in simulator (${duration}s)`;
     } else {
-      vocalFatigue = 'Sin audio capturado (solo registro contextual)';
+      vocalFatigue =
+        lang === 'es'
+          ? 'Sin audio capturado (solo registro contextual)'
+          : 'No audio captured (contextual log only)';
     }
   }
 
   let clinicalRecommendation =
-    'Mantener rutina circadiana y registrar próximo check-in al cierre de turno.';
-  if (confinementStress === 'Elevado') {
+    lang === 'es'
+      ? 'Mantener rutina circadiana y registrar próximo check-in al cierre de turno.'
+      : 'Maintain circadian routine and log next check-in at end of shift.';
+  if (rawStress === 'High') {
     clinicalRecommendation =
-      'Activar 4 ciclos de respiración 4-4-4-4, abrir "Mi Ancla en la Tierra" y priorizar envío prioritario a Psicología de Tierra.';
-  } else if (detectedThemes.includes('Higiene Circadiana / Sueño')) {
+      lang === 'es'
+        ? 'Activar 4 ciclos de respiración 4-4-4-4, abrir "Mi Ancla en la Tierra" y priorizar envío prioritario a Psicología de Tierra.'
+        : 'Run 4 cycles of 4-4-4-4 box breathing, open "My Earth Anchor", and prioritize downlink to Earth Psychology.';
+  } else if (detectedThemes.includes(sleepThemeLabel)) {
     clinicalRecommendation =
-      'Cambiar iluminación de cabina a Ámbar 1800K 60 min antes de dormir y completar un Test PVT al despertar.';
-  } else if (detectedThemes.includes('Vínculo Terrestre / Nostalgia')) {
+      lang === 'es'
+        ? 'Cambiar iluminación de cabina a Ámbar 1800K 60 min antes de dormir y completar un Test PVT al despertar.'
+        : 'Switch cabin lighting to 1800K Amber 60 min before sleep and complete a PVT test on waking.';
+  } else if (detectedThemes.includes(earthThemeLabel)) {
     clinicalRecommendation =
-      'Reproducir paisaje sonoro familiar en "Mi Ancla en la Tierra" y programar mensaje asíncrono a familia.';
+      lang === 'es'
+        ? 'Reproducir paisaje sonoro familiar en "Mi Ancla en la Tierra" y programar mensaje asíncrono a familia.'
+        : 'Play family soundscape in "My Earth Anchor" and schedule an async message to family.';
   }
 
   return {
@@ -297,7 +468,9 @@ export function computeMissionPhaseInsight(params: {
   stressLevel: number;
   crewCohesion: number;
   latestPvtScore?: number;
+  lang?: Language;
 }): MissionPhaseInsight {
+  const lang = params.lang ?? 'en';
   const progressPercent = Math.min(
     100,
     Math.max(1, Math.round((params.missionDay / Math.max(1, params.mission.durationDays)) * 100))
@@ -306,12 +479,20 @@ export function computeMissionPhaseInsight(params: {
 
   const phaseTitle =
     progressPercent < 25
-      ? 'Fase 1 · Adaptación Orbital / Cabina'
+      ? lang === 'es'
+        ? 'Fase 1 · Adaptación Orbital / Cabina'
+        : 'Phase 1 · Orbital / Cabin Adaptation'
       : progressPercent < 50
-        ? 'Fase 2 · Ritmo Operativo Estable'
+        ? lang === 'es'
+          ? 'Fase 2 · Ritmo Operativo Estable'
+          : 'Phase 2 · Steady Operational Rhythm'
         : progressPercent <= 78
-          ? 'Fase 3 · Ventana "Tercer Cuarto de Misión"'
-          : 'Fase 4 · Preparación de Retorno';
+          ? lang === 'es'
+            ? 'Fase 3 · Ventana "Tercer Cuarto de Misión"'
+            : 'Phase 3 · "Third-Quarter" Mission Window'
+          : lang === 'es'
+            ? 'Fase 4 · Preparación de Retorno'
+            : 'Phase 4 · Return Preparation';
 
   const sleepScore = Math.min(100, Math.max(0, (params.sleepHours / 8) * 100));
   const moodPct = params.moodScore * 10;
@@ -326,16 +507,24 @@ export function computeMissionPhaseInsight(params: {
   );
 
   let summary =
-    'Equilibrio neuroconductual estable. Mantén anclaje circadiano y pausas activas.';
+    lang === 'es'
+      ? 'Equilibrio neuroconductual estable. Mantén anclaje circadiano y pausas activas.'
+      : 'Stable neurobehavioral equilibrium. Maintain circadian anchoring and active breaks.';
   if (isThirdQuarterWindow && resilienceScore < 72) {
     summary =
-      'Mitad avanzada de misión con señales de desgaste acumulativo; refuerza cohesión y conexión terrestre.';
+      lang === 'es'
+        ? 'Mitad avanzada de misión con señales de desgaste acumulativo; refuerza cohesión y conexión terrestre.'
+        : 'Late mission mid-point showing cumulative wear signs; reinforce crew cohesion and Earth connection.';
   } else if (isThirdQuarterWindow) {
     summary =
-      'En ventana de tercer cuarto de misión: buen control actual, se recomienda sostener rituales semanales.';
+      lang === 'es'
+        ? 'En ventana de tercer cuarto de misión: buen control actual, se recomienda sostener rituales semanales.'
+        : 'Inside Third-Quarter window: strong current baseline; sustain weekly resilience rituals.';
   } else if (resilienceScore < 65) {
     summary =
-      'Carga de estrés o déficit de sueño reduce la reserva cognitiva; prioriza descanso protegido.';
+      lang === 'es'
+        ? 'Carga de estrés o déficit de sueño reduce la reserva cognitiva; prioriza descanso protegido.'
+        : 'Elevated stress or sleep deficit is lowering cognitive reserve; prioritize protected rest.';
   }
 
   return {

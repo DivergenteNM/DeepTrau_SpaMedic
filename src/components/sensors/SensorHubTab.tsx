@@ -19,6 +19,7 @@ type SensorFilter = 'all' | 'connected' | 'disconnected' | 'unavailable';
 
 export function SensorHubTab() {
   const {
+    language,
     mission,
     devices,
     toggleDevice,
@@ -76,24 +77,36 @@ export function SensorHubTab() {
             </div>
             <h2 className="flex items-center gap-2 text-[22px] leading-[28px] font-bold text-on-surface font-display">
               <Cpu className="h-5 w-5 text-primary" />
-              Sensores y Herramientas de Cabina
+              {language === 'es'
+                ? 'Sensores y Herramientas de Cabina'
+                : 'Cabin Sensors & Medical Tools'}
             </h2>
             <p className="text-xs text-on-surface-variant">
-              Activa o pausa el equipamiento disponible en esta misión. Haz clic en cualquier tarjeta
-              para ver la guía de medición, pruebas y datos extendidos.
+              {language === 'es'
+                ? 'Activa o pausa el equipamiento disponible en esta misión. Haz clic en cualquier tarjeta para ver la guía de medición, pruebas y datos extendidos.'
+                : 'Enable or pause medical hardware onboard this mission. Click any card for measurement steps, diagnostics, and extended telemetry.'}
             </p>
           </div>
 
           <div className="flex flex-wrap items-center gap-2 shrink-0">
             <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary-container px-3 py-1 font-mono text-[11px] font-bold text-on-primary-container">
               <span className="h-2 w-2 rounded-full bg-primary" />
-              {counts.connected} Conectado{counts.connected === 1 ? '' : 's'}
+              {counts.connected}{' '}
+              {language === 'es'
+                ? `Conectado${counts.connected === 1 ? '' : 's'}`
+                : 'Connected'}
             </span>
             <span className="inline-flex items-center gap-1.5 rounded-full border border-outline bg-surface-container-low px-3 py-1 font-mono text-[11px] font-semibold text-on-surface-variant">
-              {counts.disconnected} Desconectado{counts.disconnected === 1 ? '' : 's'}
+              {counts.disconnected}{' '}
+              {language === 'es'
+                ? `Desconectado${counts.disconnected === 1 ? '' : 's'}`
+                : 'Disconnected'}
             </span>
             <span className="inline-flex items-center gap-1.5 rounded-full border border-outline bg-surface-container-high px-3 py-1 font-mono text-[11px] font-semibold text-on-surface-variant">
-              {counts.unavailable} No disponible{counts.unavailable === 1 ? '' : 's'}
+              {counts.unavailable}{' '}
+              {language === 'es'
+                ? `No disponible${counts.unavailable === 1 ? '' : 's'}`
+                : 'Unavailable'}
             </span>
 
             <button
@@ -107,7 +120,7 @@ export function SensorHubTab() {
               }`}
             >
               <SlidersHorizontal className="h-3.5 w-3.5" />
-              <span>Gestionar sensores</span>
+              <span>{language === 'es' ? 'Gestionar sensores' : 'Manage sensors'}</span>
             </button>
           </div>
         </div>
@@ -118,10 +131,14 @@ export function SensorHubTab() {
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-outline-variant pb-3">
               <div>
                 <p className="text-xs font-bold text-on-surface font-display">
-                  Control rápido de equipamiento · {mission.name}
+                  {language === 'es'
+                    ? `Control rápido de equipamiento · ${mission.name}`
+                    : `Quick hardware control · ${mission.name}`}
                 </p>
                 <p className="text-[11px] text-on-surface-variant">
-                  Habilita todos los sensores embarcados o pasa a modo manual para ahorro energético.
+                  {language === 'es'
+                    ? 'Habilita todos los sensores embarcados o pasa a modo manual para ahorro energético.'
+                    : 'Connect all onboard sensors or switch to manual mode to conserve power.'}
                 </p>
               </div>
               <div className="flex flex-wrap items-center gap-2">
@@ -131,7 +148,11 @@ export function SensorHubTab() {
                   className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-primary/35 bg-primary-container px-3 py-1.5 text-xs font-semibold text-on-primary-container font-display dt-transition hover:-translate-y-px hover:bg-primary hover:text-on-primary active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35"
                 >
                   <CheckCircle2 className="h-3.5 w-3.5" />
-                  <span>Conectar disponibles ({availableDevices.length})</span>
+                  <span>
+                    {language === 'es'
+                      ? `Conectar disponibles (${availableDevices.length})`
+                      : `Connect available (${availableDevices.length})`}
+                  </span>
                 </button>
                 <button
                   type="button"
@@ -139,7 +160,9 @@ export function SensorHubTab() {
                   className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-outline bg-surface-container px-3 py-1.5 text-xs font-semibold text-on-surface-variant font-display dt-transition hover:-translate-y-px hover:border-primary/40 hover:text-on-surface active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35"
                 >
                   <Power className="h-3.5 w-3.5" />
-                  <span>Pasar a modo manual</span>
+                  <span>
+                    {language === 'es' ? 'Pasar a modo manual' : 'Switch to manual mode'}
+                  </span>
                 </button>
               </div>
             </div>
@@ -173,7 +196,7 @@ export function SensorHubTab() {
                     </button>
                   ) : (
                     <span className="shrink-0 font-mono text-[10px] text-on-surface-variant">
-                      N/D
+                      {language === 'es' ? 'N/D' : 'N/A'}
                     </span>
                   )}
                 </div>
@@ -183,7 +206,9 @@ export function SensorHubTab() {
             {/* Discrete Test Scenarios Strip */}
             <div className="flex flex-wrap items-center justify-between gap-2 border-t border-outline-variant pt-3">
               <span className="text-[11px] font-semibold text-on-surface-variant font-display">
-                Pruebas de alertas en sensores:
+                {language === 'es'
+                  ? 'Pruebas de alertas en sensores:'
+                  : 'Sensor alert test scenarios:'}
               </span>
               <div className="flex flex-wrap items-center gap-1.5">
                 <button
@@ -192,7 +217,7 @@ export function SensorHubTab() {
                   className="inline-flex cursor-pointer items-center gap-1 rounded-lg border border-danger/35 bg-danger-container/75 px-2.5 py-1 text-[11px] font-semibold text-on-danger-container font-display dt-transition hover:-translate-y-px hover:border-danger hover:bg-danger-container active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger/35"
                 >
                   <ShieldAlert className="h-3 w-3 text-danger" />
-                  <span>Tormenta Solar</span>
+                  <span>{language === 'es' ? 'Tormenta Solar' : 'Solar Storm'}</span>
                 </button>
                 <button
                   type="button"
@@ -200,7 +225,9 @@ export function SensorHubTab() {
                   className="inline-flex cursor-pointer items-center gap-1 rounded-lg border border-warning/35 bg-warning-container/75 px-2.5 py-1 text-[11px] font-semibold text-on-warning-container font-display dt-transition hover:-translate-y-px hover:border-warning hover:bg-warning-container active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-warning/35"
                 >
                   <AlertTriangle className="h-3 w-3 text-warning" />
-                  <span>Hipoglucemia + Inmune</span>
+                  <span>
+                    {language === 'es' ? 'Hipoglucemia + Inmune' : 'Hypoglycemia + Immune'}
+                  </span>
                 </button>
                 <button
                   type="button"
@@ -208,7 +235,7 @@ export function SensorHubTab() {
                   className="inline-flex cursor-pointer items-center gap-1 rounded-lg border border-outline bg-surface-container px-2.5 py-1 text-[11px] font-semibold text-on-surface-variant font-display dt-transition hover:-translate-y-px hover:border-primary/40 hover:text-on-surface active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35"
                 >
                   <RotateCcw className="h-3 w-3" />
-                  <span>Restablecer Nominal</span>
+                  <span>{language === 'es' ? 'Restablecer Nominal' : 'Restore Nominal'}</span>
                 </button>
               </div>
             </div>
@@ -219,10 +246,31 @@ export function SensorHubTab() {
         <div className="flex flex-wrap items-center gap-1.5 border-t border-outline-variant pt-3">
           {(
             [
-              { id: 'all', label: `Todos (${counts.all})` },
-              { id: 'connected', label: `Conectados (${counts.connected})` },
-              { id: 'disconnected', label: `Desconectados (${counts.disconnected})` },
-              { id: 'unavailable', label: `No disponibles (${counts.unavailable})` },
+              {
+                id: 'all',
+                label: language === 'es' ? `Todos (${counts.all})` : `All (${counts.all})`,
+              },
+              {
+                id: 'connected',
+                label:
+                  language === 'es'
+                    ? `Conectados (${counts.connected})`
+                    : `Connected (${counts.connected})`,
+              },
+              {
+                id: 'disconnected',
+                label:
+                  language === 'es'
+                    ? `Desconectados (${counts.disconnected})`
+                    : `Disconnected (${counts.disconnected})`,
+              },
+              {
+                id: 'unavailable',
+                label:
+                  language === 'es'
+                    ? `No disponibles (${counts.unavailable})`
+                    : `Unavailable (${counts.unavailable})`,
+              },
             ] as const
           ).map((item) => {
             const active = filter === item.id;
@@ -244,11 +292,20 @@ export function SensorHubTab() {
         </div>
       </section>
 
-      {/* Clean Minimalist Sensor Cards Grid */}
+      {/* Sensor Cards Grid */}
       {filteredDevices.length === 0 ? (
         <div className="rounded-2xl border border-outline bg-surface-container p-8 text-center text-xs text-on-surface-variant">
-          No hay sensores en esta categoría para{' '}
-          <span className="font-semibold text-on-surface">{mission.shortName}</span>.
+          {language === 'es' ? (
+            <>
+              No hay sensores en esta categoría para{' '}
+              <span className="font-semibold text-on-surface">{mission.shortName}</span>.
+            </>
+          ) : (
+            <>
+              No sensors in this category for{' '}
+              <span className="font-semibold text-on-surface">{mission.shortName}</span>.
+            </>
+          )}
         </div>
       ) : (
         <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
@@ -279,10 +336,13 @@ export function SensorHubTab() {
                     setSelectedDeviceId(dev.id);
                   }
                 }}
-                aria-label={`Abrir guía y pruebas de ${dev.shortName}`}
+                aria-label={
+                  language === 'es'
+                    ? `Abrir guía y pruebas de ${dev.shortName}`
+                    : `Open guide and diagnostics for ${dev.shortName}`
+                }
                 className={`group flex cursor-pointer flex-col justify-between gap-4 rounded-2xl border p-5 dt-transition hover:-translate-y-0.5 hover:shadow-[0_10px_24px_-14px_rgba(47,93,70,0.22)] active:translate-y-0 active:scale-[0.992] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35 ${cardClasses}`}
               >
-                {/* Row 1: Icon + Name + Connection Switch */}
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex min-w-0 items-center gap-3">
                     <div
@@ -311,8 +371,12 @@ export function SensorHubTab() {
                       aria-checked={isConnected}
                       aria-label={
                         isConnected
-                          ? `Desconectar ${dev.shortName}`
-                          : `Conectar ${dev.shortName}`
+                          ? language === 'es'
+                            ? `Desconectar ${dev.shortName}`
+                            : `Disconnect ${dev.shortName}`
+                          : language === 'es'
+                            ? `Conectar ${dev.shortName}`
+                            : `Connect ${dev.shortName}`
                       }
                       onClick={(e) => {
                         e.stopPropagation();
@@ -333,16 +397,17 @@ export function SensorHubTab() {
                   ) : (
                     <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-outline bg-surface-container-high px-2 py-0.5 font-mono text-[10px] font-semibold text-on-surface-variant">
                       <Ban className="h-3 w-3" />
-                      <span>N/D</span>
+                      <span>{language === 'es' ? 'N/D' : 'N/A'}</span>
                     </span>
                   )}
                 </div>
 
-                {/* Row 2: Main Reading / Inactive / Mission Restriction */}
                 <div className="min-h-[44px] flex flex-col justify-center">
                   {!isAvailable ? (
                     <p className="text-xs font-medium text-on-surface-variant">
-                      No embarcado en {mission.shortName}
+                      {language === 'es'
+                        ? `No embarcado en ${mission.shortName}`
+                        : `Not onboarded in ${mission.shortName}`}
                     </p>
                   ) : isConnected ? (
                     <div>
@@ -356,16 +421,17 @@ export function SensorHubTab() {
                   ) : (
                     <div>
                       <p className="text-sm font-semibold text-on-surface-variant font-display">
-                        En espera · Pausado
+                        {language === 'es' ? 'En espera · Pausado' : 'Standby · Paused'}
                       </p>
                       <p className="mt-0.5 text-[11px] text-on-surface-variant">
-                        Protocolo clínico manual activo
+                        {language === 'es'
+                          ? 'Protocolo clínico manual activo'
+                          : 'Manual clinical protocol active'}
                       </p>
                     </div>
                   )}
                 </div>
 
-                {/* Row 3: Connection Badge + Alert Indicator (if applicable) */}
                 <div className="flex items-center justify-between gap-2 border-t border-outline-variant pt-3">
                   <span
                     className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 font-display text-[11px] font-semibold ${
@@ -386,10 +452,16 @@ export function SensorHubTab() {
                       }`}
                     />
                     {!isAvailable
-                      ? 'No disponible en esta misión'
+                      ? language === 'es'
+                        ? 'No disponible en esta misión'
+                        : 'Unavailable in this mission'
                       : isConnected
-                        ? 'Conectado'
-                        : 'Desconectado'}
+                        ? language === 'es'
+                          ? 'Conectado'
+                          : 'Connected'
+                        : language === 'es'
+                          ? 'Desconectado'
+                          : 'Disconnected'}
                   </span>
 
                   {hasAlert ? (
@@ -405,11 +477,17 @@ export function SensorHubTab() {
                       ) : (
                         <AlertTriangle className="h-3 w-3 text-warning" />
                       )}
-                      {dev.status === 'critical' ? 'Crítico' : 'Precaución'}
+                      {dev.status === 'critical'
+                        ? language === 'es'
+                          ? 'Crítico'
+                          : 'Critical'
+                        : language === 'es'
+                          ? 'Precaución'
+                          : 'Caution'}
                     </span>
                   ) : (
                     <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-primary opacity-80 dt-transition group-hover:translate-x-0.5 group-hover:opacity-100 font-display">
-                      <span>Guía y pruebas</span>
+                      <span>{language === 'es' ? 'Guía y pruebas' : 'Guide & tests'}</span>
                       <ArrowUpRight className="h-3.5 w-3.5" />
                     </span>
                   )}
