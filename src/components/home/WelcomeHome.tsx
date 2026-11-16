@@ -2,7 +2,7 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import Image from 'next/image';
-import { ArrowRight, Orbit, Radio } from 'lucide-react';
+import { ArrowRight, ExternalLink, Orbit, Radio } from 'lucide-react';
 
 interface WelcomeHomeProps {
   onStart: () => void;
@@ -35,6 +35,8 @@ export function WelcomeHome({ onStart }: WelcomeHomeProps) {
   const wordRightRef = useRef<HTMLSpanElement>(null);
   const descRef = useRef<HTMLParagraphElement>(null);
   const ctaWrapRef = useRef<HTMLDivElement>(null);
+  const repoLinkRef = useRef<HTMLAnchorElement>(null);
+  const creditRef = useRef<HTMLParagraphElement>(null);
 
   // Act I: Coreografía de entrada al montar la portada
   useEffect(() => {
@@ -104,6 +106,22 @@ export function WelcomeHome({ onStart }: WelcomeHomeProps) {
       ],
       { duration: 820, delay: 520, easing: EASE_EXPO_OUT, fill: 'forwards' }
     );
+
+    repoLinkRef.current?.animate(
+      [
+        { transform: 'translate3d(0, 12px, 0)', opacity: 0 },
+        { transform: 'translate3d(0, 0, 0)', opacity: 0.65 },
+      ],
+      { duration: 760, delay: 620, easing: EASE_EXPO_OUT, fill: 'forwards' }
+    );
+
+    creditRef.current?.animate(
+      [
+        { transform: 'translate3d(0, 12px, 0)', opacity: 0 },
+        { transform: 'translate3d(0, 0, 0)', opacity: 0.65 },
+      ],
+      { duration: 760, delay: 620, easing: EASE_EXPO_OUT, fill: 'forwards' }
+    );
   }, []);
 
   // Act II & III: Coreografía espacial multi-etapa hacia Selección de Misión
@@ -142,6 +160,22 @@ export function WelcomeHome({ onStart }: WelcomeHomeProps) {
         { transform: 'translate3d(0, 42px, 0) scale(0.94)', opacity: 0 },
       ],
       { duration: 360, delay: 40, easing: EASE_POWER3_IN, fill: 'forwards' }
+    );
+
+    repoLinkRef.current?.animate(
+      [
+        { transform: 'translate3d(0, 0, 0)', opacity: 0.65 },
+        { transform: 'translate3d(-16px, 16px, 0)', opacity: 0 },
+      ],
+      { duration: 300, easing: EASE_POWER3_IN, fill: 'forwards' }
+    );
+
+    creditRef.current?.animate(
+      [
+        { transform: 'translate3d(0, 0, 0)', opacity: 0.65 },
+        { transform: 'translate3d(16px, 16px, 0)', opacity: 0 },
+      ],
+      { duration: 300, easing: EASE_POWER3_IN, fill: 'forwards' }
     );
 
     // 2. Retracción en máscara del título principal (60ms - 460ms)
@@ -525,6 +559,24 @@ export function WelcomeHome({ onStart }: WelcomeHomeProps) {
           </button>
         </div>
       </div>
+
+      <a
+        ref={repoLinkRef}
+        href="https://github.com/DivergenteNM/DeepTrau_SpaMedic"
+        target="_blank"
+        rel="noopener noreferrer"
+        className="absolute bottom-4 left-5 z-20 inline-flex items-center gap-1.5 text-xs font-medium tracking-wide text-on-surface-variant opacity-65 dt-transition hover:text-primary hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 rounded-md px-1 py-0.5 will-change-transform sm:bottom-6 sm:left-8"
+      >
+        <span>Repositorio GitHub</span>
+        <ExternalLink className="h-3 w-3" />
+      </a>
+
+      <p
+        ref={creditRef}
+        className="pointer-events-none absolute bottom-4 right-5 z-20 select-none text-xs font-medium tracking-wide text-on-surface-variant opacity-65 will-change-transform sm:bottom-6 sm:right-8"
+      >
+        By: Nicolás Martínez
+      </p>
     </section>
   );
 }

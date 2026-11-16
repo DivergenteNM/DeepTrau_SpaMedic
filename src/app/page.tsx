@@ -12,6 +12,7 @@ import { SensorHubTab } from '@/components/sensors/SensorHubTab';
 import { MentalHealthTab } from '@/components/psychology/MentalHealthTab';
 import { BoneMuscleTab } from '@/components/musculoskeletal/BoneMuscleTab';
 import { MissionMonitorTab } from '@/components/survival/MissionMonitorTab';
+import { SosEmergencyOverlay } from '@/components/emergency/SosEmergencyOverlay';
 
 export default function HomePage() {
   const { isHydrated, hasCompletedWelcome, isOnboarded, activeTab, completeWelcome } =
@@ -81,6 +82,8 @@ export default function HomePage() {
           </div>
         </main>
       </div>
+
+      <SosEmergencyOverlay />
     </div>
   );
 }

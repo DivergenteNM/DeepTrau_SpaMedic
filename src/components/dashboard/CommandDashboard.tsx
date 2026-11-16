@@ -3,6 +3,7 @@
 import React from 'react';
 import {
   AlertCircle,
+  AlertOctagon,
   CheckCircle2,
   Circle,
   Cpu,
@@ -11,10 +12,12 @@ import {
   HeartPulse,
   Info,
   Radiation,
+  RotateCcw,
   ShieldAlert,
   Sparkles,
   Trophy,
   Wrench,
+  Zap,
 } from 'lucide-react';
 import { useMission } from '@/context/MissionContext';
 import { InteractiveBodyMap } from './InteractiveBodyMap';
@@ -30,8 +33,14 @@ export function CommandDashboard() {
     healthPoints,
     readinessScore,
     systemStatuses,
+    globalTriage,
+    activeCrisisScenario,
+    crisisAlertBanner,
     toggleRoutineTask,
     setActiveTab,
+    openSosOverlay,
+    simulateLiveCrisis,
+    restoreNominalVitals,
   } = useMission();
 
   const completedCount = routines.filter((r) => r.completed).length;
@@ -86,6 +95,84 @@ export function CommandDashboard() {
 
   return (
     <div className="space-y-6">
+      {/* Active Crisis Alert Banner (when a live crisis is triggered) */}
+      {crisisAlertBanner && (
+        <section className="dt-animate-panel flex flex-col gap-3 rounded-2xl border-2 border-danger bg-danger-container p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-start gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-danger text-on-primary animate-pulse">
+              <AlertOctagon className="h-5 w-5" />
+            </div>
+            <div className="text-xs">
+              <p className="text-sm font-bold text-on-danger-container font-display">
+                {crisisAlertBanner.title}
+              </p>
+              <p className="mt-0.5 text-on-danger-container/95">{crisisAlertBanner.description}</p>
+            </div>
+          </div>
+          <div className="flex flex-wrap items-center gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={() => openSosOverlay()}
+              className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl bg-danger px-3.5 py-2 text-xs font-bold text-on-primary font-display dt-transition hover:-translate-y-px hover:bg-danger-hover active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger/40"
+            >
+              <AlertOctagon className="h-3.5 w-3.5" />
+              <span>Abrir Panel SOS</span>
+            </button>
+            <button
+              type="button"
+              onClick={restoreNominalVitals}
+              className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl border border-danger/35 bg-surface-container px-3 py-2 text-xs font-semibold text-on-danger-container font-display dt-transition hover:-translate-y-px hover:bg-surface-container-low active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger/40"
+            >
+              <RotateCcw className="h-3.5 w-3.5" />
+              <span>Restablecer Signos Nominales</span>
+            </button>
+          </div>
+        </section>
+      )}
+
+      {/* Discrete Jury Demo Strip: Simular Crisis en Vivo */}
+      <section className="rounded-2xl border border-outline bg-surface-container px-4 py-3 flex flex-col gap-2.5 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex items-center gap-2 text-xs">
+          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-warning/35 bg-warning-container text-warning">
+            <Zap className="h-3.5 w-3.5" />
+          </span>
+          <div>
+            <span className="font-bold text-on-surface font-display">
+              Simular Crisis en Vivo (Demo):
+            </span>{' '}
+            <span className="text-on-surface-variant">
+              Prueba alertas en cabina, cambio de sistemas a Rojo en el mapa corporal y guía SOS.
+            </span>
+          </div>
+        </div>
+        <div className="flex flex-wrap items-center gap-1.5 shrink-0">
+          <button
+            type="button"
+            onClick={() => simulateLiveCrisis('syncope_hypoglycemic')}
+            className="cursor-pointer rounded-xl border border-danger/35 bg-danger-container/65 px-2.5 py-1.5 text-xs font-semibold text-on-danger-container font-display dt-transition hover:-translate-y-px hover:border-danger hover:bg-danger-container active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger/40"
+          >
+            Escenario 1: Síncope / Hipoglucemia
+          </button>
+          <button
+            type="button"
+            onClick={() => simulateLiveCrisis('microgravity_seizure')}
+            className="cursor-pointer rounded-xl border border-warning/40 bg-warning-container/70 px-2.5 py-1.5 text-xs font-semibold text-on-warning-container font-display dt-transition hover:-translate-y-px hover:border-warning hover:bg-warning-container active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-warning/40"
+          >
+            Escenario 2: Crisis Convulsiva 0g
+          </button>
+          {(activeCrisisScenario || globalTriage !== 'nominal') && (
+            <button
+              type="button"
+              onClick={restoreNominalVitals}
+              className="inline-flex cursor-pointer items-center gap-1 rounded-xl border border-primary/35 bg-primary-container px-2.5 py-1.5 text-xs font-bold text-on-primary-container font-display dt-transition hover:-translate-y-px hover:bg-primary hover:text-on-primary active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35"
+            >
+              <RotateCcw className="h-3.5 w-3.5" />
+              <span>Restablecer Signos Nominales</span>
+            </button>
+          )}
+        </div>
+      </section>
+
       {/* Top KPI Strip */}
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {kpiCards.map((card, idx) => (

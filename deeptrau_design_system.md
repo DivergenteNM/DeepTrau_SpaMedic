@@ -86,52 +86,58 @@ component-colors:
 
 ```yaml
 typography:
+  display-hero:
+    fontFamily: "IBM Plex Sans"
+    fontSize: "clamp(40px, 5vw, 72px)"
+    fontWeight: 500
+    lineHeight: "0.98"
+    letterSpacing: "-0.035em"
   display-md:
-    fontFamily: "Space Grotesk"
+    fontFamily: "IBM Plex Sans"
     fontSize: "28px"
-    fontWeight: 700
-    lineHeight: "36px"
-    letterSpacing: "-0.02em"
+    fontWeight: 500
+    lineHeight: "34px"
+    letterSpacing: "-0.025em"
   headline-lg:
-    fontFamily: "Space Grotesk"
+    fontFamily: "IBM Plex Sans"
     fontSize: "22px"
-    fontWeight: 700
+    fontWeight: 500
     lineHeight: "28px"
-    letterSpacing: "-0.01em"
+    letterSpacing: "-0.02em"
   headline-sm:
-    fontFamily: "Space Grotesk"
+    fontFamily: "IBM Plex Sans"
     fontSize: "18px"
     fontWeight: 600
     lineHeight: "24px"
     letterSpacing: "-0.01em"
   title-md:
-    fontFamily: "Space Grotesk"
+    fontFamily: "IBM Plex Sans"
     fontSize: "16px"
     fontWeight: 600
     lineHeight: "22px"
     letterSpacing: "0px"
   body-md:
-    fontFamily: "Ubuntu"
+    fontFamily: "IBM Plex Sans"
+    fontSize: "16px"
+    fontWeight: 400
+    lineHeight: "24px"
+    letterSpacing: "0px"
+  body-sm:
+    fontFamily: "IBM Plex Sans"
     fontSize: "14px"
     fontWeight: 400
     lineHeight: "20px"
     letterSpacing: "0px"
-  body-sm:
-    fontFamily: "Ubuntu"
-    fontSize: "13px"
-    fontWeight: 400
-    lineHeight: "18px"
-    letterSpacing: "0px"
   label-md:
-    fontFamily: "Space Grotesk"
+    fontFamily: "IBM Plex Sans"
     fontSize: "12px"
-    fontWeight: 600
+    fontWeight: 500
     lineHeight: "16px"
     letterSpacing: "0.06em"
   label-sm:
-    fontFamily: "Space Mono"
+    fontFamily: "IBM Plex Mono"
     fontSize: "11px"
-    fontWeight: 600
+    fontWeight: 500
     lineHeight: "14px"
     letterSpacing: "0.04em"
 ```
