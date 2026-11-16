@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import {
   Clock,
   Heart,
@@ -60,6 +61,25 @@ export function EarthAnchorVault() {
     setTrackTime({ current: 0, duration: 0 });
     setTimerRemainingSec(0);
   };
+
+  useEffect(() => {
+    if (!focusedItem) return;
+
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setFocusedItem(null);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.body.style.overflow = prevOverflow;
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [focusedItem]);
 
   useEffect(() => {
     return () => {
@@ -673,127 +693,158 @@ export function EarthAnchorVault() {
         </div>
       </form>
 
-      {/* Immersive Focus / Calm Modal */}
-      {focusedItem && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-label={`Vista calma: ${focusedItem.title}`}
-          className="fixed inset-0 z-50 flex items-center justify-center bg-on-surface/55 p-4 backdrop-blur-xs"
-        >
-          <div className="dt-animate-panel w-full max-w-lg rounded-2xl border border-outline bg-surface-container p-6 space-y-4">
-            <div className="flex items-start justify-between gap-3 border-b border-outline-variant pb-3">
-              <div>
-                <span className="inline-block rounded-full border border-primary/30 bg-primary-container px-2.5 py-0.5 text-[10px] font-bold text-on-primary-container font-display">
-                  {focusedItem.category} · Modo Calma
-                </span>
-                <h3 className="mt-1.5 text-lg font-bold text-on-surface font-display">
-                  {focusedItem.title}
-                </h3>
-                <p className="text-xs text-on-surface-variant">{focusedItem.subtitle}</p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setFocusedItem(null)}
-                aria-label="Cerrar vista calma"
-                className="cursor-pointer rounded-xl border border-outline bg-surface-container-low p-2 text-on-surface-variant dt-transition hover:bg-surface-container-high hover:text-on-surface"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-
-            {focusedItem.imageUrl ? (
-              <img
-                src={focusedItem.imageUrl}
-                alt={focusedItem.title}
-                className="max-h-64 w-full rounded-xl border border-outline object-cover"
-              />
-            ) : (
-              <div className="rounded-xl border border-viewport-border bg-viewport-surface p-6 text-center space-y-2">
-                <svg
-                  viewBox="0 0 320 96"
-                  className="mx-auto h-24 w-full max-w-xs"
-                  aria-hidden="true"
+      {/* Immersive Focus / Calm Modal rendered into document.body via Portal */}
+      {focusedItem &&
+        typeof document !== 'undefined' &&
+        createPortal(
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label={`Vista calma: ${focusedItem.title}`}
+            onClick={(e) => {
+              if (e.target === e.currentTarget) setFocusedItem(null);
+            }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-on-surface/55 p-4 backdrop-blur-[3px] sm:p-6"
+          >
+            <div className="dt-animate-panel flex max-h-[90vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-outline bg-surface-container shadow-[0_24px_64px_-24px_rgba(26,36,30,0.42)]">
+              <header className="flex items-start justify-between gap-3 border-b border-outline-variant bg-surface-container-low/65 px-5 py-4">
+                <div>
+                  <span className="inline-block rounded-full border border-primary/30 bg-primary-container px-2.5 py-0.5 text-[10px] font-bold text-on-primary-container font-display">
+                    {focusedItem.category} · Modo Calma
+                  </span>
+                  <h3 className="mt-1.5 text-lg font-bold text-on-surface font-display">
+                    {focusedItem.title}
+                  </h3>
+                  <p className="text-xs text-on-surface-variant">{focusedItem.subtitle}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setFocusedItem(null)}
+                  aria-label="Cerrar vista calma"
+                  className="cursor-pointer rounded-xl border border-outline bg-surface-container p-2 text-on-surface-variant dt-transition hover:border-primary/40 hover:bg-surface-container-high hover:text-on-surface active:scale-[0.97]"
                 >
-                  <defs>
-                    <linearGradient id="earthHorizon" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#2B5B6C" stopOpacity="0.85" />
-                      <stop offset="100%" stopColor="#2F5D46" stopOpacity="0.2" />
-                    </linearGradient>
-                  </defs>
-                  <circle cx="48" cy="22" r="1.5" fill="#F7F5F0" opacity="0.7" />
-                  <circle cx="110" cy="14" r="1" fill="#F7F5F0" opacity="0.55" />
-                  <circle cx="240" cy="24" r="1.6" fill="#F7F5F0" opacity="0.75" />
-                  <circle cx="285" cy="15" r="1.1" fill="#F7F5F0" opacity="0.5" />
-                  <path
-                    d="M 10 92 Q 160 32 310 92 Z"
-                    fill="url(#earthHorizon)"
-                    stroke="#DCE9EE"
-                    strokeWidth="1.5"
+                  <X className="h-4 w-4" />
+                </button>
+              </header>
+
+              <div className="flex-1 overflow-y-auto p-5 space-y-4">
+                {focusedItem.imageUrl ? (
+                  <img
+                    src={focusedItem.imageUrl}
+                    alt={focusedItem.title}
+                    className="max-h-64 w-full rounded-xl border border-outline object-cover"
                   />
-                </svg>
-                <p className="text-[11px] font-mono text-on-viewport/80">
-                  {focusedItem.durationOrDate}
-                </p>
-              </div>
-            )}
+                ) : (
+                  <div className="rounded-xl border border-viewport-border bg-viewport-surface p-6 text-center space-y-2">
+                    <svg
+                      viewBox="0 0 320 96"
+                      className="mx-auto h-24 w-full max-w-xs"
+                      aria-hidden="true"
+                    >
+                      <defs>
+                        <linearGradient id="earthHorizon" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="#2B5B6C" stopOpacity="0.85" />
+                          <stop offset="100%" stopColor="#2F5D46" stopOpacity="0.2" />
+                        </linearGradient>
+                      </defs>
+                      <circle cx="48" cy="22" r="1.5" fill="#F7F5F0" opacity="0.7" />
+                      <circle cx="110" cy="14" r="1" fill="#F7F5F0" opacity="0.55" />
+                      <circle cx="240" cy="24" r="1.6" fill="#F7F5F0" opacity="0.75" />
+                      <circle cx="285" cy="15" r="1.1" fill="#F7F5F0" opacity="0.5" />
+                      <path
+                        d="M 10 92 Q 160 32 310 92 Z"
+                        fill="url(#earthHorizon)"
+                        stroke="#DCE9EE"
+                        strokeWidth="1.5"
+                      />
+                    </svg>
+                    <p className="text-[11px] font-mono text-on-viewport/80">
+                      {focusedItem.durationOrDate}
+                    </p>
+                  </div>
+                )}
 
-            <blockquote className="rounded-xl border border-outline bg-surface-container-low p-4 text-sm italic leading-relaxed text-on-surface">
-              {focusedItem.quote}
-            </blockquote>
+                <blockquote className="rounded-xl border border-outline bg-surface-container-low p-4 text-sm italic leading-relaxed text-on-surface">
+                  {focusedItem.quote}
+                </blockquote>
 
-            {playingItemId === focusedItem.id && focusedItem.audioUrl && trackTime.duration > 0 && (
-              <div className="rounded-xl border border-primary/25 bg-surface-container-low px-3.5 py-2.5 space-y-1">
-                <input
-                  type="range"
-                  min={0}
-                  max={trackTime.duration}
-                  step={0.5}
-                  value={trackTime.current}
-                  onChange={(e) => handleSeekTrack(Number(e.target.value))}
-                  aria-label={`Progreso de ${focusedItem.title}`}
-                  className="w-full cursor-pointer accent-primary"
-                />
-                <div className="flex justify-between font-mono text-[11px] text-on-surface-variant">
-                  <span>{formatClock(trackTime.current)}</span>
-                  <span>{formatClock(trackTime.duration)}</span>
+                {playingItemId === focusedItem.id && focusedItem.audioUrl && trackTime.duration > 0 && (
+                  <div className="dt-animate-panel rounded-xl border border-primary/25 bg-surface-container-low px-3.5 py-2.5 space-y-1">
+                    <input
+                      type="range"
+                      min={0}
+                      max={trackTime.duration}
+                      step={0.5}
+                      value={trackTime.current}
+                      onChange={(e) => handleSeekTrack(Number(e.target.value))}
+                      aria-label={`Progreso de ${focusedItem.title}`}
+                      className="w-full cursor-pointer accent-primary"
+                    />
+                    <div className="flex justify-between font-mono text-[11px] text-on-surface-variant">
+                      <span>{formatClock(trackTime.current)}</span>
+                      <span>{formatClock(trackTime.duration)}</span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Volume control inside Calm View for intuitive adjustment */}
+                <div className="flex items-center justify-between gap-3 rounded-xl border border-outline bg-surface-container-low px-3.5 py-2.5">
+                  <span className="text-xs font-medium text-on-surface-variant flex items-center gap-1.5">
+                    <Volume2 className="h-3.5 w-3.5 text-primary" />
+                    Volumen del recuerdo
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="range"
+                      min={0.05}
+                      max={1}
+                      step={0.05}
+                      value={volume}
+                      onChange={(e) => setVolume(Number(e.target.value))}
+                      aria-label="Volumen en vista calma"
+                      className="w-28 cursor-pointer accent-primary"
+                    />
+                    <span className="w-9 text-right font-mono text-[11px] font-semibold text-on-surface">
+                      {Math.round(volume * 100)}%
+                    </span>
+                  </div>
                 </div>
               </div>
-            )}
 
-            <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
-              <button
-                type="button"
-                onClick={() => togglePlayItem(focusedItem)}
-                className={`inline-flex cursor-pointer items-center gap-2 rounded-xl px-4 py-2 text-xs font-bold dt-transition active:scale-[0.985] ${
-                  playingItemId === focusedItem.id
-                    ? 'bg-danger text-on-secondary hover:bg-danger-hover'
-                    : 'bg-primary text-on-primary hover:bg-primary-hover'
-                }`}
-              >
-                {playingItemId === focusedItem.id ? (
-                  <Pause className="h-4 w-4" />
-                ) : focusedItem.audioUrl ? (
-                  <Play className="h-4 w-4" />
-                ) : (
-                  <Volume2 className="h-4 w-4" />
-                )}
-                {playingItemId === focusedItem.id
-                  ? 'Detener Audio'
-                  : focusedItem.soundLabel}
-              </button>
+              <footer className="flex flex-wrap items-center justify-between gap-2 border-t border-outline-variant bg-surface-container-low/65 px-5 py-3.5">
+                <button
+                  type="button"
+                  onClick={() => togglePlayItem(focusedItem)}
+                  className={`inline-flex cursor-pointer items-center gap-2 rounded-xl px-4 py-2 text-xs font-bold dt-transition hover:-translate-y-px active:scale-[0.985] ${
+                    playingItemId === focusedItem.id
+                      ? 'bg-danger text-on-secondary hover:bg-danger-hover'
+                      : 'bg-primary text-on-primary hover:bg-primary-hover'
+                  }`}
+                >
+                  {playingItemId === focusedItem.id ? (
+                    <Pause className="h-4 w-4" />
+                  ) : focusedItem.audioUrl ? (
+                    <Play className="h-4 w-4" />
+                  ) : (
+                    <Volume2 className="h-4 w-4" />
+                  )}
+                  {playingItemId === focusedItem.id
+                    ? 'Pausar Audio'
+                    : focusedItem.soundLabel}
+                </button>
 
-              <button
-                type="button"
-                onClick={() => setFocusedItem(null)}
-                className="cursor-pointer rounded-xl border border-outline bg-surface-container-low px-4 py-2 text-xs font-semibold text-on-surface dt-transition hover:bg-surface-container-high"
-              >
-                Volver a Psicología
-              </button>
+                <button
+                  type="button"
+                  onClick={() => setFocusedItem(null)}
+                  className="cursor-pointer rounded-xl border border-outline bg-surface-container px-4 py-2 text-xs font-semibold text-on-surface dt-transition hover:border-primary/40 hover:bg-surface-container-high active:scale-[0.985]"
+                >
+                  Cerrar Vista Calma
+                </button>
+              </footer>
             </div>
-          </div>
-        </div>
-      )}
+          </div>,
+          document.body
+        )}
     </section>
   );
 }
