@@ -1,24 +1,21 @@
 import type { Metadata } from 'next';
-import { Space_Grotesk, Space_Mono, Ubuntu } from 'next/font/google';
+import { IBM_Plex_Mono, IBM_Plex_Sans } from 'next/font/google';
 import './globals.css';
 import { MissionProvider } from '@/context/MissionContext';
 
-const spaceGrotesk = Space_Grotesk({
+const ibmPlexSans = IBM_Plex_Sans({
   subsets: ['latin'],
-  weight: ['500', '600', '700'],
-  variable: '--font-space-grotesk',
+  variable: '--font-ibm-plex-sans',
+  display: 'swap',
+  adjustFontFallback: false,
 });
 
-const ubuntu = Ubuntu({
+const ibmPlexMono = IBM_Plex_Mono({
   subsets: ['latin'],
-  weight: ['400', '500', '700'],
-  variable: '--font-ubuntu',
-});
-
-const spaceMono = Space_Mono({
-  subsets: ['latin'],
-  weight: ['400', '700'],
-  variable: '--font-space-mono',
+  weight: ['400', '500'],
+  variable: '--font-ibm-plex-mono',
+  display: 'swap',
+  adjustFontFallback: false,
 });
 
 export const metadata: Metadata = {
@@ -35,7 +32,8 @@ export default function RootLayout({
   return (
     <html
       lang="es"
-      className={`${spaceGrotesk.variable} ${ubuntu.variable} ${spaceMono.variable}`}
+      suppressHydrationWarning
+      className={`${ibmPlexSans.variable} ${ibmPlexMono.variable}`}
     >
       <body className="min-h-screen bg-surface text-on-surface font-sans antialiased">
         <MissionProvider>{children}</MissionProvider>

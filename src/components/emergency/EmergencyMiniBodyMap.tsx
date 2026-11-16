@@ -237,7 +237,7 @@ export function EmergencyMiniBodyMap({
                 key={zone.zoneId}
                 type="button"
                 onClick={() => onSelectZone(zone.zoneId)}
-                className={`cursor-pointer rounded-lg border px-2 py-1 text-[10px] font-semibold dt-transition active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35 ${
+                className={`cursor-pointer rounded-lg border px-2 py-1 text-[10px] font-semibold dt-transition active:scale-[0.97] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2F5D46] ${
                   isSel
                     ? 'border-danger bg-danger-container text-on-danger-container'
                     : 'border-outline bg-surface-container text-on-surface-variant hover:-translate-y-px hover:border-primary/45 hover:text-on-surface'
