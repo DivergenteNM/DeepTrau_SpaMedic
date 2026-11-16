@@ -4,6 +4,7 @@ import { MissionType } from '@/data/missionsData';
 import type {
   DailyRoutineItem,
   DeviceConnection,
+  DeviceId,
   EmergencyCrisisScenario,
   TelemetryBiomarkers,
 } from '@/context/MissionContext';
@@ -55,7 +56,10 @@ export function analyzeMissionAndAstronautRisks({
     .includes('circadian');
 
   const overduePending = routines.filter((r) => !r.completed && r.isOverdue);
-  const disconnectedDevices = devices.filter((d) => !d.connected);
+  const recommendedIds = new Set<DeviceId>(mission.recommendedScans.map((s) => s.deviceId));
+  const disconnectedDevices = devices.filter(
+    (d) => d.availableInMission !== false && !d.connected && recommendedIds.has(d.id)
+  );
 
   // 1. Immune & Latent Viral Reactivation Risk
   if (

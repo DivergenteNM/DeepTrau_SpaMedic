@@ -59,7 +59,8 @@ export function RoutineDashboardWidget({
   const pendingTasks = routines.filter((r) => !r.completed);
   const pendingCount = pendingTasks.length;
   const overduePendingCount = pendingTasks.filter((r) => r.priority === 'overdue').length;
-  const disconnectedCount = devices.filter((d) => !d.connected).length;
+  const availableDevices = devices.filter((d) => d.availableInMission !== false);
+  const disconnectedCount = availableDevices.filter((d) => !d.connected).length;
   const progressPct =
     routines.length > 0 ? Math.round((completedCount / routines.length) * 100) : 100;
   const earnedPoints = routines
@@ -108,7 +109,7 @@ export function RoutineDashboardWidget({
           </div>
           <p className="mt-0.5 text-xs text-on-surface-variant">
             <span className="font-semibold text-primary">{mission.shortName}</span> ·{' '}
-            {devices.length - disconnectedCount}/{devices.length} sensores conectados
+            {availableDevices.length - disconnectedCount}/{availableDevices.length} sensores conectados
             {disconnectedCount > 0 ? ' (modo manual activo)' : ''}
           </p>
         </div>

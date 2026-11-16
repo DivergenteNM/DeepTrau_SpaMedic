@@ -85,7 +85,8 @@ export function RoutineFocusModal({
 
   const completedCount = routines.filter((r) => r.completed).length;
   const pendingCount = routines.length - completedCount;
-  const disconnectedCount = devices.filter((d) => !d.connected).length;
+  const availableDevices = devices.filter((d) => d.availableInMission !== false);
+  const disconnectedCount = availableDevices.filter((d) => !d.connected).length;
   const progressPct =
     routines.length > 0 ? Math.round((completedCount / routines.length) * 100) : 100;
   const earnedPoints = routines
@@ -255,7 +256,7 @@ export function RoutineFocusModal({
               </h2>
               <p id="routine-focus-desc" className="text-xs text-on-surface-variant">
                 Misión <span className="font-semibold text-primary">{mission.shortName}</span> ·{' '}
-                {devices.length - disconnectedCount}/{devices.length} sensores conectados. Prioriza
+                {availableDevices.length - disconnectedCount}/{availableDevices.length} sensores conectados. Prioriza
                 los pendientes atrasados y urgentes.
               </p>
             </div>

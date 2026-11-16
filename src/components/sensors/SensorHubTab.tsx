@@ -1,429 +1,430 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
-  Activity,
   AlertTriangle,
+  ArrowUpRight,
+  Ban,
   CheckCircle2,
   Cpu,
-  Droplets,
-  HeartPulse,
-  ImagePlus,
-  PlugZap,
   Power,
-  Radiation,
-  ScanLine,
-  Send,
+  RotateCcw,
   ShieldAlert,
+  SlidersHorizontal,
 } from 'lucide-react';
 import { DeviceId, useMission } from '@/context/MissionContext';
+import { renderDeviceIcon, SensorDetailModal } from './SensorDetailModal';
 
-const DEVICE_ICONS: Record<DeviceId, React.ReactNode> = {
-  glucometer: <Droplets className="h-5 w-5 text-telemetry" />,
-  hematology: <Activity className="h-5 w-5 text-danger" />,
-  vitals_cuff: <HeartPulse className="h-5 w-5 text-primary" />,
-  dosimeter: <Radiation className="h-5 w-5 text-warning" />,
-  ultrasound: <ScanLine className="h-5 w-5 text-secondary" />,
-};
+type SensorFilter = 'all' | 'connected' | 'disconnected' | 'unavailable';
 
 export function SensorHubTab() {
   const {
+    mission,
     devices,
-    biomarkers,
     toggleDevice,
-    recordTelemetryScan,
+    setAllAvailableDevicesConnection,
     triggerDemoAnomaly,
-    setActiveTab,
   } = useMission();
 
-  const [glucoseInput, setGlucoseInput] = useState<number>(biomarkers.glucoseMgDl);
-  const [wbcInput, setWbcInput] = useState<number>(biomarkers.wbcCount);
-  const [spo2Input, setSpo2Input] = useState<number>(biomarkers.spo2Percent);
-  const [systolicInput, setSystolicInput] = useState<number>(biomarkers.systolicBP);
-  const [diastolicInput, setDiastolicInput] = useState<number>(biomarkers.diastolicBP);
-  const [hrInput, setHrInput] = useState<number>(biomarkers.heartRateBpm);
-  const [dailyRadInput, setDailyRadInput] = useState<number>(biomarkers.dailyRadiationMsv);
-  const [ultrasoundStatus, setUltrasoundStatus] = useState<
-    'Normal' | 'Edema Neuro-Ocular Leve' | 'Atrofia Muscular Leve'
-  >(biomarkers.ultrasoundStatus);
-  const [ultrasoundPreview, setUltrasoundPreview] = useState<string | null>(null);
-  const [savedBanner, setSavedBanner] = useState<string | null>(null);
+  const [selectedDeviceId, setSelectedDeviceId] = useState<DeviceId | null>(null);
+  const [filter, setFilter] = useState<SensorFilter>('all');
+  const [isManageOpen, setIsManageOpen] = useState(false);
 
-  const handleSubmitTelemetry = (e: React.FormEvent) => {
-    e.preventDefault();
-    const nextCumulative = Number(
-      (biomarkers.cumulativeRadiationMsv + dailyRadInput).toFixed(1)
-    );
-    const note =
-      ultrasoundStatus === 'Normal'
-        ? 'Escaneo de ultrasonido portátil sin hallazgos patológicos.'
-        : ultrasoundStatus === 'Edema Neuro-Ocular Leve'
-          ? 'Se observa leve aplanamiento del polo posterior ocular (SANS). Requiere seguimiento.'
-          : 'Disminución discreta de espesor muscular en cuádriceps; intensificar ARED.';
-
-    recordTelemetryScan(
-      {
-        glucoseMgDl: glucoseInput,
-        wbcCount: wbcInput,
-        spo2Percent: spo2Input,
-        systolicBP: systolicInput,
-        diastolicBP: diastolicInput,
-        heartRateBpm: hrInput,
-        dailyRadiationMsv: dailyRadInput,
-        cumulativeRadiationMsv: nextCumulative,
-        ultrasoundStatus,
-      },
-      note
-    );
-    setSavedBanner(
-      'Nueva telemetría procesada. El Mapa Corporal y las alertas de misión se actualizaron en tiempo real.'
-    );
-    setTimeout(() => setSavedBanner(null), 4500);
-  };
-
-  const handleUltrasoundImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      if (typeof reader.result === 'string') {
-        setUltrasoundPreview(reader.result);
-      }
+  const counts = useMemo(() => {
+    const connected = devices.filter((d) => d.availableInMission && d.connected).length;
+    const disconnected = devices.filter((d) => d.availableInMission && !d.connected).length;
+    const unavailable = devices.filter((d) => !d.availableInMission).length;
+    return {
+      all: devices.length,
+      connected,
+      disconnected,
+      unavailable,
     };
-    reader.readAsDataURL(file);
-  };
+  }, [devices]);
 
-  const statusPill = (status: 'nominal' | 'warning' | 'critical', connected: boolean) => {
-    if (!connected) {
-      return 'border-outline bg-surface-container-high text-on-surface-variant';
-    }
-    if (status === 'critical') {
-      return 'border-danger/35 bg-danger-container text-on-danger-container';
-    }
-    if (status === 'warning') {
-      return 'border-warning/35 bg-warning-container text-on-warning-container';
-    }
-    return 'border-primary/30 bg-primary-container text-on-primary-container';
-  };
+  const filteredDevices = useMemo(() => {
+    if (filter === 'connected') return devices.filter((d) => d.availableInMission && d.connected);
+    if (filter === 'disconnected')
+      return devices.filter((d) => d.availableInMission && !d.connected);
+    if (filter === 'unavailable') return devices.filter((d) => !d.availableInMission);
+    return devices;
+  }, [devices, filter]);
+
+  const selectedDevice = useMemo(
+    () => (selectedDeviceId ? devices.find((d) => d.id === selectedDeviceId) ?? null : null),
+    [devices, selectedDeviceId]
+  );
+
+  const availableDevices = useMemo(
+    () => devices.filter((d) => d.availableInMission),
+    [devices]
+  );
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="rounded-2xl border border-outline bg-surface-container p-5 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.06em] text-primary font-display">
-            Integración Modular Plug & Play
-          </p>
-          <h2 className="mt-1 text-[22px] leading-[28px] font-bold text-on-surface flex items-center gap-2 font-display">
-            <Cpu className="h-5 w-5 text-primary" />
-            Hub de Conexión de Herramientas Médicas a Bordo
-          </h2>
-          <p className="mt-1 text-xs text-on-surface-variant">
-            Conecta o desconecta los sensores disponibles en tu nave o rover. Si desconectas una
-            herramienta, DeepTrau reconfigura el Dashboard a exámenes clínicos manuales.
-          </p>
-        </div>
-
-        <div className="flex flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={() => triggerDemoAnomaly('solar_storm')}
-            className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl border border-danger/35 bg-danger-container px-3.5 py-2 text-xs font-semibold text-on-danger-container dt-transition hover:-translate-y-0.5 hover:border-danger hover:shadow-[0_6px_14px_-8px_rgba(180,35,24,0.35)] active:translate-y-0 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger/35"
-          >
-            <ShieldAlert className="h-4 w-4 text-danger" />
-            Inyectar Tormenta Solar
-          </button>
-          <button
-            type="button"
-            onClick={() => triggerDemoAnomaly('hypoglycemia_immune')}
-            className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl border border-warning/35 bg-warning-container px-3.5 py-2 text-xs font-semibold text-on-warning-container dt-transition hover:-translate-y-0.5 hover:border-warning hover:shadow-[0_6px_14px_-8px_rgba(181,71,8,0.35)] active:translate-y-0 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-warning/35"
-          >
-            <AlertTriangle className="h-4 w-4 text-warning" />
-            Simular Hipoglucemia + Baja Inmune
-          </button>
-        </div>
-      </div>
-
-      {/* Device Cards */}
-      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        {devices.map((dev) => (
-          <div
-            key={dev.id}
-            className={`rounded-2xl border p-4 dt-transition ${
-              dev.connected
-                ? 'border-outline bg-surface-container'
-                : 'border-outline bg-surface-container-low opacity-80'
-            }`}
-          >
-            <div className="flex items-start justify-between gap-3">
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-outline bg-surface-container-low">
-                  {DEVICE_ICONS[dev.id]}
-                </div>
-                <div>
-                  <h3 className="text-sm font-bold text-on-surface font-display">
-                    {dev.shortName}
-                  </h3>
-                  <p className="text-[11px] text-on-surface-variant font-mono">{dev.unit}</p>
-                </div>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => toggleDevice(dev.id)}
-                className={`inline-flex cursor-pointer items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold dt-transition hover:-translate-y-px active:translate-y-0 active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35 ${
-                  dev.connected
-                    ? 'border-primary/30 bg-primary-container text-on-primary-container hover:bg-primary hover:text-on-primary'
-                    : 'border-outline bg-surface-container text-on-surface-variant hover:border-primary/40 hover:bg-surface-container-high hover:text-on-surface'
-                }`}
-              >
-                <Power className="h-3.5 w-3.5" />
-                {dev.connected ? 'Conectado' : 'Desconectado'}
-              </button>
-            </div>
-
-            <p className="mt-3 text-xs leading-relaxed text-on-surface-variant">
-              {dev.description}
-            </p>
-
-            <div className="mt-4 flex items-center justify-between rounded-xl border border-outline-variant bg-surface-container-low px-3 py-2 text-xs">
-              <div>
-                <span className="block text-[10px] text-on-surface-variant">Última lectura</span>
-                <span className="font-mono font-semibold text-on-surface">
-                  {dev.connected ? dev.lastReading : 'Modo Manual Activo'}
-                </span>
-              </div>
-              <span
-                className={`rounded-full border px-2.5 py-0.5 text-[10px] font-semibold font-display ${statusPill(
-                  dev.status,
-                  dev.connected
-                )}`}
-              >
-                {!dev.connected
-                  ? 'Sin Hardware'
-                  : dev.status === 'nominal'
-                    ? 'Nominal'
-                    : dev.status === 'warning'
-                      ? 'Precaución'
-                      : 'Crítico'}
+    <div className="space-y-5">
+      {/* Compact Mission Equipment Header */}
+      <section className="rounded-2xl border border-outline bg-surface-container p-5 space-y-4">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div className="space-y-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="inline-flex items-center gap-1.5 rounded-lg border border-primary/25 bg-primary-container px-2 py-0.5 font-mono text-[11px] font-semibold text-on-primary-container">
+                {mission.shortName}
+              </span>
+              <span className="font-mono text-[11px] text-on-surface-variant">
+                {mission.gravityLabel}
               </span>
             </div>
-          </div>
-        ))}
-      </section>
-
-      {/* Telemetry Simulator Form */}
-      <form
-        onSubmit={handleSubmitTelemetry}
-        className="rounded-2xl border border-outline bg-surface-container p-6 space-y-5"
-      >
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between border-b border-outline-variant pb-4">
-          <div>
-            <h3 className="text-base font-bold text-on-surface flex items-center gap-2 font-display">
-              <PlugZap className="h-5 w-5 text-primary" />
-              Simulador de Escaneo / Ingreso Manual de Telemetría
-            </h3>
+            <h2 className="flex items-center gap-2 text-[22px] leading-[28px] font-bold text-on-surface font-display">
+              <Cpu className="h-5 w-5 text-primary" />
+              Sensores y Herramientas de Cabina
+            </h2>
             <p className="text-xs text-on-surface-variant">
-              Ajusta los deslizadores o valores de laboratorio para probar cómo responde DeepTrau
-              ante variaciones reales del astronauta.
+              Activa o pausa el equipamiento disponible en esta misión. Haz clic en cualquier tarjeta
+              para ver la guía de medición, pruebas y datos extendidos.
             </p>
           </div>
-          <button
-            type="button"
-            onClick={() => setActiveTab('dashboard')}
-            className="inline-flex cursor-pointer items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-primary dt-transition hover:-translate-y-px hover:bg-primary-container/60 hover:text-primary-hover active:translate-y-0 active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35"
-          >
-            Ver impacto en Mapa Corporal →
-          </button>
+
+          <div className="flex flex-wrap items-center gap-2 shrink-0">
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary-container px-3 py-1 font-mono text-[11px] font-bold text-on-primary-container">
+              <span className="h-2 w-2 rounded-full bg-primary" />
+              {counts.connected} Conectado{counts.connected === 1 ? '' : 's'}
+            </span>
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-outline bg-surface-container-low px-3 py-1 font-mono text-[11px] font-semibold text-on-surface-variant">
+              {counts.disconnected} Desconectado{counts.disconnected === 1 ? '' : 's'}
+            </span>
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-outline bg-surface-container-high px-3 py-1 font-mono text-[11px] font-semibold text-on-surface-variant">
+              {counts.unavailable} No disponible{counts.unavailable === 1 ? '' : 's'}
+            </span>
+
+            <button
+              type="button"
+              onClick={() => setIsManageOpen((prev) => !prev)}
+              aria-expanded={isManageOpen}
+              className={`inline-flex cursor-pointer items-center gap-1.5 rounded-xl border px-3.5 py-2 text-xs font-bold font-display dt-transition hover:-translate-y-px active:translate-y-0 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35 ${
+                isManageOpen
+                  ? 'border-primary bg-primary text-on-primary'
+                  : 'border-primary/35 bg-primary-container text-on-primary-container hover:bg-primary hover:text-on-primary'
+              }`}
+            >
+              <SlidersHorizontal className="h-3.5 w-3.5" />
+              <span>Gestionar sensores</span>
+            </button>
+          </div>
         </div>
 
-        {savedBanner && (
-          <div className="dt-animate-panel flex items-center gap-2 rounded-xl border border-primary/30 bg-primary-container px-4 py-3 text-xs font-medium text-on-primary-container">
-            <CheckCircle2 className="h-4 w-4 shrink-0 text-primary" />
-            {savedBanner}
+        {/* Collapsible Sensor Management Drawer */}
+        {isManageOpen && (
+          <div className="dt-animate-panel rounded-xl border border-outline bg-surface-container-low p-4 space-y-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-outline-variant pb-3">
+              <div>
+                <p className="text-xs font-bold text-on-surface font-display">
+                  Control rápido de equipamiento · {mission.name}
+                </p>
+                <p className="text-[11px] text-on-surface-variant">
+                  Habilita todos los sensores embarcados o pasa a modo manual para ahorro energético.
+                </p>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setAllAvailableDevicesConnection(true)}
+                  className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-primary/35 bg-primary-container px-3 py-1.5 text-xs font-semibold text-on-primary-container font-display dt-transition hover:-translate-y-px hover:bg-primary hover:text-on-primary active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35"
+                >
+                  <CheckCircle2 className="h-3.5 w-3.5" />
+                  <span>Conectar disponibles ({availableDevices.length})</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAllAvailableDevicesConnection(false)}
+                  className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-outline bg-surface-container px-3 py-1.5 text-xs font-semibold text-on-surface-variant font-display dt-transition hover:-translate-y-px hover:border-primary/40 hover:text-on-surface active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35"
+                >
+                  <Power className="h-3.5 w-3.5" />
+                  <span>Pasar a modo manual</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Quick Individual Toggle Pills */}
+            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              {devices.map((dev) => (
+                <div
+                  key={dev.id}
+                  className="flex items-center justify-between gap-2 rounded-lg border border-outline bg-surface-container px-3 py-2 text-xs"
+                >
+                  <div className="flex min-w-0 items-center gap-2">
+                    {renderDeviceIcon(dev.id, 'h-4 w-4 shrink-0')}
+                    <span className="truncate font-semibold text-on-surface font-display">
+                      {dev.shortName}
+                    </span>
+                  </div>
+                  {dev.availableInMission ? (
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={dev.connected}
+                      onClick={() => toggleDevice(dev.id)}
+                      className={`shrink-0 cursor-pointer rounded-md border px-2 py-0.5 font-mono text-[10px] font-bold dt-transition active:scale-[0.96] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35 ${
+                        dev.connected
+                          ? 'border-primary/35 bg-primary-container text-on-primary-container hover:bg-primary hover:text-on-primary'
+                          : 'border-outline bg-surface-container-low text-on-surface-variant hover:border-primary/40 hover:text-on-surface'
+                      }`}
+                    >
+                      {dev.connected ? 'ON' : 'OFF'}
+                    </button>
+                  ) : (
+                    <span className="shrink-0 font-mono text-[10px] text-on-surface-variant">
+                      N/D
+                    </span>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            {/* Discrete Test Scenarios Strip */}
+            <div className="flex flex-wrap items-center justify-between gap-2 border-t border-outline-variant pt-3">
+              <span className="text-[11px] font-semibold text-on-surface-variant font-display">
+                Pruebas de alertas en sensores:
+              </span>
+              <div className="flex flex-wrap items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => triggerDemoAnomaly('solar_storm')}
+                  className="inline-flex cursor-pointer items-center gap-1 rounded-lg border border-danger/35 bg-danger-container/75 px-2.5 py-1 text-[11px] font-semibold text-on-danger-container font-display dt-transition hover:-translate-y-px hover:border-danger hover:bg-danger-container active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger/35"
+                >
+                  <ShieldAlert className="h-3 w-3 text-danger" />
+                  <span>Tormenta Solar</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => triggerDemoAnomaly('hypoglycemia_immune')}
+                  className="inline-flex cursor-pointer items-center gap-1 rounded-lg border border-warning/35 bg-warning-container/75 px-2.5 py-1 text-[11px] font-semibold text-on-warning-container font-display dt-transition hover:-translate-y-px hover:border-warning hover:bg-warning-container active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-warning/35"
+                >
+                  <AlertTriangle className="h-3 w-3 text-warning" />
+                  <span>Hipoglucemia + Inmune</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => triggerDemoAnomaly('nominal')}
+                  className="inline-flex cursor-pointer items-center gap-1 rounded-lg border border-outline bg-surface-container px-2.5 py-1 text-[11px] font-semibold text-on-surface-variant font-display dt-transition hover:-translate-y-px hover:border-primary/40 hover:text-on-surface active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35"
+                >
+                  <RotateCcw className="h-3 w-3" />
+                  <span>Restablecer Nominal</span>
+                </button>
+              </div>
+            </div>
           </div>
         )}
 
-        <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-          {/* Glucose */}
-          <div className="rounded-xl border border-outline bg-surface-container-low p-4 space-y-2">
-            <div className="flex justify-between text-xs">
-              <label className="font-semibold text-on-surface font-display">
-                Glucosa en Sangre
-              </label>
-              <span className="font-mono font-bold text-telemetry">{glucoseInput} mg/dL</span>
-            </div>
-            <input
-              type="range"
-              min={50}
-              max={210}
-              value={glucoseInput}
-              onChange={(e) => setGlucoseInput(Number(e.target.value))}
-              className="w-full cursor-pointer accent-telemetry"
-            />
-            <p className="text-[11px] text-on-surface-variant">
-              Rango seguro espacial: 75 – 125 mg/dL
-            </p>
-          </div>
-
-          {/* WBC / Immune */}
-          <div className="rounded-xl border border-outline bg-surface-container-low p-4 space-y-2">
-            <div className="flex justify-between text-xs">
-              <label className="font-semibold text-on-surface font-display">
-                Leucocitos (Defensas)
-              </label>
-              <span className="font-mono font-bold text-danger">
-                {wbcInput.toLocaleString('es-ES')} cél/µL
-              </span>
-            </div>
-            <input
-              type="range"
-              min={2600}
-              max={11000}
-              step={50}
-              value={wbcInput}
-              onChange={(e) => setWbcInput(Number(e.target.value))}
-              className="w-full cursor-pointer accent-danger"
-            />
-            <p className="text-[11px] text-on-surface-variant">
-              Alerta temprana si el expediente marca Defensas Bajas (&lt;4,500 cél/µL)
-            </p>
-          </div>
-
-          {/* Radiation */}
-          <div className="rounded-xl border border-outline bg-surface-container-low p-4 space-y-2">
-            <div className="flex justify-between text-xs">
-              <label className="font-semibold text-on-surface font-display">
-                Dosis de Radiación del Día
-              </label>
-              <span className="font-mono font-bold text-warning">{dailyRadInput} mSv</span>
-            </div>
-            <input
-              type="range"
-              min={0.3}
-              max={10}
-              step={0.1}
-              value={dailyRadInput}
-              onChange={(e) => setDailyRadInput(Number(e.target.value))}
-              className="w-full cursor-pointer accent-warning"
-            />
-            <p className="text-[11px] text-on-surface-variant">
-              &gt; 2.8 mSv/día activa alerta solar (Dosimetría CSA)
-            </p>
-          </div>
-
-          {/* SpO2 */}
-          <div className="rounded-xl border border-outline bg-surface-container-low p-4 space-y-2">
-            <div className="flex justify-between text-xs">
-              <label className="font-semibold text-on-surface font-display">
-                Saturación de Oxígeno (SpO₂)
-              </label>
-              <span className="font-mono font-bold text-primary">{spo2Input}%</span>
-            </div>
-            <input
-              type="range"
-              min={86}
-              max={100}
-              value={spo2Input}
-              onChange={(e) => setSpo2Input(Number(e.target.value))}
-              className="w-full cursor-pointer accent-primary"
-            />
-            <p className="text-[11px] text-on-surface-variant">Óptimo en cabina: 95% – 100%</p>
-          </div>
-
-          {/* Blood Pressure & HR */}
-          <div className="rounded-xl border border-outline bg-surface-container-low p-4 space-y-2">
-            <label className="block text-xs font-semibold text-on-surface font-display">
-              Presión Arterial (mmHg) y Pulso (bpm)
-            </label>
-            <div className="grid grid-cols-3 gap-2">
-              <div>
-                <span className="text-[10px] text-on-surface-variant">Sistólica</span>
-                <input
-                  type="number"
-                  min={80}
-                  max={190}
-                  value={systolicInput}
-                  onChange={(e) => setSystolicInput(Number(e.target.value))}
-                  className="mt-0.5 w-full rounded-lg border border-outline bg-surface-container px-2 py-1.5 text-xs text-on-surface font-mono outline-none dt-transition focus:border-primary focus:ring-2 focus:ring-primary/15"
-                />
-              </div>
-              <div>
-                <span className="text-[10px] text-on-surface-variant">Diastólica</span>
-                <input
-                  type="number"
-                  min={50}
-                  max={120}
-                  value={diastolicInput}
-                  onChange={(e) => setDiastolicInput(Number(e.target.value))}
-                  className="mt-0.5 w-full rounded-lg border border-outline bg-surface-container px-2 py-1.5 text-xs text-on-surface font-mono outline-none dt-transition focus:border-primary focus:ring-2 focus:ring-primary/15"
-                />
-              </div>
-              <div>
-                <span className="text-[10px] text-on-surface-variant">Pulso bpm</span>
-                <input
-                  type="number"
-                  min={40}
-                  max={160}
-                  value={hrInput}
-                  onChange={(e) => setHrInput(Number(e.target.value))}
-                  className="mt-0.5 w-full rounded-lg border border-outline bg-surface-container px-2 py-1.5 text-xs text-on-surface font-mono outline-none dt-transition focus:border-primary focus:ring-2 focus:ring-primary/15"
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Portable Ultrasound */}
-          <div className="rounded-xl border border-outline bg-surface-container-low p-4 space-y-2">
-            <label className="block text-xs font-semibold text-on-surface font-display">
-              Escáner de Ultrasonido Portátil
-            </label>
-            <select
-              value={ultrasoundStatus}
-              onChange={(e) =>
-                setUltrasoundStatus(
-                  e.target.value as 'Normal' | 'Edema Neuro-Ocular Leve' | 'Atrofia Muscular Leve'
-                )
-              }
-              className="w-full cursor-pointer rounded-lg border border-outline bg-surface-container px-2.5 py-1.5 text-xs text-on-surface outline-none dt-transition hover:border-primary/50 focus:border-primary focus:ring-2 focus:ring-primary/15"
-            >
-              <option value="Normal">Normal (Sin hallazgos)</option>
-              <option value="Edema Neuro-Ocular Leve">Edema Neuro-Ocular Leve (SANS)</option>
-              <option value="Atrofia Muscular Leve">Atrofia Muscular Leve en Cuádriceps</option>
-            </select>
-
-            <label className="mt-1 inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-outline bg-surface-container px-2.5 py-1.5 text-[11px] font-medium text-primary dt-transition hover:-translate-y-px hover:border-primary hover:bg-primary-container/35 active:translate-y-0 active:scale-[0.98]">
-              <ImagePlus className="h-3.5 w-3.5" />
-              Cargar imagen simulada de ultrasonido
-              <input
-                type="file"
-                accept="image/*"
-                onChange={handleUltrasoundImageUpload}
-                className="hidden"
-              />
-            </label>
-            {ultrasoundPreview && (
-              <div className="dt-animate-panel mt-2 overflow-hidden rounded-lg border border-outline">
-                <img
-                  src={ultrasoundPreview}
-                  alt="Vista previa de ultrasonido simulado"
-                  className="h-20 w-full object-cover"
-                />
-              </div>
-            )}
-          </div>
+        {/* Filter Pills */}
+        <div className="flex flex-wrap items-center gap-1.5 border-t border-outline-variant pt-3">
+          {(
+            [
+              { id: 'all', label: `Todos (${counts.all})` },
+              { id: 'connected', label: `Conectados (${counts.connected})` },
+              { id: 'disconnected', label: `Desconectados (${counts.disconnected})` },
+              { id: 'unavailable', label: `No disponibles (${counts.unavailable})` },
+            ] as const
+          ).map((item) => {
+            const active = filter === item.id;
+            return (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => setFilter(item.id)}
+                className={`cursor-pointer rounded-lg border px-2.5 py-1 text-xs font-semibold font-display dt-transition active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35 ${
+                  active
+                    ? 'border-primary/40 bg-primary-container text-on-primary-container'
+                    : 'border-outline bg-surface-container-low text-on-surface-variant hover:border-primary/35 hover:text-on-surface'
+                }`}
+              >
+                {item.label}
+              </button>
+            );
+          })}
         </div>
+      </section>
 
-        <div className="flex justify-end">
-          <button
-            type="submit"
-            className="group inline-flex cursor-pointer items-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-bold text-on-primary dt-transition hover:-translate-y-0.5 hover:bg-primary-hover hover:shadow-[0_8px_18px_-8px_rgba(47,93,70,0.45)] active:translate-y-0 active:scale-[0.985] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35 font-display"
-          >
-            <Send className="h-4 w-4 dt-transition group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
-            Registrar Nueva Lectura en Telemetría (+25 pts)
-          </button>
+      {/* Clean Minimalist Sensor Cards Grid */}
+      {filteredDevices.length === 0 ? (
+        <div className="rounded-2xl border border-outline bg-surface-container p-8 text-center text-xs text-on-surface-variant">
+          No hay sensores en esta categoría para{' '}
+          <span className="font-semibold text-on-surface">{mission.shortName}</span>.
         </div>
-      </form>
+      ) : (
+        <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          {filteredDevices.map((dev) => {
+            const isAvailable = dev.availableInMission;
+            const isConnected = isAvailable && dev.connected;
+            const hasAlert = isConnected && dev.status !== 'nominal';
+
+            const cardClasses = !isAvailable
+              ? 'border-outline bg-surface-container-low/75 opacity-80 hover:opacity-100 hover:border-outline'
+              : !isConnected
+                ? 'border-outline bg-surface-container-low hover:border-primary/45 hover:bg-surface-container'
+                : dev.status === 'critical'
+                  ? 'border-danger/50 bg-danger-container/25 hover:border-danger'
+                  : dev.status === 'warning'
+                    ? 'border-warning/45 bg-warning-container/25 hover:border-warning'
+                    : 'border-outline bg-surface-container hover:border-primary/55';
+
+            return (
+              <article
+                key={dev.id}
+                role="button"
+                tabIndex={0}
+                onClick={() => setSelectedDeviceId(dev.id)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    setSelectedDeviceId(dev.id);
+                  }
+                }}
+                aria-label={`Abrir guía y pruebas de ${dev.shortName}`}
+                className={`group flex cursor-pointer flex-col justify-between gap-4 rounded-2xl border p-5 dt-transition hover:-translate-y-0.5 hover:shadow-[0_10px_24px_-14px_rgba(47,93,70,0.22)] active:translate-y-0 active:scale-[0.992] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35 ${cardClasses}`}
+              >
+                {/* Row 1: Icon + Name + Connection Switch */}
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex min-w-0 items-center gap-3">
+                    <div
+                      className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border dt-transition group-hover:scale-105 ${
+                        isConnected
+                          ? 'border-outline bg-surface-container-low'
+                          : 'border-outline bg-surface-container'
+                      }`}
+                    >
+                      {renderDeviceIcon(dev.id, 'h-5 w-5')}
+                    </div>
+                    <div className="min-w-0">
+                      <h3 className="truncate text-sm font-bold text-on-surface font-display">
+                        {dev.shortName}
+                      </h3>
+                      <p className="truncate text-[11px] text-on-surface-variant">
+                        {dev.categoryLabel}
+                      </p>
+                    </div>
+                  </div>
+
+                  {isAvailable ? (
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={isConnected}
+                      aria-label={
+                        isConnected
+                          ? `Desconectar ${dev.shortName}`
+                          : `Conectar ${dev.shortName}`
+                      }
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleDevice(dev.id);
+                      }}
+                      className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full border p-0.5 dt-transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35 ${
+                        isConnected
+                          ? 'border-primary bg-primary'
+                          : 'border-outline bg-surface-container-high hover:border-primary/45'
+                      }`}
+                    >
+                      <span
+                        className={`inline-block h-4 w-4 rounded-full bg-surface-container shadow-xs dt-transition ${
+                          isConnected ? 'translate-x-5' : 'translate-x-0'
+                        }`}
+                      />
+                    </button>
+                  ) : (
+                    <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-outline bg-surface-container-high px-2 py-0.5 font-mono text-[10px] font-semibold text-on-surface-variant">
+                      <Ban className="h-3 w-3" />
+                      <span>N/D</span>
+                    </span>
+                  )}
+                </div>
+
+                {/* Row 2: Main Reading / Inactive / Mission Restriction */}
+                <div className="min-h-[44px] flex flex-col justify-center">
+                  {!isAvailable ? (
+                    <p className="text-xs font-medium text-on-surface-variant">
+                      No embarcado en {mission.shortName}
+                    </p>
+                  ) : isConnected ? (
+                    <div>
+                      <p className="font-mono text-xl leading-tight font-bold tracking-tight text-on-surface">
+                        {dev.lastReading}
+                      </p>
+                      <p className="mt-0.5 font-mono text-[11px] text-on-surface-variant">
+                        {dev.unit}
+                      </p>
+                    </div>
+                  ) : (
+                    <div>
+                      <p className="text-sm font-semibold text-on-surface-variant font-display">
+                        En espera · Pausado
+                      </p>
+                      <p className="mt-0.5 text-[11px] text-on-surface-variant">
+                        Protocolo clínico manual activo
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Row 3: Connection Badge + Alert Indicator (if applicable) */}
+                <div className="flex items-center justify-between gap-2 border-t border-outline-variant pt-3">
+                  <span
+                    className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 font-display text-[11px] font-semibold ${
+                      !isAvailable
+                        ? 'border-outline bg-surface-container-high text-on-surface-variant'
+                        : isConnected
+                          ? 'border-primary/30 bg-primary-container text-on-primary-container'
+                          : 'border-outline bg-surface-container text-on-surface-variant'
+                    }`}
+                  >
+                    <span
+                      className={`h-1.5 w-1.5 rounded-full ${
+                        !isAvailable
+                          ? 'bg-on-surface-variant/60'
+                          : isConnected
+                            ? 'bg-primary'
+                            : 'bg-on-surface-variant'
+                      }`}
+                    />
+                    {!isAvailable
+                      ? 'No disponible en esta misión'
+                      : isConnected
+                        ? 'Conectado'
+                        : 'Desconectado'}
+                  </span>
+
+                  {hasAlert ? (
+                    <span
+                      className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 font-mono text-[10px] font-bold ${
+                        dev.status === 'critical'
+                          ? 'border-danger/40 bg-danger-container text-on-danger-container'
+                          : 'border-warning/40 bg-warning-container text-on-warning-container'
+                      }`}
+                    >
+                      {dev.status === 'critical' ? (
+                        <ShieldAlert className="h-3 w-3 text-danger" />
+                      ) : (
+                        <AlertTriangle className="h-3 w-3 text-warning" />
+                      )}
+                      {dev.status === 'critical' ? 'Crítico' : 'Precaución'}
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-primary opacity-80 dt-transition group-hover:translate-x-0.5 group-hover:opacity-100 font-display">
+                      <span>Guía y pruebas</span>
+                      <ArrowUpRight className="h-3.5 w-3.5" />
+                    </span>
+                  )}
+                </div>
+              </article>
+            );
+          })}
+        </section>
+      )}
+
+      {/* Detail, Measurement Guide & Diagnostics Modal */}
+      <SensorDetailModal
+        device={selectedDevice}
+        onClose={() => setSelectedDeviceId(null)}
+      />
     </div>
   );
 }

@@ -57,7 +57,8 @@ export function SidebarNav({
   const completedRoutines = routines.filter((r) => r.completed).length;
   const routinePct =
     routines.length > 0 ? Math.round((completedRoutines / routines.length) * 100) : 0;
-  const connectedCount = devices.filter((d) => d.connected).length;
+  const availableDevices = devices.filter((d) => d.availableInMission !== false);
+  const connectedCount = availableDevices.filter((d) => d.connected).length;
 
   const navItems: {
     id: AppTabId;
@@ -79,7 +80,7 @@ export function SidebarNav({
       label: 'Conectar Herramientas',
       subtitle: 'Hub de sensores y pruebas',
       icon: <Cpu className="h-5 w-5" />,
-      badge: `${connectedCount}/${devices.length}`,
+      badge: `${connectedCount}/${availableDevices.length}`,
     },
     {
       id: 'psychology',

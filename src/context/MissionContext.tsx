@@ -18,18 +18,22 @@ import {
 export type AppTabId = 'dashboard' | 'sensors' | 'psychology' | 'musculoskeletal' | 'survival';
 
 export type DeviceId =
-  | 'glucometer'
-  | 'hematology'
   | 'vitals_cuff'
   | 'dosimeter'
-  | 'ultrasound';
+  | 'glucometer'
+  | 'hematology'
+  | 'ultrasound'
+  | 'eva_spirometer';
 
 export interface DeviceConnection {
   id: DeviceId;
   name: string;
   shortName: string;
+  categoryLabel: string;
   description: string;
   unit: string;
+  availableInMission: boolean;
+  unavailableReason?: string;
   connected: boolean;
   lastReading: string;
   lastUpdated: string;
@@ -206,6 +210,7 @@ interface MissionContextValue {
   completeOnboarding: (missionId: MissionId, astronautProfile: AstronautProfile) => void;
   reopenOnboarding: () => void;
   toggleDevice: (deviceId: DeviceId) => void;
+  setAllAvailableDevicesConnection: (connected: boolean) => void;
   recordTelemetryScan: (partial: Partial<TelemetryBiomarkers>, customNote?: string) => void;
   triggerDemoAnomaly: (scenario: DemoScenario) => void;
   toggleRoutineTask: (taskId: string) => void;
@@ -243,64 +248,262 @@ const STORAGE_KEY = 'deeptrau_mvp_state_v2';
 
 const MissionContext = createContext<MissionContextValue | null>(null);
 
-function createInitialDevices(biomarkers: TelemetryBiomarkers): DeviceConnection[] {
-  return [
-    {
-      id: 'glucometer',
-      name: 'Glucómetro y Analizador Metabólico Capilar',
-      shortName: 'Glucómetro',
-      description: 'Mide glucosa en sangre (mg/dL) para prevenir hipoglucemia o resistencia insulínica.',
-      unit: 'mg/dL',
-      connected: true,
-      lastReading: `${biomarkers.glucoseMgDl} mg/dL`,
-      lastUpdated: 'Hoy · 08:15 UTC',
-      status: 'nominal',
+interface MissionDeviceConfig {
+  availableInMission: boolean;
+  defaultConnected: boolean;
+  defaultLastUpdated: string;
+  unavailableReason?: string;
+}
+
+const MISSION_DEVICE_CONFIG: Record<MissionId, Record<DeviceId, MissionDeviceConfig>> = {
+  'deep-space-transit': {
+    dosimeter: {
+      availableInMission: true,
+      defaultConnected: true,
+      defaultLastUpdated: 'En vivo',
     },
-    {
-      id: 'hematology',
-      name: 'Analizador Hematológico e Inmune Portátil',
-      shortName: 'Sangre / Defensas',
-      description: 'Evalúa leucocitos (células/µL) y biomarcadores de respuesta inmunológica.',
-      unit: 'células/µL',
-      connected: true,
-      lastReading: `${biomarkers.wbcCount.toLocaleString('es-ES')} cél/µL`,
-      lastUpdated: 'Hoy · 08:20 UTC',
-      status: 'nominal',
+    vitals_cuff: {
+      availableInMission: true,
+      defaultConnected: true,
+      defaultLastUpdated: 'En vivo',
     },
+    glucometer: {
+      availableInMission: true,
+      defaultConnected: true,
+      defaultLastUpdated: 'Hoy · 08:15 UTC',
+    },
+    hematology: {
+      availableInMission: true,
+      defaultConnected: true,
+      defaultLastUpdated: 'Hoy · 08:20 UTC',
+    },
+    ultrasound: {
+      availableInMission: true,
+      defaultConnected: false,
+      defaultLastUpdated: 'En espera · Último control hace 2 días',
+    },
+    eva_spirometer: {
+      availableInMission: false,
+      defaultConnected: false,
+      defaultLastUpdated: 'No embarcado',
+      unavailableReason:
+        'Exclusivo para misiones de superficie con esclusas EVA y exposición a regolito',
+    },
+  },
+  'planetary-habitat': {
+    vitals_cuff: {
+      availableInMission: true,
+      defaultConnected: true,
+      defaultLastUpdated: 'En vivo',
+    },
+    glucometer: {
+      availableInMission: true,
+      defaultConnected: true,
+      defaultLastUpdated: 'Hoy · 07:50 UTC',
+    },
+    dosimeter: {
+      availableInMission: true,
+      defaultConnected: true,
+      defaultLastUpdated: 'En vivo',
+    },
+    hematology: {
+      availableInMission: true,
+      defaultConnected: true,
+      defaultLastUpdated: 'Hoy · 08:05 UTC',
+    },
+    eva_spirometer: {
+      availableInMission: true,
+      defaultConnected: false,
+      defaultLastUpdated: 'En espera · Activar tras caminata EVA',
+    },
+    ultrasound: {
+      availableInMission: false,
+      defaultConnected: false,
+      defaultLastUpdated: 'No embarcado',
+      unavailableReason:
+        'Módulo de imagenología SANS asignado a misiones orbitales 0g',
+    },
+  },
+  'space-station': {
+    vitals_cuff: {
+      availableInMission: true,
+      defaultConnected: true,
+      defaultLastUpdated: 'En vivo',
+    },
+    ultrasound: {
+      availableInMission: true,
+      defaultConnected: true,
+      defaultLastUpdated: 'En vivo · Enlace Tierra',
+    },
+    hematology: {
+      availableInMission: true,
+      defaultConnected: true,
+      defaultLastUpdated: 'Hoy · 08:20 UTC',
+    },
+    dosimeter: {
+      availableInMission: true,
+      defaultConnected: true,
+      defaultLastUpdated: 'En vivo',
+    },
+    glucometer: {
+      availableInMission: true,
+      defaultConnected: false,
+      defaultLastUpdated: 'En espera · Control capilar en ayunas',
+    },
+    eva_spirometer: {
+      availableInMission: false,
+      defaultConnected: false,
+      defaultLastUpdated: 'No embarcado',
+      unavailableReason:
+        'Exclusivo para operaciones EVA en superficie planetaria',
+    },
+  },
+  'surface-rover': {
+    vitals_cuff: {
+      availableInMission: true,
+      defaultConnected: true,
+      defaultLastUpdated: 'En vivo',
+    },
+    dosimeter: {
+      availableInMission: true,
+      defaultConnected: true,
+      defaultLastUpdated: 'En vivo',
+    },
+    glucometer: {
+      availableInMission: true,
+      defaultConnected: true,
+      defaultLastUpdated: 'Hoy · 07:40 UTC',
+    },
+    eva_spirometer: {
+      availableInMission: true,
+      defaultConnected: false,
+      defaultLastUpdated: 'En espera · Control de aire y filtros de cabina',
+    },
+    hematology: {
+      availableInMission: false,
+      defaultConnected: false,
+      defaultLastUpdated: 'No embarcado',
+      unavailableReason:
+        'Analizador óptico excluido por vibración y volumen en cabina del Rover',
+    },
+    ultrasound: {
+      availableInMission: false,
+      defaultConnected: false,
+      defaultLastUpdated: 'No embarcado',
+      unavailableReason:
+        'Escáner multi-órgano permanece en la base principal',
+    },
+  },
+};
+
+function createInitialDevices(
+  biomarkers: TelemetryBiomarkers,
+  mission: MissionType
+): DeviceConnection[] {
+  const cfg = MISSION_DEVICE_CONFIG[mission.id];
+
+  const templates: Omit<
+    DeviceConnection,
+    'availableInMission' | 'unavailableReason' | 'connected' | 'lastUpdated'
+  >[] = [
     {
       id: 'vitals_cuff',
       name: 'Oxímetro de Pulso y Tensiómetro Orbital',
       shortName: 'Oxígeno y Presión',
+      categoryLabel: 'Cardio y O₂',
       description: 'Registra SpO₂%, presión arterial (mmHg) y frecuencia cardíaca (bpm).',
-      unit: 'SpO₂% / mmHg',
-      connected: true,
+      unit: 'SpO₂% · mmHg',
       lastReading: `${biomarkers.spo2Percent}% SpO₂ · ${biomarkers.systolicBP}/${biomarkers.diastolicBP}`,
-      lastUpdated: 'En vivo',
       status: 'nominal',
     },
     {
       id: 'dosimeter',
       name: 'Dosímetro Personal de Radiación (Tecnología CSA)',
       shortName: 'Dosímetro CSA',
+      categoryLabel: 'Radiación',
       description: 'Mide tasa diaria y dosis acumulada de radiación ionizante en mSv.',
       unit: 'mSv',
-      connected: true,
-      lastReading: `${biomarkers.cumulativeRadiationMsv.toFixed(1)} mSv acum.`,
-      lastUpdated: 'En vivo',
+      lastReading: `${biomarkers.cumulativeRadiationMsv.toFixed(1)} mSv`,
+      status: 'nominal',
+    },
+    {
+      id: 'glucometer',
+      name: 'Glucómetro y Analizador Metabólico Capilar',
+      shortName: 'Glucómetro',
+      categoryLabel: 'Metabolismo',
+      description: 'Mide glucosa en sangre (mg/dL) para prevenir hipoglucemia o resistencia insulínica.',
+      unit: 'mg/dL',
+      lastReading: `${biomarkers.glucoseMgDl} mg/dL`,
+      status: 'nominal',
+    },
+    {
+      id: 'hematology',
+      name: 'Analizador Hematológico e Inmune Portátil',
+      shortName: 'Sangre / Defensas',
+      categoryLabel: 'Inmunidad',
+      description: 'Evalúa leucocitos (células/µL) y biomarcadores de respuesta inmunológica.',
+      unit: 'células/µL',
+      lastReading: `${biomarkers.wbcCount.toLocaleString('es-ES')} cél/µL`,
       status: 'nominal',
     },
     {
       id: 'ultrasound',
       name: 'Escáner de Ultrasonido Portátil Multi-Órgano',
       shortName: 'Ultrasonido',
+      categoryLabel: 'Imagen SANS',
       description: 'Inspección óptica neuro-ocular (SANS), flujo vascular y masa muscular profunda.',
       unit: 'Imagen / Doppler',
-      connected: true,
       lastReading: biomarkers.ultrasoundStatus,
-      lastUpdated: 'Hace 2 días',
+      status: 'nominal',
+    },
+    {
+      id: 'eva_spirometer',
+      name: 'Monitor Respiratorio y Térmico de Esclusa EVA',
+      shortName: 'Monitor EVA / Aire',
+      categoryLabel: 'Respiratorio EVA',
+      description: 'Controla temperatura central (°C) y oxigenación tras exposición a regolito.',
+      unit: '°C · SpO₂%',
+      lastReading: `${biomarkers.bodyTempC.toFixed(1)} °C · ${biomarkers.spo2Percent}% O₂`,
       status: 'nominal',
     },
   ];
+
+  return templates.map((tpl) => {
+    const devCfg = cfg[tpl.id];
+    return {
+      ...tpl,
+      availableInMission: devCfg.availableInMission,
+      unavailableReason: devCfg.unavailableReason,
+      connected: devCfg.availableInMission ? devCfg.defaultConnected : false,
+      lastUpdated: devCfg.defaultLastUpdated,
+    };
+  });
+}
+
+function reconcileDevicesForMission(
+  storedDevices: DeviceConnection[] | undefined,
+  mission: MissionType,
+  biomarkers: TelemetryBiomarkers
+): DeviceConnection[] {
+  const base = createInitialDevices(biomarkers, mission);
+  if (!Array.isArray(storedDevices)) return base;
+
+  const storedMap = new Map(storedDevices.map((d) => [d.id, d]));
+  return base.map((template) => {
+    const existing = storedMap.get(template.id);
+    if (!template.availableInMission) {
+      return {
+        ...template,
+        connected: false,
+      };
+    }
+    if (!existing) return template;
+    return {
+      ...template,
+      connected: Boolean(existing.connected),
+      lastUpdated: existing.lastUpdated || template.lastUpdated,
+    };
+  });
 }
 
 function generateInitialHistory(mission: MissionType, astronaut: AstronautProfile): HistoryPoint[] {
@@ -505,7 +708,7 @@ function buildDefaultState(
     astronaut,
     missionDay,
     activeTab: 'dashboard',
-    devices: createInitialDevices(biomarkers),
+    devices: createInitialDevices(biomarkers, mission),
     biomarkers,
     history: generateInitialHistory(mission, astronaut),
     completedRoutineIds: ['psych-checkin-daily'],
@@ -632,9 +835,19 @@ function syncDeviceStatuses(
   statuses: Record<BodySystemId, TriageLevel>
 ): DeviceConnection[] {
   return devices.map((dev) => {
+    const safeConnected = dev.availableInMission ? dev.connected : false;
+    if (!dev.availableInMission) {
+      return {
+        ...dev,
+        connected: false,
+        status: 'nominal',
+      };
+    }
+
     if (dev.id === 'glucometer') {
       return {
         ...dev,
+        connected: safeConnected,
         lastReading: `${biomarkers.glucoseMgDl} mg/dL`,
         status: statuses.metabolic,
       };
@@ -642,6 +855,7 @@ function syncDeviceStatuses(
     if (dev.id === 'hematology') {
       return {
         ...dev,
+        connected: safeConnected,
         lastReading: `${biomarkers.wbcCount.toLocaleString('es-ES')} cél/µL`,
         status: statuses.immune,
       };
@@ -649,6 +863,7 @@ function syncDeviceStatuses(
     if (dev.id === 'vitals_cuff') {
       return {
         ...dev,
+        connected: safeConnected,
         lastReading: `${biomarkers.spo2Percent}% SpO₂ · ${biomarkers.systolicBP}/${biomarkers.diastolicBP}`,
         status: statuses.cardiovascular,
       };
@@ -656,12 +871,28 @@ function syncDeviceStatuses(
     if (dev.id === 'dosimeter') {
       return {
         ...dev,
-        lastReading: `${biomarkers.cumulativeRadiationMsv.toFixed(1)} mSv (${biomarkers.dailyRadiationMsv.toFixed(2)}/día)`,
+        connected: safeConnected,
+        lastReading: `${biomarkers.cumulativeRadiationMsv.toFixed(1)} mSv`,
         status: statuses.immune,
+      };
+    }
+    if (dev.id === 'eva_spirometer') {
+      const evaStatus: TriageLevel =
+        statuses.cardiovascular === 'critical' || statuses.metabolic === 'critical'
+          ? 'critical'
+          : statuses.cardiovascular === 'warning' || statuses.metabolic === 'warning'
+            ? 'warning'
+            : 'nominal';
+      return {
+        ...dev,
+        connected: safeConnected,
+        lastReading: `${biomarkers.bodyTempC.toFixed(1)} °C · ${biomarkers.spo2Percent}% O₂`,
+        status: evaStatus,
       };
     }
     return {
       ...dev,
+      connected: safeConnected,
       lastReading: biomarkers.ultrasoundStatus,
       status:
         biomarkers.ultrasoundStatus === 'Normal'
@@ -719,13 +950,16 @@ export function MissionProvider({ children }: { children: React.ReactNode }) {
                   routineModalDone: false,
                 };
 
+          const safeBiomarkers: TelemetryBiomarkers = {
+            ...parsed.biomarkers,
+            bodyTempC: parsed.biomarkers?.bodyTempC ?? 36.7,
+          };
+
           setState({
             ...parsed,
             astronaut: safeAstro,
-            biomarkers: {
-              ...parsed.biomarkers,
-              bodyTempC: parsed.biomarkers?.bodyTempC ?? 36.7,
-            },
+            biomarkers: safeBiomarkers,
+            devices: reconcileDevicesForMission(parsed.devices, parsedMission, safeBiomarkers),
             hasCompletedWelcome: Boolean(parsed.hasCompletedWelcome),
             overdueRoutineMeta: safeOverdueMeta,
             startupSessionEpoch: safeEpoch,
@@ -1094,7 +1328,7 @@ export function MissionProvider({ children }: { children: React.ReactNode }) {
       return {
         ...buildDefaultState(selectedMission.id, safeProfile, true, true, nextEpoch),
         biomarkers: newBiomarkers,
-        devices: createInitialDevices(newBiomarkers),
+        devices: createInitialDevices(newBiomarkers, selectedMission),
         history: generateInitialHistory(selectedMission, safeProfile),
         videoLogs: createInitialVideoLogs(selectedMission),
       };
@@ -1175,7 +1409,28 @@ export function MissionProvider({ children }: { children: React.ReactNode }) {
     setState((prev) => ({
       ...prev,
       devices: prev.devices.map((d) =>
-        d.id === deviceId ? { ...d, connected: !d.connected, lastUpdated: 'Actualizado ahora' } : d
+        d.id === deviceId && d.availableInMission
+          ? {
+              ...d,
+              connected: !d.connected,
+              lastUpdated: !d.connected ? 'Conectado ahora' : 'En espera (manual)',
+            }
+          : d
+      ),
+    }));
+  };
+
+  const setAllAvailableDevicesConnection = (connected: boolean) => {
+    setState((prev) => ({
+      ...prev,
+      devices: prev.devices.map((d) =>
+        d.availableInMission
+          ? {
+              ...d,
+              connected,
+              lastUpdated: connected ? 'Conectado ahora' : 'En espera (manual)',
+            }
+          : d
       ),
     }));
   };
@@ -1199,10 +1454,37 @@ export function MissionProvider({ children }: { children: React.ReactNode }) {
         boneRetention: nextBio.boneDensityRetentionPercent,
         muscleRetention: nextBio.muscleMassRetentionPercent,
       };
+      const touchedDevices = new Set<DeviceId>();
+      if (partial.glucoseMgDl !== undefined) touchedDevices.add('glucometer');
+      if (partial.wbcCount !== undefined) touchedDevices.add('hematology');
+      if (
+        partial.spo2Percent !== undefined ||
+        partial.systolicBP !== undefined ||
+        partial.diastolicBP !== undefined ||
+        partial.heartRateBpm !== undefined
+      ) {
+        touchedDevices.add('vitals_cuff');
+      }
+      if (
+        partial.dailyRadiationMsv !== undefined ||
+        partial.cumulativeRadiationMsv !== undefined
+      ) {
+        touchedDevices.add('dosimeter');
+      }
+      if (partial.ultrasoundStatus !== undefined) touchedDevices.add('ultrasound');
+      if (partial.bodyTempC !== undefined || partial.spo2Percent !== undefined) {
+        touchedDevices.add('eva_spirometer');
+      }
+
       return {
         ...prev,
         missionDay: nextDay,
         biomarkers: nextBio,
+        devices: prev.devices.map((d) =>
+          d.availableInMission && touchedDevices.has(d.id)
+            ? { ...d, lastUpdated: `Día ${nextDay} · Recién medido` }
+            : d
+        ),
         history: [...prev.history.slice(-14), nextPoint],
         healthPoints: prev.healthPoints + 25,
       };
@@ -1590,6 +1872,7 @@ export function MissionProvider({ children }: { children: React.ReactNode }) {
     completeOnboarding,
     reopenOnboarding,
     toggleDevice,
+    setAllAvailableDevicesConnection,
     recordTelemetryScan,
     triggerDemoAnomaly,
     toggleRoutineTask,
