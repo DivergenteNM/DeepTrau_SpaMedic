@@ -10,6 +10,10 @@ import {
   TriageLevel,
 } from '@/data/medicalKnowledge';
 import { EmergencyProtocolId } from '@/data/emergencyProtocolsData';
+import {
+  analyzeMissionAndAstronautRisks,
+  MissionRiskItem,
+} from '@/utils/missionRiskAnalysis';
 
 export type AppTabId = 'dashboard' | 'sensors' | 'psychology' | 'musculoskeletal' | 'survival';
 
@@ -64,6 +68,21 @@ export interface HistoryPoint {
   muscleRetention: number;
 }
 
+export type RoutinePriority = 'overdue' | 'urgent' | 'normal';
+
+export interface OverdueRoutineEntry {
+  fromDay: number;
+  daysLate: number;
+  reasonLabel: string;
+}
+
+export interface StartupModalProgress {
+  dateKey: string;
+  sessionEpoch: number;
+  riskBriefingDone: boolean;
+  routineModalDone: boolean;
+}
+
 export interface DailyRoutineItem {
   id: string;
   title: string;
@@ -73,6 +92,12 @@ export interface DailyRoutineItem {
   reason: string;
   completed: boolean;
   points: number;
+  priority: RoutinePriority;
+  isOverdue: boolean;
+  overdueFromDay?: number;
+  overdueDays?: number;
+  priorityLabel: string;
+  urgencyContext?: string;
 }
 
 export interface VideoDiaryEntry {
@@ -129,6 +154,9 @@ interface StoredState {
   biomarkers: TelemetryBiomarkers;
   history: HistoryPoint[];
   completedRoutineIds: string[];
+  overdueRoutineMeta: Record<string, OverdueRoutineEntry>;
+  startupSessionEpoch: number;
+  startupProgress: StartupModalProgress;
   completedExerciseIds: string[];
   supplementsChecked: { vitaminD: boolean; calcium: boolean; hydration: boolean };
   psychRoutinesChecked: { breathing: boolean; circadianLight: boolean; weeklyResilience: boolean };
@@ -151,6 +179,14 @@ interface MissionContextValue {
   biomarkers: TelemetryBiomarkers;
   history: HistoryPoint[];
   routines: DailyRoutineItem[];
+  detectedRisks: MissionRiskItem[];
+  shouldShowRiskBriefing: boolean;
+  shouldShowRoutineModal: boolean;
+  hasPendingRoutineModal: boolean;
+  acknowledgeRiskBriefing: () => void;
+  acknowledgeRoutineModal: () => void;
+  reopenRiskBriefing: () => void;
+  reopenRoutineModal: () => void;
   exercises: (MissionExercisePreset & {
     isAdaptedForSurgery: boolean;
     matchedSurgery?: string;
@@ -401,25 +437,86 @@ function createInitialVideoLogs(mission: MissionType): VideoDiaryEntry[] {
   ];
 }
 
+function getLocalCalendarDateKey(): string {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, '0');
+  const d = String(now.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+function computeInitialOverdueMeta(
+  mission: MissionType,
+  astronaut: AstronautProfile,
+  missionDay: number
+): Record<string, OverdueRoutineEntry> {
+  const isLowImmune = astronaut.clinicalHistory.immuneStatus !== 'Normal';
+  const hasSurgeries = astronaut.clinicalHistory.priorSurgeries.some(
+    (s) => !s.toLowerCase().includes('sin cirug')
+  );
+  const hasCircadianNote = astronaut.clinicalHistory.notes.toLowerCase().includes('circadian');
+  const hasLowGlucoseBase = astronaut.clinicalHistory.baselineGlucose < 85;
+  const isHealthyNominalProfile =
+    !isLowImmune && !hasSurgeries && !hasCircadianNote && !hasLowGlucoseBase;
+
+  if (isHealthyNominalProfile && mission.id === 'space-station') {
+    return {};
+  }
+
+  const meta: Record<string, OverdueRoutineEntry> = {};
+  const ultrasoundScan = mission.recommendedScans.find((s) => s.deviceId === 'ultrasound');
+  if (ultrasoundScan) {
+    meta[ultrasoundScan.id] = {
+      fromDay: Math.max(1, missionDay - 2),
+      daysLate: 2,
+      reasonLabel: 'Último ultrasonido hace 2 días (control SANS pendiente)',
+    };
+  } else if (mission.id === 'planetary-habitat') {
+    meta['scan-blood-hab'] = {
+      fromDay: Math.max(1, missionDay - 1),
+      daysLate: 1,
+      reasonLabel: 'Panel inmune pendiente tras excursión EVA del turno anterior',
+    };
+  }
+
+  meta['nutrition-calcium-daily'] = {
+    fromDay: Math.max(1, missionDay - 1),
+    daysLate: 1,
+    reasonLabel: 'Suplementación de Calcio y Vitamina D pendiente de ayer',
+  };
+
+  return meta;
+}
+
 function buildDefaultState(
   missionId: MissionId = 'deep-space-transit',
   astronaut: AstronautProfile = PRELOADED_ASTRONAUTS[0],
   isOnboarded = false,
-  hasCompletedWelcome = false
+  hasCompletedWelcome = false,
+  startupSessionEpoch = 1
 ): StoredState {
   const mission = MISSIONS_DATA.find((m) => m.id === missionId) ?? MISSIONS_DATA[0];
   const biomarkers = createInitialBiomarkers(mission, astronaut);
+  const missionDay = 45;
   return {
     hasCompletedWelcome,
     isOnboarded,
     missionId: mission.id,
     astronaut,
-    missionDay: 45,
+    missionDay,
     activeTab: 'dashboard',
     devices: createInitialDevices(biomarkers),
     biomarkers,
     history: generateInitialHistory(mission, astronaut),
     completedRoutineIds: ['psych-checkin-daily'],
+    overdueRoutineMeta: computeInitialOverdueMeta(mission, astronaut, missionDay),
+    startupSessionEpoch,
+    startupProgress: {
+      dateKey: '',
+      sessionEpoch: startupSessionEpoch,
+      riskBriefingDone: false,
+      routineModalDone: false,
+    },
     completedExerciseIds: [],
     supplementsChecked: { vitaminD: true, calcium: false, hydration: true },
     psychRoutinesChecked: { breathing: false, circadianLight: true, weeklyResilience: false },
@@ -593,14 +690,46 @@ export function MissionProvider({ children }: { children: React.ReactNode }) {
       if (raw) {
         const parsed = JSON.parse(raw) as StoredState;
         if (parsed && parsed.missionId && parsed.astronaut) {
+          const safeAstro = sanitizeAstronautProfile(parsed.astronaut);
+          const parsedMission =
+            MISSIONS_DATA.find((m) => m.id === parsed.missionId) ?? MISSIONS_DATA[0];
+          const safeEpoch =
+            typeof parsed.startupSessionEpoch === 'number' && parsed.startupSessionEpoch >= 1
+              ? parsed.startupSessionEpoch
+              : 1;
+          const safeOverdueMeta =
+            parsed.overdueRoutineMeta && typeof parsed.overdueRoutineMeta === 'object'
+              ? parsed.overdueRoutineMeta
+              : computeInitialOverdueMeta(parsedMission, safeAstro, parsed.missionDay ?? 45);
+          const safeStartupProgress: StartupModalProgress =
+            parsed.startupProgress && typeof parsed.startupProgress.dateKey === 'string'
+              ? {
+                  dateKey: parsed.startupProgress.dateKey,
+                  sessionEpoch:
+                    typeof parsed.startupProgress.sessionEpoch === 'number'
+                      ? parsed.startupProgress.sessionEpoch
+                      : safeEpoch,
+                  riskBriefingDone: Boolean(parsed.startupProgress.riskBriefingDone),
+                  routineModalDone: Boolean(parsed.startupProgress.routineModalDone),
+                }
+              : {
+                  dateKey: '',
+                  sessionEpoch: safeEpoch,
+                  riskBriefingDone: false,
+                  routineModalDone: false,
+                };
+
           setState({
             ...parsed,
-            astronaut: sanitizeAstronautProfile(parsed.astronaut),
+            astronaut: safeAstro,
             biomarkers: {
               ...parsed.biomarkers,
               bodyTempC: parsed.biomarkers?.bodyTempC ?? 36.7,
             },
             hasCompletedWelcome: Boolean(parsed.hasCompletedWelcome),
+            overdueRoutineMeta: safeOverdueMeta,
+            startupSessionEpoch: safeEpoch,
+            startupProgress: safeStartupProgress,
           });
         }
       }
@@ -644,19 +773,178 @@ export function MissionProvider({ children }: { children: React.ReactNode }) {
 
   const routines: DailyRoutineItem[] = useMemo(() => {
     const connectedMap = new Map(state.devices.map((d) => [d.id, d.connected]));
+    const isLowImmune = state.astronaut.clinicalHistory.immuneStatus !== 'Normal';
+    const hasPriorSurgery = state.astronaut.clinicalHistory.priorSurgeries.some(
+      (s) => !s.toLowerCase().includes('sin cirug')
+    );
+    const hasCircadianNote = state.astronaut.clinicalHistory.notes
+      .toLowerCase()
+      .includes('circadian');
+
+    const resolvePriority = (
+      id: string,
+      linkedDeviceId: DeviceId | undefined,
+      usesManualFallback: boolean
+    ): Pick<
+      DailyRoutineItem,
+      'priority' | 'isOverdue' | 'overdueFromDay' | 'overdueDays' | 'priorityLabel' | 'urgencyContext'
+    > => {
+      const overdue = state.overdueRoutineMeta?.[id];
+      if (overdue) {
+        return {
+          priority: 'overdue',
+          isOverdue: true,
+          overdueFromDay: overdue.fromDay,
+          overdueDays: overdue.daysLate,
+          priorityLabel: `Atrasada · Día ${overdue.fromDay}`,
+          urgencyContext: overdue.reasonLabel,
+        };
+      }
+
+      if (usesManualFallback) {
+        return {
+          priority: 'urgent',
+          isOverdue: false,
+          priorityLabel: 'Urgente hoy',
+          urgencyContext: 'Sensor offline · Requiere protocolo clínico manual',
+        };
+      }
+
+      if (
+        linkedDeviceId === 'dosimeter' &&
+        (systemStatuses.immune !== 'nominal' ||
+          mission.radiationRiskLevel === 'Extremo' ||
+          mission.radiationRiskLevel === 'Alto')
+      ) {
+        return {
+          priority: 'urgent',
+          isOverdue: false,
+          priorityLabel: 'Urgente hoy',
+          urgencyContext:
+            systemStatuses.immune !== 'nominal'
+              ? 'Alerta de radiación o inmunidad activa'
+              : `Misión con radiación ${mission.radiationRiskLevel.toLowerCase()}`,
+        };
+      }
+
+      if (
+        linkedDeviceId === 'hematology' &&
+        (systemStatuses.immune !== 'nominal' || isLowImmune)
+      ) {
+        return {
+          priority: 'urgent',
+          isOverdue: false,
+          priorityLabel: 'Urgente hoy',
+          urgencyContext: isLowImmune
+            ? 'EHR: Defensas bajas previas en seguimiento'
+            : 'Conteo de leucocitos fuera de rango nominal',
+        };
+      }
+
+      if (
+        linkedDeviceId === 'glucometer' &&
+        (systemStatuses.metabolic !== 'nominal' ||
+          (state.astronaut.clinicalHistory.baselineGlucose < 85 &&
+            (mission.id === 'planetary-habitat' || mission.id === 'surface-rover')))
+      ) {
+        return {
+          priority: 'urgent',
+          isOverdue: false,
+          priorityLabel: 'Urgente hoy',
+          urgencyContext:
+            systemStatuses.metabolic !== 'nominal'
+              ? 'Glucemia capilar requiere verificación hoy'
+              : 'Línea base glucémica baja para operación EVA/Rover',
+        };
+      }
+
+      if (
+        linkedDeviceId === 'vitals_cuff' &&
+        (systemStatuses.cardiovascular !== 'nominal' ||
+          mission.id === 'surface-rover' ||
+          mission.id === 'planetary-habitat')
+      ) {
+        return {
+          priority: 'urgent',
+          isOverdue: false,
+          priorityLabel: 'Urgente hoy',
+          urgencyContext:
+            systemStatuses.cardiovascular !== 'nominal'
+              ? 'Alerta cardiovascular o SpO₂% activa'
+              : 'Control vital prioritario en cabina/EVA',
+        };
+      }
+
+      if (
+        linkedDeviceId === 'ultrasound' &&
+        (systemStatuses.brain !== 'nominal' || systemStatuses.musculoskeletal !== 'nominal')
+      ) {
+        return {
+          priority: 'urgent',
+          isOverdue: false,
+          priorityLabel: 'Urgente hoy',
+          urgencyContext: 'Seguimiento prioritario neuro-ocular / muscular',
+        };
+      }
+
+      if (
+        id === 'psych-checkin-daily' &&
+        (systemStatuses.brain !== 'nominal' ||
+          (hasCircadianNote && state.biomarkers.sleepHours < 7.0))
+      ) {
+        return {
+          priority: 'urgent',
+          isOverdue: false,
+          priorityLabel: 'Urgente hoy',
+          urgencyContext: 'Disrupción circadiana o fatiga detectada hoy',
+        };
+      }
+
+      if (
+        id === 'exercise-daily-protocol' &&
+        (systemStatuses.musculoskeletal !== 'nominal' || hasPriorSurgery || mission.gravityG === 0)
+      ) {
+        return {
+          priority: 'urgent',
+          isOverdue: false,
+          priorityLabel: 'Urgente hoy',
+          urgencyContext: hasPriorSurgery
+            ? 'Sesión adaptada a antecedente quirúrgico'
+            : `Contramedida clave en ${mission.gravityLabel}`,
+        };
+      }
+
+      if (id === 'nutrition-calcium-daily' && systemStatuses.musculoskeletal !== 'nominal') {
+        return {
+          priority: 'urgent',
+          isOverdue: false,
+          priorityLabel: 'Urgente hoy',
+          urgencyContext: 'Soporte mineral prioritario por retención ósea',
+        };
+      }
+
+      return {
+        priority: 'normal',
+        isOverdue: false,
+        priorityLabel: 'Programada',
+      };
+    };
+
     const items: DailyRoutineItem[] = mission.recommendedScans.map((scan) => {
       const isConnected = connectedMap.get(scan.deviceId) ?? false;
+      const usesManualFallback = !isConnected;
       return {
         id: scan.id,
         title: isConnected ? scan.title : scan.manualFallbackTitle,
         category: isConnected ? 'Escaneo' : 'Manual',
         linkedDeviceId: scan.deviceId,
-        usesManualFallback: !isConnected,
+        usesManualFallback,
         reason: isConnected
           ? scan.reason
           : `Herramienta desconectada: protocolo adaptado a autoevaluación clínica (${scan.reason})`,
         completed: state.completedRoutineIds.includes(scan.id),
         points: scan.points,
+        ...resolvePriority(scan.id, scan.deviceId, usesManualFallback),
       };
     });
 
@@ -669,20 +957,19 @@ export function MissionProvider({ children }: { children: React.ReactNode }) {
         reason: 'Previene fatiga por aislamiento y desincronización circadiana.',
         completed: state.completedRoutineIds.includes('psych-checkin-daily'),
         points: 25,
+        ...resolvePriority('psych-checkin-daily', undefined, false),
       },
       {
         id: 'exercise-daily-protocol',
-        title:
-          state.astronaut.clinicalHistory.priorSurgeries.some(
-            (s) => !s.toLowerCase().includes('sin cirug')
-          )
-            ? 'Entrenamiento óseo y muscular adaptado a historial quirúrgico'
-            : `Rutina física diaria (${mission.gravityLabel})`,
+        title: hasPriorSurgery
+          ? 'Entrenamiento óseo y muscular adaptado a historial quirúrgico'
+          : `Rutina física diaria (${mission.gravityLabel})`,
         category: 'Ejercicio',
         usesManualFallback: false,
         reason: 'Contrarresta pérdida ósea (1-1.5%/mes) y protege articulaciones.',
         completed: state.completedRoutineIds.includes('exercise-daily-protocol'),
         points: 40,
+        ...resolvePriority('exercise-daily-protocol', undefined, false),
       },
       {
         id: 'nutrition-calcium-daily',
@@ -692,11 +979,66 @@ export function MissionProvider({ children }: { children: React.ReactNode }) {
         reason: 'Soporta remineralización ósea y estabilidad metabólica.',
         completed: state.completedRoutineIds.includes('nutrition-calcium-daily'),
         points: 20,
+        ...resolvePriority('nutrition-calcium-daily', undefined, false),
       }
     );
 
-    return items;
-  }, [mission, state.devices, state.completedRoutineIds, state.astronaut]);
+    const priorityRank: Record<RoutinePriority, number> = {
+      overdue: 0,
+      urgent: 1,
+      normal: 2,
+    };
+
+    return items.sort((a, b) => priorityRank[a.priority] - priorityRank[b.priority]);
+  }, [
+    mission,
+    state.devices,
+    state.completedRoutineIds,
+    state.overdueRoutineMeta,
+    state.astronaut,
+    state.biomarkers.sleepHours,
+    systemStatuses,
+  ]);
+
+  const detectedRisks: MissionRiskItem[] = useMemo(
+    () =>
+      analyzeMissionAndAstronautRisks({
+        mission,
+        astronaut: state.astronaut,
+        biomarkers: state.biomarkers,
+        systemStatuses,
+        routines,
+        devices: devicesWithStatus,
+        activeCrisisScenario,
+      }),
+    [
+      mission,
+      state.astronaut,
+      state.biomarkers,
+      systemStatuses,
+      routines,
+      devicesWithStatus,
+      activeCrisisScenario,
+    ]
+  );
+
+  const todayKey = isHydrated ? getLocalCalendarDateKey() : '';
+  const sameDayAndEpoch =
+    isHydrated &&
+    state.startupProgress.dateKey === todayKey &&
+    state.startupProgress.sessionEpoch === state.startupSessionEpoch;
+  const riskBriefingDone = sameDayAndEpoch && state.startupProgress.riskBriefingDone;
+  const routineModalDone = sameDayAndEpoch && state.startupProgress.routineModalDone;
+
+  const canPresentStartupModals =
+    isHydrated && state.isOnboarded && state.activeTab === 'dashboard' && !isSosOpen;
+
+  const shouldShowRiskBriefing =
+    canPresentStartupModals && !riskBriefingDone && detectedRisks.length > 0;
+
+  const shouldShowRoutineModal =
+    canPresentStartupModals && !shouldShowRiskBriefing && !routineModalDone;
+  const hasPendingRoutineModal = !routineModalDone;
 
   const exercises = useMemo(() => {
     const surgeryText = state.astronaut.clinicalHistory.priorSurgeries.join(' ').toLowerCase();
@@ -747,13 +1089,78 @@ export function MissionProvider({ children }: { children: React.ReactNode }) {
     const selectedMission = MISSIONS_DATA.find((m) => m.id === missionId) ?? MISSIONS_DATA[0];
     const safeProfile = sanitizeAstronautProfile(astronautProfile);
     const newBiomarkers = createInitialBiomarkers(selectedMission, safeProfile);
-    setState({
-      ...buildDefaultState(selectedMission.id, safeProfile, true, true),
-      biomarkers: newBiomarkers,
-      devices: createInitialDevices(newBiomarkers),
-      history: generateInitialHistory(selectedMission, safeProfile),
-      videoLogs: createInitialVideoLogs(selectedMission),
+    setState((prev) => {
+      const nextEpoch = prev.startupSessionEpoch + 1;
+      return {
+        ...buildDefaultState(selectedMission.id, safeProfile, true, true, nextEpoch),
+        biomarkers: newBiomarkers,
+        devices: createInitialDevices(newBiomarkers),
+        history: generateInitialHistory(selectedMission, safeProfile),
+        videoLogs: createInitialVideoLogs(selectedMission),
+      };
     });
+  };
+
+  const acknowledgeRiskBriefing = () => {
+    const key = getLocalCalendarDateKey();
+    setState((prev) => {
+      const sameContext =
+        prev.startupProgress.dateKey === key &&
+        prev.startupProgress.sessionEpoch === prev.startupSessionEpoch;
+      return {
+        ...prev,
+        startupProgress: {
+          dateKey: key,
+          sessionEpoch: prev.startupSessionEpoch,
+          riskBriefingDone: true,
+          routineModalDone: sameContext ? prev.startupProgress.routineModalDone : false,
+        },
+      };
+    });
+  };
+
+  const acknowledgeRoutineModal = () => {
+    const key = getLocalCalendarDateKey();
+    setState((prev) => ({
+      ...prev,
+      startupProgress: {
+        dateKey: key,
+        sessionEpoch: prev.startupSessionEpoch,
+        riskBriefingDone: true,
+        routineModalDone: true,
+      },
+    }));
+  };
+
+  const reopenRiskBriefing = () => {
+    const key = getLocalCalendarDateKey();
+    setState((prev) => {
+      const sameContext =
+        prev.startupProgress.dateKey === key &&
+        prev.startupProgress.sessionEpoch === prev.startupSessionEpoch;
+      return {
+        ...prev,
+        startupProgress: {
+          dateKey: key,
+          sessionEpoch: prev.startupSessionEpoch,
+          riskBriefingDone: false,
+          routineModalDone: sameContext ? prev.startupProgress.routineModalDone : true,
+        },
+      };
+    });
+  };
+
+  const reopenRoutineModal = () => {
+    const key = getLocalCalendarDateKey();
+    setState((prev) => ({
+      ...prev,
+      startupProgress: {
+        dateKey: key,
+        sessionEpoch: prev.startupSessionEpoch,
+        riskBriefingDone: true,
+        routineModalDone: false,
+      },
+    }));
   };
 
   const reopenOnboarding = () => {
@@ -1016,8 +1423,9 @@ export function MissionProvider({ children }: { children: React.ReactNode }) {
   };
 
   const resetDemoData = () => {
-    const fresh = buildDefaultState(state.missionId, state.astronaut, true, true);
-    setState(fresh);
+    setState((prev) =>
+      buildDefaultState(prev.missionId, prev.astronaut, true, true, prev.startupSessionEpoch + 1)
+    );
     setActiveCrisisScenario(null);
     setCrisisAlertBanner(null);
     setShouldAutoStartTimer(false);
@@ -1159,6 +1567,14 @@ export function MissionProvider({ children }: { children: React.ReactNode }) {
     biomarkers: state.biomarkers,
     history: state.history,
     routines,
+    detectedRisks,
+    shouldShowRiskBriefing,
+    shouldShowRoutineModal,
+    hasPendingRoutineModal,
+    acknowledgeRiskBriefing,
+    acknowledgeRoutineModal,
+    reopenRiskBriefing,
+    reopenRoutineModal,
     exercises,
     supplementsChecked: state.supplementsChecked,
     psychRoutinesChecked: state.psychRoutinesChecked,

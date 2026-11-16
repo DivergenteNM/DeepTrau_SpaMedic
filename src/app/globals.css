@@ -170,12 +170,27 @@ h4,
   }
 }
 
+@keyframes dtDockLanded {
+  0% {
+    box-shadow: 0 0 0 4px var(--dt-focus-ring), 0 12px 28px -14px rgba(47, 93, 70, 0.25);
+    border-color: var(--dt-primary);
+  }
+
+  100% {
+    box-shadow: 0 0 0 0 rgba(47, 93, 70, 0), 0 0 0 0 rgba(47, 93, 70, 0);
+  }
+}
+
 .dt-animate-enter {
   animation: dtFadeSlideUp var(--dt-duration-smooth) var(--dt-ease-enter) both;
 }
 
 .dt-animate-panel {
   animation: dtFadeInScale 220ms var(--dt-ease-enter) both;
+}
+
+.dt-dock-landed {
+  animation: dtDockLanded 460ms var(--dt-ease-enter) both;
 }
 
 .dt-body-reticle {
@@ -236,6 +251,7 @@ h4,
 
   .dt-animate-enter,
   .dt-animate-panel,
+  .dt-dock-landed,
   .dt-body-reticle {
     animation: none;
   }

@@ -1,12 +1,10 @@
 'use client';
 
-import React from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import {
-  AlertCircle,
   AlertOctagon,
-  CheckCircle2,
-  Circle,
-  Cpu,
+  AlertTriangle,
   Droplets,
   Flame,
   HeartPulse,
@@ -16,19 +14,26 @@ import {
   ShieldAlert,
   Sparkles,
   Trophy,
-  Wrench,
   Zap,
 } from 'lucide-react';
 import { useMission } from '@/context/MissionContext';
 import { InteractiveBodyMap } from './InteractiveBodyMap';
+import { RoutineDashboardWidget } from './RoutineDashboardWidget';
+import { RoutineFocusModal } from './RoutineFocusModal';
+import { RiskBriefingModal } from './RiskBriefingModal';
+
+interface DockFlightState {
+  fromRect: DOMRect;
+  toRect: DOMRect;
+  isTargetVisible: boolean;
+}
 
 export function CommandDashboard() {
   const {
     mission,
     astronaut,
+    missionDay,
     biomarkers,
-    routines,
-    devices,
     streakDays,
     healthPoints,
     readinessScore,
@@ -36,16 +41,179 @@ export function CommandDashboard() {
     globalTriage,
     activeCrisisScenario,
     crisisAlertBanner,
-    toggleRoutineTask,
+    detectedRisks,
+    shouldShowRiskBriefing,
+    shouldShowRoutineModal,
+    hasPendingRoutineModal,
+    acknowledgeRiskBriefing,
+    acknowledgeRoutineModal,
+    reopenRiskBriefing,
+    reopenRoutineModal,
     setActiveTab,
     openSosOverlay,
     simulateLiveCrisis,
     restoreNominalVitals,
   } = useMission();
 
-  const completedCount = routines.filter((r) => r.completed).length;
-  const pendingCount = routines.length - completedCount;
-  const disconnectedCount = devices.filter((d) => !d.connected).length;
+  const dashboardSlotRef = useRef<HTMLDivElement>(null);
+  const flightBackdropRef = useRef<HTMLDivElement>(null);
+  const flightModalShellRef = useRef<HTMLDivElement>(null);
+  const flightTargetMirrorRef = useRef<HTMLDivElement>(null);
+
+  const [dockFlight, setDockFlight] = useState<DockFlightState | null>(null);
+  const [justDocked, setJustDocked] = useState(false);
+  const [wasChainedAfterBriefing, setWasChainedAfterBriefing] = useState(false);
+
+  const ackRoutineRef = useRef(acknowledgeRoutineModal);
+  ackRoutineRef.current = acknowledgeRoutineModal;
+
+  useEffect(() => {
+    if (shouldShowRiskBriefing) {
+      setWasChainedAfterBriefing(true);
+    }
+  }, [shouldShowRiskBriefing]);
+
+  useEffect(() => {
+    if (!justDocked) return;
+    const timer = window.setTimeout(() => setJustDocked(false), 520);
+    return () => window.clearTimeout(timer);
+  }, [justDocked]);
+
+  const handleRequestDock = useCallback((fromRect: DOMRect | null) => {
+    const prefersReducedMotion =
+      typeof window !== 'undefined' &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const toRect = dashboardSlotRef.current?.getBoundingClientRect() ?? null;
+
+    if (prefersReducedMotion || !fromRect || !toRect || toRect.width < 10) {
+      setWasChainedAfterBriefing(false);
+      ackRoutineRef.current();
+      return;
+    }
+
+    const isTargetVisible = toRect.top < window.innerHeight - 36 && toRect.bottom > 36;
+    setDockFlight({ fromRect, toRect, isTargetVisible });
+  }, []);
+
+  useLayoutEffect(() => {
+    if (!dockFlight) return;
+
+    const { fromRect, toRect, isTargetVisible } = dockFlight;
+    const animations: Animation[] = [];
+    const easeDock = 'cubic-bezier(0.16, 1, 0.3, 1)';
+    let cancelled = false;
+
+    if (flightBackdropRef.current) {
+      animations.push(
+        flightBackdropRef.current.animate([{ opacity: 1 }, { opacity: 0 }], {
+          duration: 280,
+          easing: 'cubic-bezier(0.2, 0, 0, 1)',
+          fill: 'forwards',
+        })
+      );
+    }
+
+    const fromCenterX = fromRect.left + fromRect.width / 2;
+    const fromCenterY = fromRect.top + fromRect.height / 2;
+    const destLeft = toRect.left;
+    const destTop = isTargetVisible
+      ? toRect.top
+      : Math.min(toRect.top, window.innerHeight - Math.min(toRect.height, 220) - 20);
+    const destCenterX = destLeft + toRect.width / 2;
+    const destCenterY = destTop + toRect.height / 2;
+
+    if (flightModalShellRef.current) {
+      const leaveDx = destCenterX - fromCenterX;
+      const leaveDy = destCenterY - fromCenterY;
+      const leaveScale = Math.max(0.48, Math.min(0.92, toRect.width / Math.max(1, fromRect.width)));
+
+      animations.push(
+        flightModalShellRef.current.animate(
+          [
+            { transform: 'translate3d(0px, 0px, 0) scale(1)', opacity: 1 },
+            {
+              transform: `translate3d(${leaveDx * 0.72}px, ${leaveDy * 0.72}px, 0) scale(${leaveScale})`,
+              opacity: 0,
+            },
+          ],
+          { duration: 240, easing: easeDock, fill: 'forwards' }
+        )
+      );
+    }
+
+    if (flightTargetMirrorRef.current) {
+      const arrRect = flightTargetMirrorRef.current.getBoundingClientRect();
+      const arrCenterX = arrRect.left + arrRect.width / 2;
+      const arrCenterY = arrRect.top + arrRect.height / 2;
+      const invDx = fromCenterX - arrCenterX;
+      const invDy = fromCenterY - arrCenterY;
+      const invScale = Math.min(
+        1.34,
+        Math.max(0.85, fromRect.width / Math.max(1, arrRect.width))
+      );
+
+      const mainFlight = flightTargetMirrorRef.current.animate(
+        isTargetVisible
+          ? [
+              {
+                transform: `translate3d(${invDx}px, ${invDy}px, 0) scale(${invScale})`,
+                opacity: 0,
+                boxShadow: '0 24px 64px -24px rgba(26, 36, 30, 0.38)',
+              },
+              {
+                transform: `translate3d(${invDx * 0.64}px, ${invDy * 0.64}px, 0) scale(${
+                  1 + (invScale - 1) * 0.64
+                })`,
+                opacity: 1,
+                offset: 0.25,
+                boxShadow: '0 18px 44px -18px rgba(26, 36, 30, 0.28)',
+              },
+              {
+                transform: 'translate3d(0px, 0px, 0) scale(1)',
+                opacity: 1,
+                boxShadow: '0 0 0 0 rgba(26, 36, 30, 0)',
+              },
+            ]
+          : [
+              {
+                transform: `translate3d(${invDx}px, ${invDy}px, 0) scale(${invScale})`,
+                opacity: 0,
+                boxShadow: '0 24px 64px -24px rgba(26, 36, 30, 0.38)',
+              },
+              {
+                transform: `translate3d(${invDx * 0.4}px, ${invDy * 0.4}px, 0) scale(0.95)`,
+                opacity: 1,
+                offset: 0.35,
+                boxShadow: '0 16px 36px -18px rgba(26, 36, 30, 0.24)',
+              },
+              {
+                transform: 'translate3d(0px, 24px, 0) scale(0.84)',
+                opacity: 0,
+                boxShadow: '0 0 0 0 rgba(26, 36, 30, 0)',
+              },
+            ],
+        { duration: isTargetVisible ? 460 : 400, easing: easeDock, fill: 'forwards' }
+      );
+
+      animations.push(mainFlight);
+      mainFlight.onfinish = () => {
+        if (cancelled) return;
+        setWasChainedAfterBriefing(false);
+        setDockFlight(null);
+        ackRoutineRef.current();
+        setJustDocked(true);
+      };
+    } else {
+      setWasChainedAfterBriefing(false);
+      setDockFlight(null);
+      ackRoutineRef.current();
+    }
+
+    return () => {
+      cancelled = true;
+      animations.forEach((anim) => anim.cancel());
+    };
+  }, [dockFlight]);
 
   const kpiCards = [
     {
@@ -92,6 +260,8 @@ export function CommandDashboard() {
       : s === 'warning'
         ? 'border-warning/40 bg-warning-container/50'
         : 'border-outline bg-surface-container';
+
+  const criticalRiskCount = detectedRisks.filter((r) => r.severity === 'critical').length;
 
   return (
     <div className="space-y-6">
@@ -202,7 +372,7 @@ export function CommandDashboard() {
         ))}
       </section>
 
-      {/* Main Grid: Interactive Human Figure + Dynamic Daily Routines & Gamification */}
+      {/* Main Grid: Interactive Human Figure + Gamification & Compact Routine Widget */}
       <section className="grid gap-6 xl:grid-cols-12">
         <div className="xl:col-span-7">
           <InteractiveBodyMap />
@@ -254,106 +424,13 @@ export function CommandDashboard() {
             </div>
           </div>
 
-          {/* Dynamic Daily Routines & Pending Scans */}
-          <div className="flex-1 rounded-2xl border border-outline bg-surface-container p-5 space-y-4">
-            <div className="flex items-start justify-between gap-2">
-              <div>
-                <h2 className="text-[18px] leading-[24px] font-bold text-on-surface font-display">
-                  Rutinas del Día y Escaneos Pendientes
-                </h2>
-                <p className="text-xs text-on-surface-variant">
-                  Adaptadas a <span className="font-semibold text-primary">{mission.shortName}</span>{' '}
-                  y a los {devices.length - disconnectedCount}/{devices.length} sensores conectados.
-                </p>
-              </div>
-              <span
-                className={`shrink-0 rounded-full border px-2.5 py-1 text-xs font-bold font-mono ${
-                  pendingCount === 0
-                    ? 'bg-primary-container text-on-primary-container border-primary/30'
-                    : 'bg-warning-container text-on-warning-container border-warning/30'
-                }`}
-              >
-                {pendingCount === 0 ? '¡Completo!' : `${pendingCount} pend.`}
-              </span>
-            </div>
-
-            {disconnectedCount > 0 && (
-              <div className="flex items-start gap-2 rounded-xl border border-warning/35 bg-warning-container p-3 text-xs text-on-warning-container">
-                <Wrench className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
-                <div>
-                  <span className="font-semibold">
-                    {disconnectedCount} herramienta(s) desconectada(s):
-                  </span>{' '}
-                  DeepTrau adaptó automáticamente esos escaneos a protocolos clínicos manuales sin
-                  hardware.
-                </div>
-              </div>
-            )}
-
-            <div className="space-y-2.5">
-              {routines.map((task) => (
-                <button
-                  key={task.id}
-                  type="button"
-                  onClick={() => toggleRoutineTask(task.id)}
-                  className={`group flex w-full cursor-pointer items-start gap-3 rounded-xl border p-3.5 text-left dt-transition hover:-translate-y-px active:translate-y-0 active:scale-[0.992] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35 ${
-                    task.completed
-                      ? 'border-primary/30 bg-primary-container/55 hover:bg-primary-container/75'
-                      : 'border-outline bg-surface-container-low hover:border-primary hover:bg-surface-container'
-                  }`}
-                >
-                  <span className="mt-0.5 shrink-0 dt-transition group-hover:scale-110">
-                    {task.completed ? (
-                      <CheckCircle2 className="h-5 w-5 text-primary" />
-                    ) : (
-                      <Circle className="h-5 w-5 text-on-surface-variant" />
-                    )}
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <p
-                        className={`text-xs font-semibold font-display ${
-                          task.completed
-                            ? 'line-through text-on-surface-variant'
-                            : 'text-on-surface'
-                        }`}
-                      >
-                        {task.title}
-                      </p>
-                      <div className="flex items-center gap-1.5">
-                        {task.usesManualFallback && (
-                          <span className="rounded-md border border-warning/30 bg-warning-container px-1.5 py-0.5 text-[10px] font-semibold text-on-warning-container">
-                            Modo Manual
-                          </span>
-                        )}
-                        <span className="rounded-md border border-outline bg-surface-container px-1.5 py-0.5 font-mono text-[10px] font-semibold text-primary">
-                          +{task.points} pts
-                        </span>
-                      </div>
-                    </div>
-                    <p className="mt-1 text-[11px] text-on-surface-variant">{task.reason}</p>
-                  </div>
-                </button>
-              ))}
-            </div>
-
-            <div className="flex items-center justify-between border-t border-outline-variant pt-3 text-xs">
-              <span className="flex items-center gap-1.5 text-on-surface-variant">
-                <AlertCircle className="h-3.5 w-3.5 text-primary" />
-                {astronaut.clinicalHistory.immuneStatus !== 'Normal'
-                  ? 'EHR: Alerta inmune temprana activa'
-                  : 'EHR: Parámetros base sincronizados'}
-              </span>
-              <button
-                type="button"
-                onClick={() => setActiveTab('sensors')}
-                className="group inline-flex cursor-pointer items-center gap-1 rounded-lg px-2 py-1 font-semibold text-primary dt-transition hover:-translate-y-px hover:bg-primary-container/60 hover:text-primary-hover active:translate-y-0 active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35"
-              >
-                <Cpu className="h-3.5 w-3.5 dt-transition group-hover:rotate-12" />
-                Gestionar sensores
-              </button>
-            </div>
-          </div>
+          {/* Compact & Expandable Routine Widget (dock target for Focus Modal) */}
+          <RoutineDashboardWidget
+            containerRef={dashboardSlotRef}
+            isHiddenForFlight={Boolean(dockFlight)}
+            justDocked={justDocked}
+            onOpenFocusMode={reopenRoutineModal}
+          />
         </div>
       </section>
 
@@ -368,7 +445,7 @@ export function CommandDashboard() {
             <p className="mt-0.5 text-on-surface-variant">{astronaut.clinicalHistory.notes}</p>
           </div>
         </div>
-        <div className="flex flex-wrap gap-1.5 text-[11px] shrink-0">
+        <div className="flex flex-wrap items-center gap-1.5 text-[11px] shrink-0">
           {astronaut.clinicalHistory.priorSurgeries.map((surg, i) => (
             <span
               key={i}
@@ -377,8 +454,83 @@ export function CommandDashboard() {
               {surg}
             </span>
           ))}
+          {detectedRisks.length > 0 && (
+            <button
+              type="button"
+              onClick={reopenRiskBriefing}
+              className={`inline-flex cursor-pointer items-center gap-1 rounded-lg border px-2.5 py-1 font-semibold font-display dt-transition hover:-translate-y-px active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-warning/40 ${
+                criticalRiskCount > 0
+                  ? 'border-danger/45 bg-danger-container text-on-danger-container hover:border-danger'
+                  : 'border-warning/40 bg-warning-container text-on-warning-container hover:border-warning'
+              }`}
+            >
+              <AlertTriangle className="h-3 w-3" />
+              <span>Briefing de riesgos ({detectedRisks.length})</span>
+            </button>
+          )}
         </div>
       </section>
+
+      {/* Step 1 Startup Modal (Conditional: only when risks exist) */}
+      <RiskBriefingModal
+        isOpen={shouldShowRiskBriefing}
+        risks={detectedRisks}
+        astronautName={astronaut.name}
+        missionShortName={mission.shortName}
+        missionDay={missionDay}
+        commDelay={mission.commDelay}
+        hasRoutineStepAfter={hasPendingRoutineModal}
+        onConfirm={acknowledgeRiskBriefing}
+      />
+
+      {/* Step 2 (or Step 1 if 0 risks) Startup Focus Modal */}
+      <RoutineFocusModal
+        isOpen={shouldShowRoutineModal && !dockFlight}
+        showStepIndicator={wasChainedAfterBriefing}
+        onRequestDock={handleRequestDock}
+      />
+
+      {/* Native FLIP Docking Flight Layer (Modal -> Dashboard Routine Widget) */}
+      {dockFlight &&
+        typeof document !== 'undefined' &&
+        createPortal(
+          <div className="fixed inset-0 z-50 pointer-events-none" aria-hidden="true">
+            <div
+              ref={flightBackdropRef}
+              className="absolute inset-0 bg-on-surface/45 backdrop-blur-[3px]"
+            />
+
+            <div
+              ref={flightModalShellRef}
+              style={{
+                position: 'fixed',
+                left: dockFlight.fromRect.left,
+                top: dockFlight.fromRect.top,
+                width: dockFlight.fromRect.width,
+                height: dockFlight.fromRect.height,
+              }}
+              className="rounded-2xl border border-outline bg-surface-container shadow-[0_24px_64px_-24px_rgba(26,36,30,0.42)]"
+            />
+
+            <div
+              ref={flightTargetMirrorRef}
+              style={{
+                position: 'fixed',
+                left: dockFlight.toRect.left,
+                top: dockFlight.isTargetVisible
+                  ? dockFlight.toRect.top
+                  : Math.min(
+                      dockFlight.toRect.top,
+                      window.innerHeight - Math.min(dockFlight.toRect.height, 220) - 20
+                    ),
+                width: dockFlight.toRect.width,
+              }}
+            >
+              <RoutineDashboardWidget isStaticPreview />
+            </div>
+          </div>,
+          document.body
+        )}
     </div>
   );
 }
