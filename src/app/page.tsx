@@ -36,7 +36,9 @@ export default function HomePage() {
   if (!isOnboarded) {
     return (
       <div className="relative min-h-screen bg-surface text-on-surface">
-        <OnboardingFlow />
+        <div aria-hidden={!hasCompletedWelcome} inert={!hasCompletedWelcome}>
+          <OnboardingFlow />
+        </div>
         {!hasCompletedWelcome && <WelcomeHome onStart={completeWelcome} />}
       </div>
     );

@@ -987,33 +987,53 @@ export function OnboardingFlow() {
                     <div className="rounded-xl border border-outline bg-surface-container p-3">
                       <div className="flex items-center gap-2 font-semibold text-danger font-display">
                         <Droplets className="h-4 w-4" />
-                        Sangre {bloodType} & Inmunidad
+                        Sangre {bloodType} &amp; Inmunidad
                       </div>
                       <p className="mt-1 text-on-surface-variant">
                         {immuneStatus !== 'Normal'
                           ? 'Umbral de alerta temprana activado: cualquier caída de leucocitos o pico de radiación disparará protocolo preventivo antes que en un perfil estándar.'
                           : 'Seguimiento estándar de glóbulos blancos frente a radiación cósmica acumulada.'}
                       </p>
+                      {allergiesInput.trim() &&
+                        !allergiesInput.toLowerCase().includes('ninguna') && (
+                          <p className="mt-1 text-[11px] font-medium text-warning">
+                            Alergia registrada ({allergiesInput.trim()}): contraindicación activa en
+                            triaje SOS.
+                          </p>
+                        )}
                     </div>
 
-                    <div className="rounded-xl border border-outline bg-surface-container p-3">
-                      <div className="flex items-center gap-2 font-semibold text-on-surface font-display">
-                        {surgeryInput.toLowerCase().includes('rodilla') ||
-                        surgeryInput.toLowerCase().includes('hombro') ? (
-                          <AlertTriangle className="h-4 w-4 text-warning" />
-                        ) : (
-                          <ShieldCheck className="h-4 w-4 text-primary" />
-                        )}
-                        Adaptación por Cirugías Previas
-                      </div>
-                      <p className="mt-1 text-on-surface-variant">
-                        {surgeryInput.toLowerCase().includes('rodilla')
-                          ? 'Detectada cirugía de rodilla: el planificador reemplazará carrera de alto impacto por ciclismo CEVIS y ARED en rango corto.'
-                          : surgeryInput.toLowerCase().includes('hombro')
-                            ? 'Detectada cirugía de hombro: se limitarán cargas sobre la cabeza sustituyéndolas por tracción escapular segura.'
-                            : 'Sin restricciones articulares detectadas: rutina completa habilitada según gravedad.'}
-                      </p>
-                    </div>
+                    {(() => {
+                      const lowSurg = surgeryInput.toLowerCase();
+                      const hasKnee = lowSurg.includes('rodilla');
+                      const hasShoulder = lowSurg.includes('hombro');
+                      const hasSpine =
+                        lowSurg.includes('columna') ||
+                        lowSurg.includes('espalda') ||
+                        lowSurg.includes('lumbar');
+                      const hasAdaptedSurgery = hasKnee || hasShoulder || hasSpine;
+                      return (
+                        <div className="rounded-xl border border-outline bg-surface-container p-3">
+                          <div className="flex items-center gap-2 font-semibold text-on-surface font-display">
+                            {hasAdaptedSurgery ? (
+                              <AlertTriangle className="h-4 w-4 text-warning" />
+                            ) : (
+                              <ShieldCheck className="h-4 w-4 text-primary" />
+                            )}
+                            Adaptación por Cirugías Previas
+                          </div>
+                          <p className="mt-1 text-on-surface-variant">
+                            {hasKnee
+                              ? 'Detectada cirugía de rodilla: el planificador reemplazará carrera de alto impacto por ciclismo CEVIS y ARED en rango corto.'
+                              : hasShoulder
+                                ? 'Detectada cirugía de hombro: se limitarán cargas sobre la cabeza sustituyéndolas por tracción escapular segura.'
+                                : hasSpine
+                                  ? 'Detectada cirugía lumbar/columna: se priorizará descarga axial y ejercicios de estabilización sin impacto vertical.'
+                                  : 'Sin restricciones articulares detectadas: rutina completa habilitada según gravedad.'}
+                          </p>
+                        </div>
+                      );
+                    })()}
 
                     <div className="rounded-xl border border-outline bg-surface-container p-3">
                       <div className="flex items-center justify-between gap-2">
@@ -1044,6 +1064,27 @@ export function OnboardingFlow() {
                         {baselineSystolic || '—'}/{baselineDiastolic || '—'} mmHg · FC:{' '}
                         {baselineHR || '—'} bpm
                       </p>
+                      {(validation.parsed.baselineGlucose !== null &&
+                        validation.parsed.baselineGlucose < 85 &&
+                        (selectedMission.id === 'planetary-habitat' ||
+                          selectedMission.id === 'surface-rover')) ||
+                      clinicalNotes.toLowerCase().includes('circadian') ? (
+                        <p className="mt-1 text-[11px] font-medium text-primary">
+                          {[
+                            validation.parsed.baselineGlucose !== null &&
+                            validation.parsed.baselineGlucose < 85 &&
+                            (selectedMission.id === 'planetary-habitat' ||
+                              selectedMission.id === 'surface-rover')
+                              ? 'Vigilancia de hipoglucemia reactiva pre/post EVA activa'
+                              : null,
+                            clinicalNotes.toLowerCase().includes('circadian')
+                              ? 'Prioridad circadiana y test PVT calibrados'
+                              : null,
+                          ]
+                            .filter(Boolean)
+                            .join(' · ')}
+                        </p>
+                      ) : null}
                     </div>
                   </div>
                 </div>

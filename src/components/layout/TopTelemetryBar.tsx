@@ -8,6 +8,7 @@ import {
   Clock,
   Droplets,
   Gauge,
+  Home,
   Radio,
   RefreshCw,
   RotateCcw,
@@ -50,6 +51,7 @@ export function TopTelemetryBar() {
     reopenOnboarding,
     triggerDemoAnomaly,
     resetDemoData,
+    resetFullDemoExperience,
     openSosOverlay,
     simulateLiveCrisis,
     restoreNominalVitals,
@@ -312,11 +314,24 @@ export function TopTelemetryBar() {
                   Simulador de Pruebas y Misión
                 </span>
 
-                <div className="flex items-center gap-1.5">
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsTestDrawerOpen(false);
+                      resetFullDemoExperience();
+                    }}
+                    title="Limpiar sesión local y reiniciar el recorrido completo desde la portada"
+                    className="group inline-flex cursor-pointer items-center gap-1 rounded-xl border border-outline bg-surface-container-low px-2.5 py-1.5 text-xs font-medium text-on-surface-variant dt-transition hover:-translate-y-px hover:border-primary/40 hover:bg-surface-container-high hover:text-on-surface active:translate-y-0 active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35"
+                  >
+                    <Home className="h-3.5 w-3.5 dt-transition group-hover:scale-105" />
+                    <span>Desde Portada</span>
+                  </button>
+
                   <button
                     type="button"
                     onClick={resetDemoData}
-                    title="Reiniciar métricas de demostración"
+                    title="Reiniciar métricas de demostración en la misión actual"
                     className="group inline-flex cursor-pointer items-center gap-1 rounded-xl border border-outline bg-surface-container-low px-2.5 py-1.5 text-xs font-medium text-on-surface-variant dt-transition hover:-translate-y-px hover:border-primary/40 hover:bg-surface-container-high hover:text-on-surface active:translate-y-0 active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35"
                   >
                     <RotateCcw className="h-3.5 w-3.5 dt-transition group-hover:-rotate-45" />

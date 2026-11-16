@@ -254,6 +254,7 @@ interface MissionContextValue {
   addInspirationItem: (item: Omit<InspirationItem, 'id'>) => void;
   removeInspirationItem: (id: string) => void;
   resetDemoData: () => void;
+  resetFullDemoExperience: () => void;
   isSosOpen: boolean;
   activeEmergencyProtocolId: EmergencyProtocolId;
   activeCrisisScenario: EmergencyCrisisScenario | null;
@@ -529,41 +530,40 @@ function reconcileDevicesForMission(
   });
 }
 
-function generateInitialHistory(mission: MissionType, astronaut: AstronautProfile): HistoryPoint[] {
-  const days = [1, 5, 10, 15, 20, 25, 30, 35, 40, 45];
-  const baseGlucose = astronaut.clinicalHistory.baselineGlucose;
-  const isLowImmune = astronaut.clinicalHistory.immuneStatus !== 'Normal';
-
-  return days.map((day, idx) => {
-    const rad = Number((day * mission.dailyRadiationRateMsv * (0.9 + (idx % 3) * 0.06)).toFixed(1));
-    const glucoseWave = ((idx % 4) - 1.5) * 4;
-    const moodWave = idx >= 6 && idx <= 8 ? 7 : 8 + (idx % 2);
-    const sleepWave = mission.id === 'space-station' ? 6.6 + (idx % 3) * 0.3 : 7.1 + (idx % 2) * 0.4;
-    const wbcBase = isLowImmune ? 4700 : 6200;
-    const wbcDelta = -idx * 45 + (idx % 2 === 0 ? 150 : -100);
-    const boneDecay = mission.gravityG === 0 ? 0.032 : 0.018;
-    const muscleDecay = mission.gravityG === 0 ? 0.045 : 0.025;
-
-    return {
-      day,
-      radiationMsv: rad,
-      glucoseMgDl: Math.round(baseGlucose + glucoseWave),
-      wbcCount: Math.max(3600, wbcBase + wbcDelta),
-      moodScore: moodWave,
-      sleepHours: Number(sleepWave.toFixed(1)),
-      stressLevel: idx >= 6 ? 4 : 3,
-      boneRetention: Number((100 - day * boneDecay).toFixed(1)),
-      muscleRetention: Number((100 - day * muscleDecay).toFixed(1)),
-    };
-  });
+function getInitialMissionDay(mission: MissionType): number {
+  return mission.id === 'surface-rover' ? 8 : 45;
 }
 
-function createInitialBiomarkers(mission: MissionType, astronaut: AstronautProfile): TelemetryBiomarkers {
+function createInitialBiomarkers(
+  mission: MissionType,
+  astronaut: AstronautProfile,
+  missionDay = getInitialMissionDay(mission)
+): TelemetryBiomarkers {
   const isLowImmune = astronaut.clinicalHistory.immuneStatus !== 'Normal';
-  const cumulativeRad = Number((45 * mission.dailyRadiationRateMsv).toFixed(1));
+  const hasCircadianNote = astronaut.clinicalHistory.notes.toLowerCase().includes('circadian');
+  const hasLowGlucoseBase = astronaut.clinicalHistory.baselineGlucose < 85;
+  const isEvaMission = mission.id === 'planetary-habitat' || mission.id === 'surface-rover';
+  const cumulativeRad = Number((missionDay * mission.dailyRadiationRateMsv).toFixed(1));
+  const boneDecay = mission.gravityG === 0 ? 0.032 : 0.018;
+  const muscleDecay = mission.gravityG === 0 ? 0.045 : 0.025;
+
+  const glucoseMgDl =
+    hasLowGlucoseBase && isEvaMission
+      ? Math.max(68, astronaut.clinicalHistory.baselineGlucose - 5)
+      : isEvaMission
+        ? astronaut.clinicalHistory.baselineGlucose - 2
+        : astronaut.clinicalHistory.baselineGlucose + 3;
+
+  const sleepHours = hasCircadianNote
+    ? mission.id === 'space-station'
+      ? 6.2
+      : 6.6
+    : mission.id === 'space-station'
+      ? 6.8
+      : 7.4;
 
   return {
-    glucoseMgDl: astronaut.clinicalHistory.baselineGlucose + 3,
+    glucoseMgDl,
     wbcCount: isLowImmune ? 4450 : 6100,
     spo2Percent: mission.id === 'planetary-habitat' ? 97 : 98,
     systolicBP: astronaut.clinicalHistory.baselineSystolic,
@@ -572,15 +572,81 @@ function createInitialBiomarkers(mission: MissionType, astronaut: AstronautProfi
     bodyTempC: 36.7,
     dailyRadiationMsv: mission.dailyRadiationRateMsv,
     cumulativeRadiationMsv: cumulativeRad,
-    boneDensityRetentionPercent: mission.gravityG === 0 ? 98.6 : 99.2,
-    muscleMassRetentionPercent: mission.gravityG === 0 ? 98.0 : 98.9,
-    moodScore: 8,
-    sleepHours: mission.id === 'space-station' ? 6.8 : 7.4,
-    stressLevel: 3,
+    boneDensityRetentionPercent: Number((100 - missionDay * boneDecay).toFixed(1)),
+    muscleMassRetentionPercent: Number((100 - missionDay * muscleDecay).toFixed(1)),
+    moodScore: hasCircadianNote && mission.id === 'space-station' ? 7 : 8,
+    sleepHours,
+    stressLevel: hasCircadianNote ? 4 : 3,
     crewCohesion: 9,
     ultrasoundStatus: 'Normal',
     ultrasoundNotes: 'Sin edema del nervio óptico ni estasis venosa yugular detectada.',
   };
+}
+
+function generateInitialHistory(
+  mission: MissionType,
+  astronaut: AstronautProfile,
+  missionDay = getInitialMissionDay(mission),
+  currentBiomarkers = createInitialBiomarkers(mission, astronaut, missionDay)
+): HistoryPoint[] {
+  const days =
+    missionDay <= 14
+      ? Array.from({ length: missionDay }, (_, i) => i + 1)
+      : [1, 5, 10, 15, 20, 25, 30, 35, 40, missionDay];
+  const baseGlucose = astronaut.clinicalHistory.baselineGlucose;
+  const isLowImmune = astronaut.clinicalHistory.immuneStatus !== 'Normal';
+  const hasCircadianNote = astronaut.clinicalHistory.notes.toLowerCase().includes('circadian');
+  const boneDecay = mission.gravityG === 0 ? 0.032 : 0.018;
+  const muscleDecay = mission.gravityG === 0 ? 0.045 : 0.025;
+
+  return days.map((day, idx) => {
+    const isLast = idx === days.length - 1;
+    if (isLast) {
+      return {
+        day,
+        radiationMsv: currentBiomarkers.cumulativeRadiationMsv,
+        glucoseMgDl: currentBiomarkers.glucoseMgDl,
+        wbcCount: currentBiomarkers.wbcCount,
+        moodScore: currentBiomarkers.moodScore,
+        sleepHours: currentBiomarkers.sleepHours,
+        stressLevel: currentBiomarkers.stressLevel,
+        boneRetention: currentBiomarkers.boneDensityRetentionPercent,
+        muscleRetention: currentBiomarkers.muscleMassRetentionPercent,
+      };
+    }
+
+    const rad = Math.min(
+      currentBiomarkers.cumulativeRadiationMsv,
+      Number((day * mission.dailyRadiationRateMsv * (0.94 + (idx % 2) * 0.04)).toFixed(1))
+    );
+    const glucoseWave = ((idx % 4) - 1.5) * 4;
+    const moodWave = idx >= days.length - 4 && idx <= days.length - 2 ? 7 : 8 + (idx % 2);
+    const sleepBase = hasCircadianNote
+      ? mission.id === 'space-station'
+        ? 6.1
+        : 6.5
+      : mission.id === 'space-station'
+        ? 6.6
+        : 7.1;
+    const sleepWave = sleepBase + (idx % 3) * 0.25;
+    const wbcStart = isLowImmune ? 4850 : 6350;
+    const progressRatio = idx / Math.max(1, days.length - 1);
+    const wbcTrend = Math.round(
+      wbcStart + (currentBiomarkers.wbcCount - wbcStart) * progressRatio + (idx % 2 === 0 ? 90 : -70)
+    );
+
+    return {
+      day,
+      radiationMsv: rad,
+      glucoseMgDl: Math.round(baseGlucose + glucoseWave),
+      wbcCount: Math.max(3600, wbcTrend),
+      moodScore: moodWave,
+      sleepHours: Number(sleepWave.toFixed(1)),
+      stressLevel: hasCircadianNote ? (idx >= days.length - 4 ? 5 : 4) : idx >= days.length - 4 ? 4 : 3,
+      boneRetention: Number((100 - day * boneDecay).toFixed(1)),
+      muscleRetention: Number((100 - day * muscleDecay).toFixed(1)),
+    };
+  });
 }
 
 function playCabinAlertTone(scenario: EmergencyCrisisScenario) {
@@ -626,16 +692,51 @@ function playCabinAlertTone(scenario: EmergencyCrisisScenario) {
   }
 }
 
-function createInitialVideoLogs(mission: MissionType): VideoDiaryEntry[] {
+function createInitialVideoLogs(
+  mission: MissionType,
+  astronaut: AstronautProfile,
+  missionDay = getInitialMissionDay(mission)
+): VideoDiaryEntry[] {
+  const day1 = Math.max(1, missionDay - 3);
+  const day2 = Math.max(1, missionDay - 1);
+  const hasCircadianNote = astronaut.clinicalHistory.notes.toLowerCase().includes('circadian');
+  const hasLowGlucoseBase = astronaut.clinicalHistory.baselineGlucose < 85;
+  const isLowImmune = astronaut.clinicalHistory.immuneStatus !== 'Normal';
+
+  const firstTitle =
+    mission.id === 'surface-rover'
+      ? 'Balance de travesía táctica y cohesión en Rover'
+      : mission.id === 'space-station'
+        ? 'Adaptación a ciclos orbitales y cohesión de cabina'
+        : 'Reflexión de tránsito y cohesión de cabina';
+
+  const firstNotes =
+    mission.id === 'surface-rover'
+      ? 'Turno exigente de exploración en ruta abierta. Un poco de nostalgia al ver fotos familiares, pero la rutina de movilidad en asiento despejó la tensión.'
+      : 'Jornada exigente revisando sellos y telemetría de módulo. Un poco de nostalgia al ver fotos familiares, pero la rutina física diaria despejó la mente.';
+
+  const secondTitle = hasCircadianNote
+    ? 'Bitácora circadiana: ajuste lumínico y hombro adaptado'
+    : hasLowGlucoseBase
+      ? 'Control glucémico pre-EVA y bitácora de descanso'
+      : isLowImmune
+        ? 'Seguimiento de descanso e higiene inmune en cabina'
+        : 'Bitácora de sueño y ejercicio adaptado';
+
+  const secondNotes = hasCircadianNote
+    ? 'Activé luz ámbar 1800K 60 minutos antes de dormir; noté sueño algo fragmentado por el ritmo de turno, aunque sin molestias en el hombro tras la sesión.'
+    : hasLowGlucoseBase
+      ? 'Reforcé colación de carbohidratos complejos antes de las maniobras y mantuve energía estable durante toda la jornada.'
+      : 'Ajusté la luz ámbar 60 minutos antes de dormir. Dormí de corrido y sin molestias articulares tras la sesión de resistencia.';
+
   return [
     {
       id: 'vlog-1',
-      day: 42,
-      timestamp: 'Día 42 · 20:10 UTC',
+      day: day1,
+      timestamp: `Día ${day1} · 20:10 UTC`,
       mode: 'video',
-      title: 'Reflexión de mitad de tránsito y cohesión de cabina',
-      notes:
-        'Jornada exigente revisando sellos de laboratorio. Un poco de nostalgia al ver fotos familiares, pero la rutina de ciclismo CEVIS despejó la mente.',
+      title: firstTitle,
+      notes: firstNotes,
       moodRating: 8,
       durationSeconds: 38,
       aiIndicators: {
@@ -645,30 +746,94 @@ function createInitialVideoLogs(mission: MissionType): VideoDiaryEntry[] {
         earthSyncStatus: `Empaquetado para envío asíncrono (${mission.commDelay})`,
         detectedThemes: ['Vínculo Terrestre / Nostalgia', 'Regulación Positiva'],
         clinicalRecommendation:
-          'Mantener anclaje visual con familia y sostener bloque de ejercicio cardiovascular.',
+          'Mantener anclaje visual con familia y sostener bloque de ejercicio diario.',
         syncState: 'queued',
       },
     },
     {
       id: 'vlog-2',
-      day: 44,
-      timestamp: 'Día 44 · 19:45 UTC',
+      day: day2,
+      timestamp: `Día ${day2} · 19:45 UTC`,
       mode: 'texto',
-      title: 'Bitácora de sueño y ejercicio adaptado',
-      notes:
-        'Ajusté la luz ámbar 60 minutos antes de dormir. Dormí de corrido y sin molestias articulares tras la sesión de resistencia.',
-      moodRating: 8,
+      title: secondTitle,
+      notes: secondNotes,
+      moodRating: hasCircadianNote ? 7 : 8,
       aiIndicators: {
-        emotionalTone: 'Positivo / Enfocado',
+        emotionalTone: hasCircadianNote
+          ? 'Enfocado con ligera presión circadiana'
+          : 'Positivo / Enfocado',
         vocalFatigue: 'N/A (Bitácora escrita)',
-        confinementStress: 'Bajo',
+        confinementStress: hasCircadianNote ? 'Moderado' : 'Bajo',
         earthSyncStatus: 'Confirmado por Psicología de Tierra (Houston/CSA)',
-        detectedThemes: ['Higiene Circadiana / Sueño', 'Regulación Positiva'],
-        clinicalRecommendation: 'Continuar protocolo de luz ámbar 1800K pre-sueño.',
+        detectedThemes: hasLowGlucoseBase
+          ? ['Carga Operativa', 'Regulación Positiva']
+          : ['Higiene Circadiana / Sueño', 'Regulación Positiva'],
+        clinicalRecommendation: hasCircadianNote
+          ? 'Sostener protocolo de luz ámbar 1800K y completar Test PVT de control.'
+          : 'Continuar protocolo de luz ámbar 1800K pre-sueño.',
         syncState: 'acknowledged',
-        earthFeedback:
-          'Psicología de Vuelo: Excelente respuesta circadiana. Sin signos de fatiga de tercer cuarto.',
+        earthFeedback: hasCircadianNote
+          ? 'Psicología de Vuelo: Atentos a tu sensibilidad circadiana. Prioriza 1800K antes de dormir y sesión de respiración 4-4-4-4.'
+          : 'Psicología de Vuelo: Excelente respuesta circadiana y adherencia. Sin signos de fatiga de tercer cuarto.',
       },
+    },
+  ];
+}
+
+function createInitialPvtHistory(
+  astronaut: AstronautProfile,
+  mission: MissionType,
+  missionDay = getInitialMissionDay(mission)
+): PvtSessionResult[] {
+  const pvtDay = Math.max(1, missionDay - 2);
+  const hasCircadianNote = astronaut.clinicalHistory.notes.toLowerCase().includes('circadian');
+
+  if (hasCircadianNote && mission.id === 'space-station') {
+    return [
+      {
+        id: 'pvt-seed-1',
+        day: pvtDay,
+        timestamp: `Día ${pvtDay} · 08:30 UTC`,
+        trialsMs: [378, 412, 515, 392, 405],
+        meanRtMs: 420,
+        fastestRtMs: 378,
+        lapses: 1,
+        falseStarts: 0,
+        alertnessScore: 65,
+        statusLabel: 'Fatiga Leve',
+      },
+    ];
+  }
+
+  if (hasCircadianNote) {
+    return [
+      {
+        id: 'pvt-seed-1',
+        day: pvtDay,
+        timestamp: `Día ${pvtDay} · 08:30 UTC`,
+        trialsMs: [304, 318, 296, 325, 311],
+        meanRtMs: 311,
+        fastestRtMs: 296,
+        lapses: 0,
+        falseStarts: 0,
+        alertnessScore: 94,
+        statusLabel: 'Óptima',
+      },
+    ];
+  }
+
+  return [
+    {
+      id: 'pvt-seed-1',
+      day: pvtDay,
+      timestamp: `Día ${pvtDay} · 08:30 UTC`,
+      trialsMs: [264, 279, 255, 288, 271],
+      meanRtMs: 271,
+      fastestRtMs: 255,
+      lapses: 0,
+      falseStarts: 0,
+      alertnessScore: 98,
+      statusLabel: 'Óptima',
     },
   ];
 }
@@ -732,8 +897,9 @@ function buildDefaultState(
   startupSessionEpoch = 1
 ): StoredState {
   const mission = MISSIONS_DATA.find((m) => m.id === missionId) ?? MISSIONS_DATA[0];
-  const biomarkers = createInitialBiomarkers(mission, astronaut);
-  const missionDay = 45;
+  const missionDay = getInitialMissionDay(mission);
+  const biomarkers = createInitialBiomarkers(mission, astronaut, missionDay);
+  const hasCircadianNote = astronaut.clinicalHistory.notes.toLowerCase().includes('circadian');
   return {
     hasCompletedWelcome,
     isOnboarded,
@@ -743,8 +909,8 @@ function buildDefaultState(
     activeTab: 'dashboard',
     devices: createInitialDevices(biomarkers, mission),
     biomarkers,
-    history: generateInitialHistory(mission, astronaut),
-    completedRoutineIds: ['psych-checkin-daily'],
+    history: generateInitialHistory(mission, astronaut, missionDay, biomarkers),
+    completedRoutineIds: hasCircadianNote ? [] : ['psych-checkin-daily'],
     overdueRoutineMeta: computeInitialOverdueMeta(mission, astronaut, missionDay),
     startupSessionEpoch,
     startupProgress: {
@@ -755,25 +921,16 @@ function buildDefaultState(
     },
     completedExerciseIds: [],
     supplementsChecked: { vitaminD: true, calcium: false, hydration: true },
-    psychRoutinesChecked: { breathing: false, circadianLight: true, weeklyResilience: false },
+    psychRoutinesChecked: {
+      breathing: false,
+      circadianLight: !hasCircadianNote,
+      weeklyResilience: false,
+    },
     streakDays: 12,
     healthPoints: 1480,
-    videoLogs: createInitialVideoLogs(mission),
+    videoLogs: createInitialVideoLogs(mission, astronaut, missionDay),
     inspirationItems: DEFAULT_INSPIRATION_ITEMS,
-    pvtHistory: [
-      {
-        id: 'pvt-seed-1',
-        day: 43,
-        timestamp: 'Día 43 · 08:30 UTC',
-        trialsMs: [264, 279, 255, 288, 271],
-        meanRtMs: 271,
-        fastestRtMs: 255,
-        lapses: 0,
-        falseStarts: 0,
-        alertnessScore: 98,
-        statusLabel: 'Óptima',
-      },
-    ],
+    pvtHistory: createInitialPvtHistory(astronaut, mission, missionDay),
   };
 }
 
@@ -972,6 +1129,34 @@ export function MissionProvider({ children }: { children: React.ReactNode }) {
           const safeAstro = sanitizeAstronautProfile(parsed.astronaut);
           const parsedMission =
             MISSIONS_DATA.find((m) => m.id === parsed.missionId) ?? MISSIONS_DATA[0];
+          const defaultMissionDay = getInitialMissionDay(parsedMission);
+          const isLegacyRoverOverflow =
+            parsedMission.id === 'surface-rover' &&
+            parsed.missionDay === 45 &&
+            (!parsed.isOnboarded ||
+              (Array.isArray(parsed.history) &&
+                parsed.history.some((pt) => pt.day === 45) &&
+                parsed.history.length === 10));
+
+          if (isLegacyRoverOverflow) {
+            setState(
+              buildDefaultState(
+                parsedMission.id,
+                safeAstro,
+                Boolean(parsed.isOnboarded),
+                Boolean(parsed.hasCompletedWelcome),
+                typeof parsed.startupSessionEpoch === 'number' && parsed.startupSessionEpoch >= 1
+                  ? parsed.startupSessionEpoch
+                  : 1
+              )
+            );
+            return;
+          }
+
+          const safeMissionDay =
+            typeof parsed.missionDay === 'number' && parsed.missionDay >= 1
+              ? parsed.missionDay
+              : defaultMissionDay;
           const safeEpoch =
             typeof parsed.startupSessionEpoch === 'number' && parsed.startupSessionEpoch >= 1
               ? parsed.startupSessionEpoch
@@ -979,7 +1164,7 @@ export function MissionProvider({ children }: { children: React.ReactNode }) {
           const safeOverdueMeta =
             parsed.overdueRoutineMeta && typeof parsed.overdueRoutineMeta === 'object'
               ? parsed.overdueRoutineMeta
-              : computeInitialOverdueMeta(parsedMission, safeAstro, parsed.missionDay ?? 45);
+              : computeInitialOverdueMeta(parsedMission, safeAstro, safeMissionDay);
           const safeStartupProgress: StartupModalProgress =
             parsed.startupProgress && typeof parsed.startupProgress.dateKey === 'string'
               ? {
@@ -998,9 +1183,11 @@ export function MissionProvider({ children }: { children: React.ReactNode }) {
                   routineModalDone: false,
                 };
 
+          const fallbackBio = createInitialBiomarkers(parsedMission, safeAstro, safeMissionDay);
           const safeBiomarkers: TelemetryBiomarkers = {
+            ...fallbackBio,
             ...parsed.biomarkers,
-            bodyTempC: parsed.biomarkers?.bodyTempC ?? 36.7,
+            bodyTempC: parsed.biomarkers?.bodyTempC ?? fallbackBio.bodyTempC,
           };
 
           const defaultMap = new Map(DEFAULT_INSPIRATION_ITEMS.map((d) => [d.id, d]));
@@ -1011,16 +1198,101 @@ export function MissionProvider({ children }: { children: React.ReactNode }) {
               })
             : DEFAULT_INSPIRATION_ITEMS;
 
+          const fallbackHistory = generateInitialHistory(
+            parsedMission,
+            safeAstro,
+            safeMissionDay,
+            safeBiomarkers
+          );
+          const reconciledHistory: HistoryPoint[] =
+            Array.isArray(parsed.history) && parsed.history.length > 0
+              ? parsed.history.map((pt) => ({
+                  day: typeof pt.day === 'number' ? pt.day : safeMissionDay,
+                  radiationMsv:
+                    typeof pt.radiationMsv === 'number'
+                      ? pt.radiationMsv
+                      : safeBiomarkers.cumulativeRadiationMsv,
+                  glucoseMgDl:
+                    typeof pt.glucoseMgDl === 'number'
+                      ? pt.glucoseMgDl
+                      : safeBiomarkers.glucoseMgDl,
+                  wbcCount:
+                    typeof pt.wbcCount === 'number' ? pt.wbcCount : safeBiomarkers.wbcCount,
+                  moodScore:
+                    typeof pt.moodScore === 'number' ? pt.moodScore : safeBiomarkers.moodScore,
+                  sleepHours:
+                    typeof pt.sleepHours === 'number' ? pt.sleepHours : safeBiomarkers.sleepHours,
+                  stressLevel:
+                    typeof pt.stressLevel === 'number'
+                      ? pt.stressLevel
+                      : safeBiomarkers.stressLevel,
+                  boneRetention:
+                    typeof pt.boneRetention === 'number'
+                      ? pt.boneRetention
+                      : safeBiomarkers.boneDensityRetentionPercent,
+                  muscleRetention:
+                    typeof pt.muscleRetention === 'number'
+                      ? pt.muscleRetention
+                      : safeBiomarkers.muscleMassRetentionPercent,
+                }))
+              : fallbackHistory;
+
+          const reconciledVideoLogs: VideoDiaryEntry[] =
+            Array.isArray(parsed.videoLogs) && parsed.videoLogs.length > 0
+              ? parsed.videoLogs.map((log) => {
+                  if (log.aiIndicators?.syncState && log.aiIndicators?.detectedThemes) {
+                    return log;
+                  }
+                  const analyzed = analyzeDiaryEntryLocally({
+                    title: log.title,
+                    notes: log.notes,
+                    mode: log.mode,
+                    moodRating: log.moodRating ?? safeBiomarkers.moodScore,
+                    sleepHours: safeBiomarkers.sleepHours,
+                    stressLevel: safeBiomarkers.stressLevel,
+                    durationSeconds: log.durationSeconds,
+                  });
+                  const isSeedAcknowledged = log.id === 'vlog-2';
+                  return {
+                    ...log,
+                    aiIndicators: {
+                      ...log.aiIndicators,
+                      detectedThemes:
+                        log.aiIndicators?.detectedThemes ?? analyzed.detectedThemes,
+                      clinicalRecommendation:
+                        log.aiIndicators?.clinicalRecommendation ??
+                        analyzed.clinicalRecommendation,
+                      syncState:
+                        log.aiIndicators?.syncState ??
+                        (isSeedAcknowledged ? 'acknowledged' : 'queued'),
+                      earthFeedback:
+                        log.aiIndicators?.earthFeedback ??
+                        (isSeedAcknowledged
+                          ? 'Psicología de Vuelo: Registro revisado. Sin signos de fatiga de tercer cuarto.'
+                          : undefined),
+                    },
+                  };
+                })
+              : createInitialVideoLogs(parsedMission, safeAstro, safeMissionDay);
+
+          const reconciledPvt =
+            Array.isArray(parsed.pvtHistory) && parsed.pvtHistory.length > 0
+              ? parsed.pvtHistory
+              : createInitialPvtHistory(safeAstro, parsedMission, safeMissionDay);
+
           setState({
             ...parsed,
+            missionDay: safeMissionDay,
             astronaut: safeAstro,
             biomarkers: safeBiomarkers,
+            history: reconciledHistory,
             devices: reconcileDevicesForMission(parsed.devices, parsedMission, safeBiomarkers),
             hasCompletedWelcome: Boolean(parsed.hasCompletedWelcome),
             overdueRoutineMeta: safeOverdueMeta,
             startupSessionEpoch: safeEpoch,
             startupProgress: safeStartupProgress,
-            pvtHistory: Array.isArray(parsed.pvtHistory) ? parsed.pvtHistory : [],
+            videoLogs: reconciledVideoLogs,
+            pvtHistory: reconciledPvt,
             inspirationItems: reconciledInspiration,
           });
         }
@@ -1035,7 +1307,11 @@ export function MissionProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!isHydrated) return;
     try {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      if (!state.hasCompletedWelcome && !state.isOnboarded) {
+        window.localStorage.removeItem(STORAGE_KEY);
+      } else {
+        window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      }
     } catch {
       // Ignore storage quota errors
     }
@@ -1380,16 +1656,9 @@ export function MissionProvider({ children }: { children: React.ReactNode }) {
   const completeOnboarding = (missionId: MissionId, astronautProfile: AstronautProfile) => {
     const selectedMission = MISSIONS_DATA.find((m) => m.id === missionId) ?? MISSIONS_DATA[0];
     const safeProfile = sanitizeAstronautProfile(astronautProfile);
-    const newBiomarkers = createInitialBiomarkers(selectedMission, safeProfile);
     setState((prev) => {
       const nextEpoch = prev.startupSessionEpoch + 1;
-      return {
-        ...buildDefaultState(selectedMission.id, safeProfile, true, true, nextEpoch),
-        biomarkers: newBiomarkers,
-        devices: createInitialDevices(newBiomarkers, selectedMission),
-        history: generateInitialHistory(selectedMission, safeProfile),
-        videoLogs: createInitialVideoLogs(selectedMission),
-      };
+      return buildDefaultState(selectedMission.id, safeProfile, true, true, nextEpoch);
     });
   };
 
@@ -1930,14 +2199,36 @@ export function MissionProvider({ children }: { children: React.ReactNode }) {
     }));
   };
 
-  const resetDemoData = () => {
-    setState((prev) =>
-      buildDefaultState(prev.missionId, prev.astronaut, true, true, prev.startupSessionEpoch + 1)
-    );
+  const clearSessionTransientMedia = () => {
+    setVideoMediaUrls((prev) => {
+      Object.values(prev).forEach((url) => {
+        if (url.startsWith('blob:')) {
+          URL.revokeObjectURL(url);
+        }
+      });
+      return {};
+    });
     setActiveCrisisScenario(null);
     setCrisisAlertBanner(null);
     setShouldAutoStartTimer(false);
     setIsSosOpen(false);
+  };
+
+  const resetDemoData = () => {
+    setState((prev) =>
+      buildDefaultState(prev.missionId, prev.astronaut, true, true, prev.startupSessionEpoch + 1)
+    );
+    clearSessionTransientMedia();
+  };
+
+  const resetFullDemoExperience = () => {
+    try {
+      window.localStorage.removeItem(STORAGE_KEY);
+    } catch {
+      // Ignore storage access errors
+    }
+    setState(buildDefaultState('deep-space-transit', PRELOADED_ASTRONAUTS[0], false, false, 1));
+    clearSessionTransientMedia();
   };
 
   const openSosOverlay = (protocolId?: EmergencyProtocolId) => {
@@ -2115,6 +2406,7 @@ export function MissionProvider({ children }: { children: React.ReactNode }) {
     addInspirationItem,
     removeInspirationItem,
     resetDemoData,
+    resetFullDemoExperience,
     isSosOpen,
     activeEmergencyProtocolId,
     activeCrisisScenario,
